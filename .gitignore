@@ -1,0 +1,11 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/app/build
+/app/libs/libv2ray.aar
+/app/libs/libv2ray.aar.part
+*.apk
+.kotlin
