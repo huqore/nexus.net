@@ -115,4 +115,26 @@
     <string name="update_already_latest">У вас установлена последняя версия (%1$s)</string>
     <string name="update_check_failed">Ошибка проверки обновлений: %1$s</string>
     <string name="update_repo_label">GitHub: %1$s</string>
+
+    <!-- Telegram Auth and RemnaWave Sync -->
+    <string name="tg_auth_banner_title">Синхронизация с Telegram</string>
+    <string name="tg_auth_banner_subtitle">Войдите через @NEXUSnet_robot для автоматической загрузки подписки</string>
+    <string name="tg_auth_btn_login">Войти через Telegram</string>
+    <string name="tg_auth_dialog_title">Вход через Telegram</string>
+    <string name="tg_auth_dialog_desc">Откройте бота @NEXUSnet_robot и нажмите «Запустить» (/start). Ваша подписка и серверы загрузятся автоматически.</string>
+    <string name="tg_auth_waiting">Ожидание подтверждения в боте…</string>
+    <string name="tg_auth_btn_open_bot">Открыть Telegram бота</string>
+    <string name="tg_auth_success">Добро пожаловать, %1$s!</string>
+    <string name="tg_auth_no_subscription">Подписка не найдена в боте. Оформите её в @NEXUSnet_robot</string>
+    <string name="tg_auth_account_title">Аккаунт Telegram</string>
+    <string name="tg_auth_status_active">Подписка: Активна</string>
+    <string name="tg_auth_status_inactive">Подписка: Не активна / Истекла</string>
+    <string name="tg_auth_btn_sync">Обновить подписку</string>
+    <string name="tg_auth_btn_logout">Выйти из аккаунта</string>
+    <string name="tg_auth_logged_out">Вы вышли из Telegram аккаунта</string>
+    <string name="tg_auth_syncing">Синхронизация подписки…</string>
+    <string name="tg_sync_success">Подписка обновлена: серверов %1$d</string>
+    <string name="tg_no_active_sub">Активная подписка не найдена в боте</string>
+    <string name="tg_sync_failed">Ошибка синхронизации: %1$s</string>
+    <string name="tg_auth_bot_url">https://t.me/NEXUSnet_robot</string>
 </resources>

@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +59,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -134,6 +136,123 @@ fun SettingsScreen(vm: MainViewModel) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item { Text(stringResource(R.string.settings_title), fontSize = 34.sp, fontWeight = FontWeight.Bold) }
+
+                item {
+                    val tgUser by vm.telegramUser.collectAsState()
+                    val isSyncing by vm.isSyncingTelegram.collectAsState()
+
+                    Section(stringResource(R.string.tg_auth_account_title)) {
+                        if (tgUser == null) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    stringResource(R.string.tg_auth_banner_subtitle),
+                                    fontSize = 13.sp,
+                                    color = NX.muted2,
+                                    lineHeight = 18.sp,
+                                )
+                                Button(
+                                    onClick = { vm.startTelegramAuth() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Send,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.tg_auth_btn_login), fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        } else {
+                            val user = tgUser!!
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Column {
+                                        Text(
+                                            "@${user.tgUsername}",
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = NX.text
+                                        )
+                                        if (user.telegramId > 0) {
+                                            Text(
+                                                "ID: ${user.telegramId}",
+                                                fontSize = 12.sp,
+                                                color = NX.muted,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (user.isSubscribed) NX.green.copy(alpha = 0.18f) else NX.yellow.copy(alpha = 0.18f))
+                                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = if (user.isSubscribed) "Активна" else "Истекла",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (user.isSubscribed) NX.green else NX.yellow
+                                        )
+                                    }
+                                }
+
+                                if (user.expireAt.isNotBlank()) {
+                                    Text(
+                                        text = "Истекает: ${user.expireAt.take(10)}",
+                                        fontSize = 12.sp,
+                                        color = NX.muted2
+                                    )
+                                }
+
+                                Button(
+                                    onClick = { vm.syncTelegramSubscription() },
+                                    enabled = !isSyncing,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = NX.iconBtn,
+                                        contentColor = NX.accentLight
+                                    ),
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (isSyncing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = NX.accentLight,
+                                            strokeWidth = 2.dp
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.tg_auth_syncing))
+                                    } else {
+                                        Icon(
+                                            Icons.Filled.Refresh,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.tg_auth_btn_sync), fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+
+                                TextButton(
+                                    onClick = { vm.logoutTelegram() },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = NX.red),
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                ) {
+                                    Text(stringResource(R.string.tg_auth_btn_logout), fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
 
                 item {
                     Section(stringResource(R.string.settings_language)) {

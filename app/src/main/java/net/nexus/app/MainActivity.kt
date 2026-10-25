@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
                 val status by VpnState.status.collectAsState()
                 val vpnError by VpnState.error.collectAsState()
                 val updateState by vm.updateState.collectAsState()
+                val tgAuthState by vm.telegramAuthState.collectAsState()
 
                 fun startVpn() {
                     val id = settings.selectedServerId
@@ -129,6 +130,7 @@ class MainActivity : AppCompatActivity() {
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
                     UpdateDialog(state = updateState, vm = vm)
+                    TelegramAuthDialog(state = tgAuthState, vm = vm)
                 }
             }
         }

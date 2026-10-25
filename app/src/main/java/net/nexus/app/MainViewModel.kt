@@ -32,6 +32,9 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URL
 
+import net.nexus.app.auth.TelegramAuthManager
+import net.nexus.app.auth.TelegramAuthState
+import net.nexus.app.auth.TelegramUser
 import net.nexus.app.update.AppReleaseInfo
 import net.nexus.app.update.UpdateChecker
 import net.nexus.app.update.UpdateDownloader
@@ -62,10 +65,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     private var downloadJob: Job? = null
 
+    val telegramUser = MutableStateFlow<TelegramUser?>(store.loadTelegramUser())
+    val telegramAuthState = MutableStateFlow<TelegramAuthState>(TelegramAuthState.Idle)
+    val isSyncingTelegram = MutableStateFlow(false)
+    private var telegramAuthJob: Job? = null
+
     init {
         ensureSelection()
         refreshAllSubscriptions(quiet = true)
         startPeriodicHourlyRefresh()
+        if (telegramUser.value != null) {
+            viewModelScope.launch {
+                syncTelegramSubscription(quiet = true)
+            }
+        }
         viewModelScope.launch {
             VpnState.status.collect { st ->
                 if (st == VpnStatus.CONNECTED) checkSelected() else speedMbps.value = null
@@ -434,4 +447,105 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    // ---------- Telegram Auth & Sync ----------
+
+    fun startTelegramAuth() {
+        telegramAuthJob?.cancel()
+        telegramAuthState.value = TelegramAuthState.CreatingSession
+        telegramAuthJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val (sessionId, botUrl) = TelegramAuthManager.createLoginSession()
+                telegramAuthState.value = TelegramAuthState.WaitingConfirmation(sessionId, botUrl)
+
+                // Poll every 2 seconds for up to 3 minutes (90 iterations)
+                var confirmedUser: TelegramUser? = null
+                for (i in 0 until 90) {
+                    delay(2000)
+                    val u = TelegramAuthManager.checkLoginSession(sessionId)
+                    if (u != null) {
+                        confirmedUser = u
+                        break
+                    }
+                }
+
+                if (confirmedUser == null) {
+                    telegramAuthState.value = TelegramAuthState.Error("Время ожидания подтверждения истекло")
+                    return@launch
+                }
+
+                var serverCount = 0
+                var finalUser = confirmedUser
+
+                try {
+                    finalUser = TelegramAuthManager.refreshFromRemnaWave(confirmedUser)
+                } catch (_: Exception) {}
+
+                telegramUser.value = finalUser
+                store.saveTelegramUser(finalUser)
+
+                if (finalUser.subscriptionUrl.isNotBlank()) {
+                    try {
+                        val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl)
+                        upsertSubscription(finalUser.subscriptionUrl, r)
+                        serverCount = r.servers.size
+                    } catch (_: Exception) {}
+                }
+
+                telegramAuthState.value = TelegramAuthState.Success(finalUser, serverCount)
+                emit(R.string.tg_auth_success, finalUser.tgUsername)
+            } catch (e: CancellationException) {
+                // User cancelled or dismissed
+            } catch (e: Exception) {
+                telegramAuthState.value = TelegramAuthState.Error(e.message ?: "Ошибка авторизации")
+            }
+        }
+    }
+
+    fun dismissTelegramAuthDialog() {
+        telegramAuthJob?.cancel()
+        telegramAuthJob = null
+        telegramAuthState.value = TelegramAuthState.Idle
+    }
+
+    fun syncTelegramSubscription(quiet: Boolean = false) {
+        val user = telegramUser.value ?: return
+        if (isSyncingTelegram.value) return
+        viewModelScope.launch(Dispatchers.IO) {
+            isSyncingTelegram.value = true
+            try {
+                val updatedUser = TelegramAuthManager.refreshFromRemnaWave(user)
+                telegramUser.value = updatedUser
+                store.saveTelegramUser(updatedUser)
+
+                if (updatedUser.subscriptionUrl.isNotBlank()) {
+                    val r = SubscriptionFetcher.fetch(updatedUser.subscriptionUrl)
+                    upsertSubscription(updatedUser.subscriptionUrl, r)
+                    if (!quiet) {
+                        emit(R.string.tg_sync_success, r.servers.size)
+                    }
+                } else if (!quiet) {
+                    emit(R.string.tg_no_active_sub)
+                }
+            } catch (e: Exception) {
+                if (!quiet) {
+                    emit(R.string.tg_sync_failed, e.message ?: "Ошибка синхронизации")
+                }
+            } finally {
+                isSyncingTelegram.value = false
+            }
+        }
+    }
+
+    fun logoutTelegram() {
+        val user = telegramUser.value ?: return
+        if (user.subscriptionUrl.isNotBlank()) {
+            mutate { list -> list.filterNot { it.url == user.subscriptionUrl } }
+            ensureSelection()
+        }
+        telegramUser.value = null
+        store.saveTelegramUser(null)
+        emit(R.string.tg_auth_logged_out)
+    }
 }
+

@@ -116,4 +116,26 @@
     <string name="update_already_latest">You have the latest version (%1$s)</string>
     <string name="update_check_failed">Update check failed: %1$s</string>
     <string name="update_repo_label">GitHub: %1$s</string>
+
+    <!-- Telegram Auth and RemnaWave Sync -->
+    <string name="tg_auth_banner_title">Telegram Sync</string>
+    <string name="tg_auth_banner_subtitle">Log in via @NEXUSnet_robot to sync your subscription</string>
+    <string name="tg_auth_btn_login">Sign in with Telegram</string>
+    <string name="tg_auth_dialog_title">Telegram Authentication</string>
+    <string name="tg_auth_dialog_desc">Open @NEXUSnet_robot in Telegram and press «Start» (/start). Your subscription and VPN servers will load automatically.</string>
+    <string name="tg_auth_waiting">Waiting for confirmation in bot…</string>
+    <string name="tg_auth_btn_open_bot">Open Telegram Bot</string>
+    <string name="tg_auth_success">Welcome, %1$s!</string>
+    <string name="tg_auth_no_subscription">No active subscription in bot. You can get one in @NEXUSnet_robot</string>
+    <string name="tg_auth_account_title">Telegram Account</string>
+    <string name="tg_auth_status_active">Subscription: Active</string>
+    <string name="tg_auth_status_inactive">Subscription: Inactive / Expired</string>
+    <string name="tg_auth_btn_sync">Refresh Subscription</string>
+    <string name="tg_auth_btn_logout">Log out</string>
+    <string name="tg_auth_logged_out">Logged out from Telegram</string>
+    <string name="tg_auth_syncing">Syncing subscription…</string>
+    <string name="tg_sync_success">Subscription synced: %1$d servers</string>
+    <string name="tg_no_active_sub">No active subscription found in bot</string>
+    <string name="tg_sync_failed">Sync error: %1$s</string>
+    <string name="tg_auth_bot_url">https://t.me/NEXUSnet_robot</string>
 </resources>
