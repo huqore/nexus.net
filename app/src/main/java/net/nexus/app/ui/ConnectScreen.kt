@@ -510,7 +510,7 @@ private fun TelegramSyncBar(
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "@${user.tgUsername}",
+                        text = user.formattedUsername,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = NX.text

@@ -175,7 +175,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                 ) {
                                     Column {
                                         Text(
-                                            "@${user.tgUsername}",
+                                            user.formattedUsername,
                                             fontSize = 17.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = NX.text

@@ -227,7 +227,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "@${state.user.tgUsername}",
+                            text = state.user.formattedUsername,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = NX.accentLight

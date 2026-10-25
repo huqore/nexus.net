@@ -43,7 +43,7 @@
 
     <string name="servers_title">Сервера</string>
     <string name="add_title">Добавить сервера</string>
-    <string name="add_hint">Ссылка подписки, ссылки vless:// vmess:// trojan:// ss:// или Xray JSON</string>
+    <string name="add_hint">Вставьте отдельный ключ vless://, vmess://, trojan://, ss:// или Xray JSON (подписка синхронизируется через бота)</string>
     <string name="add_paste">Вставить</string>
     <string name="add_confirm">Добавить</string>
     <string name="cancel">Отмена</string>
@@ -136,5 +136,11 @@
     <string name="tg_sync_success">Подписка обновлена: серверов %1$d</string>
     <string name="tg_no_active_sub">Активная подписка не найдена в боте</string>
     <string name="tg_sync_failed">Ошибка синхронизации: %1$s</string>
+    <string name="error_manual_sub_disabled">Добавление подписок по ссылке отключено. Синхронизируйте подписку через бота @NEXUSnet_robot или добавьте отдельный VLESS-ключ.</string>
+    <string name="mandatory_auth_title">Вход в NEXUS.net</string>
+    <string name="mandatory_auth_subtitle">Для доступа к VPN и серверам авторизуйтесь через официального Telegram-бота @NEXUSnet_robot</string>
+    <string name="mandatory_auth_feature_sub">Автоматическая привязка подписки и серверов</string>
+    <string name="mandatory_auth_feature_security">Защита аккаунта и активных сессий</string>
+    <string name="mandatory_auth_feature_speed">Мгновенное обновление конфигураций</string>
     <string name="tg_auth_bot_url">https://t.me/NEXUSnet_robot</string>
 </resources>
