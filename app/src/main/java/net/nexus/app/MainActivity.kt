@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
                 val vpnError by VpnState.error.collectAsState()
                 val updateState by vm.updateState.collectAsState()
                 val tgAuthState by vm.telegramAuthState.collectAsState()
+                val tgUser by vm.telegramUser.collectAsState()
 
                 fun startVpn() {
                     val id = settings.selectedServerId
@@ -84,51 +85,55 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 Box(Modifier.fillMaxSize()) {
-                    AnimatedContent(
-                        targetState = tab,
-                        transitionSpec = {
-                            val forward = targetState.ordinal > initialState.ordinal
-                            val springSpec = spring<androidx.compose.ui.unit.IntOffset>(
-                                stiffness = Spring.StiffnessMediumLow,
-                                dampingRatio = Spring.DampingRatioNoBouncy
-                            )
-                            if (forward) {
-                                (slideInHorizontally(
-                                    animationSpec = tween(300, easing = FastOutSlowInEasing),
-                                    initialOffsetX = { width -> (width * 0.3f).toInt() }
-                                ) + fadeIn(animationSpec = tween(260, easing = FastOutSlowInEasing)))
-                                    .togetherWith(
-                                        slideOutHorizontally(
-                                            animationSpec = tween(250, easing = FastOutSlowInEasing),
-                                            targetOffsetX = { width -> -(width * 0.3f).toInt() }
-                                        ) + fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing))
-                                    )
-                            } else {
-                                (slideInHorizontally(
-                                    animationSpec = tween(300, easing = FastOutSlowInEasing),
-                                    initialOffsetX = { width -> -(width * 0.3f).toInt() }
-                                ) + fadeIn(animationSpec = tween(260, easing = FastOutSlowInEasing)))
-                                    .togetherWith(
-                                        slideOutHorizontally(
-                                            animationSpec = tween(250, easing = FastOutSlowInEasing),
-                                            targetOffsetX = { width -> (width * 0.3f).toInt() }
-                                        ) + fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing))
-                                    )
-                            }.using(SizeTransform(clip = false))
-                        },
-                        label = "tabTransition",
-                        modifier = Modifier.fillMaxSize()
-                    ) { currentTab ->
-                        when (currentTab) {
-                            Tab.CONNECT -> ConnectScreen(vm, onToggle = ::toggleVpn, onAddServers = { tab = Tab.SERVERS })
-                            Tab.SERVERS -> ServersScreen(vm)
-                            Tab.SETTINGS -> SettingsScreen(vm)
+                    if (tgUser == null) {
+                        MandatoryTelegramAuthScreen(vm = vm)
+                    } else {
+                        AnimatedContent(
+                            targetState = tab,
+                            transitionSpec = {
+                                val forward = targetState.ordinal > initialState.ordinal
+                                val springSpec = spring<androidx.compose.ui.unit.IntOffset>(
+                                    stiffness = Spring.StiffnessMediumLow,
+                                    dampingRatio = Spring.DampingRatioNoBouncy
+                                )
+                                if (forward) {
+                                    (slideInHorizontally(
+                                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                        initialOffsetX = { width -> (width * 0.3f).toInt() }
+                                    ) + fadeIn(animationSpec = tween(260, easing = FastOutSlowInEasing)))
+                                        .togetherWith(
+                                            slideOutHorizontally(
+                                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                                targetOffsetX = { width -> -(width * 0.3f).toInt() }
+                                            ) + fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing))
+                                        )
+                                } else {
+                                    (slideInHorizontally(
+                                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                        initialOffsetX = { width -> -(width * 0.3f).toInt() }
+                                    ) + fadeIn(animationSpec = tween(260, easing = FastOutSlowInEasing)))
+                                        .togetherWith(
+                                            slideOutHorizontally(
+                                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                                targetOffsetX = { width -> (width * 0.3f).toInt() }
+                                            ) + fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing))
+                                        )
+                                }.using(SizeTransform(clip = false))
+                            },
+                            label = "tabTransition",
+                            modifier = Modifier.fillMaxSize()
+                        ) { currentTab ->
+                            when (currentTab) {
+                                Tab.CONNECT -> ConnectScreen(vm, onToggle = ::toggleVpn, onAddServers = { tab = Tab.SERVERS })
+                                Tab.SERVERS -> ServersScreen(vm)
+                                Tab.SETTINGS -> SettingsScreen(vm)
+                            }
                         }
+                        FloatingNavBar(
+                            selected = tab, onSelect = { tab = it },
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
                     }
-                    FloatingNavBar(
-                        selected = tab, onSelect = { tab = it },
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
                     UpdateDialog(state = updateState, vm = vm)
                     TelegramAuthDialog(state = tgAuthState, vm = vm)
                 }

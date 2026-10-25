@@ -44,7 +44,7 @@
 
     <string name="servers_title">Servers</string>
     <string name="add_title">Add servers</string>
-    <string name="add_hint">Subscription URL, vless:// vmess:// trojan:// ss:// links, or Xray JSON</string>
+    <string name="add_hint">Paste single vless://, vmess://, trojan://, ss:// key, or Xray JSON (subscriptions sync via bot)</string>
     <string name="add_paste">Paste</string>
     <string name="add_confirm">Add</string>
     <string name="cancel">Cancel</string>
@@ -137,5 +137,11 @@
     <string name="tg_sync_success">Subscription synced: %1$d servers</string>
     <string name="tg_no_active_sub">No active subscription found in bot</string>
     <string name="tg_sync_failed">Sync error: %1$s</string>
+    <string name="error_manual_sub_disabled">Adding subscriptions by URL is disabled. Sync your subscription via @NEXUSnet_robot or add a single VLESS key.</string>
+    <string name="mandatory_auth_title">Sign in to NEXUS.net</string>
+    <string name="mandatory_auth_subtitle">To access VPN and servers, please log in via our official Telegram bot @NEXUSnet_robot</string>
+    <string name="mandatory_auth_feature_sub">Automatic subscription &amp; server sync</string>
+    <string name="mandatory_auth_feature_security">Protected account &amp; active sessions</string>
+    <string name="mandatory_auth_feature_speed">Instant configuration updates</string>
     <string name="tg_auth_bot_url">https://t.me/NEXUSnet_robot</string>
 </resources>

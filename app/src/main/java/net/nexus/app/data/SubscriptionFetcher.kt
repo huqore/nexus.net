@@ -25,14 +25,19 @@ object SubscriptionFetcher {
 
     private const val MAX_BYTES = 8 * 1024 * 1024
 
-    fun fetch(url: String): FetchResult {
+    fun fetch(url: String, hwid: String? = null): FetchResult {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 20_000
             instanceFollowRedirects = true
-            // RemnaWave and standard panels detect v2ray / Xray User-Agent to deliver full configuration
-            setRequestProperty("User-Agent", "nexus.net/1.0 (v2ray; Xray; Android)")
+            val model = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
+            setRequestProperty("User-Agent", "NEXUS.net/2.0 (v2ray; Xray; Android $model)")
             setRequestProperty("Accept", "*/*")
+            if (!hwid.isNullOrBlank()) {
+                setRequestProperty("X-HWID", hwid)
+                setRequestProperty("X-Device-Model", model)
+                setRequestProperty("X-Platform", "Android")
+            }
         }
         try {
             val code = conn.responseCode

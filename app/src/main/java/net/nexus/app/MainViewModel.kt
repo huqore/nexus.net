@@ -71,6 +71,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var telegramAuthJob: Job? = null
 
     init {
+        cleanupDuplicateNexusProviders()
         ensureSelection()
         refreshAllSubscriptions(quiet = true)
         startPeriodicHourlyRefresh()
@@ -117,34 +118,40 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun cleanupDuplicateNexusProviders() {
+        val tgSub = telegramUser.value?.subscriptionUrl?.takeIf { it.isNotBlank() }
+        mutate { list ->
+            val nexusList = list.filter {
+                it.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
+                (it.name.contains("NEXUS", ignoreCase = true) && !it.isLocal)
+            }
+            if (nexusList.size <= 1) return@mutate list
+
+            val toKeep = (if (tgSub != null) nexusList.firstOrNull { it.url == tgSub } else null)
+                ?: nexusList.maxByOrNull { it.servers.size }
+                ?: nexusList.first()
+
+            list.filterNot { it in nexusList && it.id != toKeep.id }
+        }
+    }
+
     // ---------- adding / refreshing ----------
 
     fun addInput(text: String) {
         viewModelScope.launch(Dispatchers.IO) {
             adding.value = true
             try {
-                var t = text.trim()
-                if (t.startsWith("chad.nexus-net.xyz", ignoreCase = true)) {
-                    t = "https://$t"
+                val t = text.trim()
+                if (t.startsWith("http://", true) || t.startsWith("https://", true) || t.startsWith("chad.nexus-net.xyz", true)) {
+                    emit(R.string.error_manual_sub_disabled)
+                    return@launch
                 }
-                if (t.startsWith("http://", true) || t.startsWith("https://", true)) {
-                    val url = t.lineSequence().first().trim()
-                    val host = runCatching { URL(url).host }.getOrNull()?.lowercase() ?: ""
-                    if (host != "chad.nexus-net.xyz") {
-                        emit(R.string.error_only_nexus_sub)
-                        return@launch
-                    }
-                    val r = SubscriptionFetcher.fetch(url)
-                    upsertSubscription(url, r)
-                    emit(R.string.add_ok, r.servers.size)
+                val servers = SubscriptionFetcher.parseBody(t)
+                if (servers.isEmpty()) {
+                    emit(R.string.add_fail)
                 } else {
-                    val servers = SubscriptionFetcher.parseBody(t)
-                    if (servers.isEmpty()) {
-                        emit(R.string.add_fail)
-                    } else {
-                        addLocal(servers)
-                        emit(R.string.add_ok, servers.size)
-                    }
+                    addLocal(servers)
+                    emit(R.string.add_ok, servers.size)
                 }
             } catch (e: Exception) {
                 emit(R.string.refresh_failed, e.message ?: e.javaClass.simpleName)
@@ -175,7 +182,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun upsertSubscription(url: String, r: FetchResult) {
         mutate { list ->
+            val isNexus = url.contains("chad.nexus-net.xyz", ignoreCase = true) || r.name.contains("NEXUS", ignoreCase = true)
             val existing = list.firstOrNull { it.url == url }
+            val baseList = if (isNexus) {
+                list.filterNot {
+                    it.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
+                    (it.name.contains("NEXUS", ignoreCase = true) && !it.isLocal)
+                }
+            } else {
+                list.filterNot { it.url == url }
+            }
+
             val p = (existing ?: Provider(id = java.util.UUID.randomUUID().toString(), name = r.name, url = url)).copy(
                 name = r.name,
                 servers = mergeServers(existing?.servers ?: emptyList(), r.servers),
@@ -183,7 +200,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 announce = r.announce, channelUrl = r.channelUrl, supportUrl = r.supportUrl, siteUrl = r.siteUrl,
                 updatedAt = System.currentTimeMillis(),
             )
-            if (existing != null) list.map { if (it.id == existing.id) p else it } else list + p
+            baseList + p
         }
         ensureSelection()
     }
@@ -195,7 +212,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             refreshing.update { it + providerId }
             try {
-                val r = SubscriptionFetcher.fetch(url)
+                val r = SubscriptionFetcher.fetch(url, store.getOrCreateHwid())
                 upsertSubscription(url, r)
                 if (!quiet) emit(R.string.refreshed, r.servers.size)
             } catch (e: Exception) {
@@ -484,16 +501,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 telegramUser.value = finalUser
                 store.saveTelegramUser(finalUser)
 
+                val hwid = store.getOrCreateHwid()
                 if (finalUser.subscriptionUrl.isNotBlank()) {
                     try {
-                        val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl)
+                        val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl, hwid)
                         upsertSubscription(finalUser.subscriptionUrl, r)
                         serverCount = r.servers.size
                     } catch (_: Exception) {}
                 }
 
+                // Register active device session in RemnaWave
+                TelegramAuthManager.registerDevice(finalUser, hwid)
+
                 telegramAuthState.value = TelegramAuthState.Success(finalUser, serverCount)
-                emit(R.string.tg_auth_success, finalUser.tgUsername)
+                emit(R.string.tg_auth_success, finalUser.formattedUsername)
             } catch (e: CancellationException) {
                 // User cancelled or dismissed
             } catch (e: Exception) {
@@ -518,8 +539,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 telegramUser.value = updatedUser
                 store.saveTelegramUser(updatedUser)
 
+                val hwid = store.getOrCreateHwid()
                 if (updatedUser.subscriptionUrl.isNotBlank()) {
-                    val r = SubscriptionFetcher.fetch(updatedUser.subscriptionUrl)
+                    val r = SubscriptionFetcher.fetch(updatedUser.subscriptionUrl, hwid)
                     upsertSubscription(updatedUser.subscriptionUrl, r)
                     if (!quiet) {
                         emit(R.string.tg_sync_success, r.servers.size)
@@ -527,6 +549,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 } else if (!quiet) {
                     emit(R.string.tg_no_active_sub)
                 }
+
+                TelegramAuthManager.registerDevice(updatedUser, hwid)
             } catch (e: Exception) {
                 if (!quiet) {
                     emit(R.string.tg_sync_failed, e.message ?: "Ошибка синхронизации")
@@ -539,10 +563,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun logoutTelegram() {
         val user = telegramUser.value ?: return
-        if (user.subscriptionUrl.isNotBlank()) {
-            mutate { list -> list.filterNot { it.url == user.subscriptionUrl } }
-            ensureSelection()
+        val hwid = store.getOrCreateHwid()
+        viewModelScope.launch(Dispatchers.IO) {
+            TelegramAuthManager.unregisterDevice(user, hwid)
         }
+        mutate { list ->
+            list.filterNot {
+                it.url == user.subscriptionUrl ||
+                it.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
+                (it.name.contains("NEXUS", ignoreCase = true) && !it.isLocal)
+            }
+        }
+        ensureSelection()
         telegramUser.value = null
         store.saveTelegramUser(null)
         emit(R.string.tg_auth_logged_out)

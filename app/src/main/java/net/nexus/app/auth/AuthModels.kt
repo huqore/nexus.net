@@ -10,28 +10,37 @@ data class TelegramUser(
     val expireAt: String = "",
     val status: String = "active",
     val devicesCount: Int = 3,
+    val remnaUserId: Long = 0,
 ) {
+    val cleanUsername: String
+        get() = tgUsername.removePrefix("@").trim()
+
+    val formattedUsername: String
+        get() = if (cleanUsername.isNotBlank()) "@$cleanUsername" else siteName.ifBlank { "User" }
+
     val isSubscribed: Boolean
         get() = status.equals("active", ignoreCase = true) && subscriptionUrl.isNotBlank()
 
     fun toJson(): JSONObject = JSONObject()
-        .put("tgUsername", tgUsername)
+        .put("tgUsername", cleanUsername)
         .put("siteName", siteName)
         .put("telegramId", telegramId)
         .put("subscriptionUrl", subscriptionUrl)
         .put("expireAt", expireAt)
         .put("status", status)
         .put("devicesCount", devicesCount)
+        .put("remnaUserId", remnaUserId)
 
     companion object {
         fun fromJson(o: JSONObject): TelegramUser = TelegramUser(
-            tgUsername = o.optString("tgUsername", ""),
+            tgUsername = o.optString("tgUsername", "").removePrefix("@").trim(),
             siteName = o.optString("siteName", ""),
             telegramId = o.optLong("telegramId", 0L),
             subscriptionUrl = o.optString("subscriptionUrl", ""),
             expireAt = o.optString("expireAt", ""),
             status = o.optString("status", "none"),
             devicesCount = o.optInt("devicesCount", 3),
+            remnaUserId = o.optLong("remnaUserId", 0L),
         )
     }
 }

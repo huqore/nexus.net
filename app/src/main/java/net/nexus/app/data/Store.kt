@@ -6,7 +6,8 @@ import org.json.JSONObject
 
 /** Tiny persistence layer: everything lives as JSON in SharedPreferences. */
 class Store(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("nexus", Context.MODE_PRIVATE)
+    private val prefsContext = context.applicationContext
+    private val prefs = prefsContext.getSharedPreferences("nexus", Context.MODE_PRIVATE)
 
     fun loadProviders(): List<Provider> = runCatching {
         val arr = JSONArray(prefs.getString("providers", "[]"))
@@ -57,5 +58,20 @@ class Store(context: Context) {
         } else {
             prefs.edit().putString("telegram_user", user.toJson().toString()).apply()
         }
+    }
+
+    fun getOrCreateHwid(): String {
+        val existing = prefs.getString("device_hwid", null)
+        if (!existing.isNullOrBlank()) return existing
+        val androidId = runCatching {
+            android.provider.Settings.Secure.getString(prefsContext.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+        }.getOrNull()
+        val newHwid = if (!androidId.isNullOrBlank() && androidId != "9774d56d682e549c") {
+            androidId
+        } else {
+            java.util.UUID.randomUUID().toString()
+        }
+        prefs.edit().putString("device_hwid", newHwid).apply()
+        return newHwid
     }
 }
