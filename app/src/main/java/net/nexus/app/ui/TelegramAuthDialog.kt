@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +54,17 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
     if (state is TelegramAuthState.Idle) return
 
     val ctx = LocalContext.current
+
+    LaunchedEffect(state) {
+        if (state is TelegramAuthState.WaitingConfirmation) {
+            runCatching {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(state.botUrl)).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                ctx.startActivity(intent)
+            }
+        }
+    }
 
     Dialog(
         onDismissRequest = { vm.dismissTelegramAuthDialog() },

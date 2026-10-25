@@ -29,9 +29,8 @@ object TelegramAuthManager {
         }
 
         val sessionId = json.getString("sessionId")
-        var botUrl = json.optString("botUrl", "")
-        if (botUrl.isBlank() || (!botUrl.contains("login_app_") && !sessionId.startsWith("app_"))) {
-            botUrl = "https://t.me/NEXUSnet_robot?start=login_app_$sessionId"
+        val botUrl = json.optString("botUrl", "").ifBlank {
+            "https://t.me/NEXUSnet_robot?start=login_$sessionId"
         }
         Pair(sessionId, botUrl)
     }
