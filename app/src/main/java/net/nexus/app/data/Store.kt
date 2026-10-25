@@ -45,4 +45,17 @@ class Store(context: Context) {
     /** Looks a server up by id across all providers (used by the VPN service). */
     fun findServer(id: String?): Server? =
         if (id == null) null else loadProviders().asSequence().flatMap { it.servers.asSequence() }.firstOrNull { it.id == id }
+
+    fun loadTelegramUser(): net.nexus.app.auth.TelegramUser? = runCatching {
+        val s = prefs.getString("telegram_user", null) ?: return null
+        net.nexus.app.auth.TelegramUser.fromJson(JSONObject(s))
+    }.getOrNull()
+
+    fun saveTelegramUser(user: net.nexus.app.auth.TelegramUser?) {
+        if (user == null) {
+            prefs.edit().remove("telegram_user").apply()
+        } else {
+            prefs.edit().putString("telegram_user", user.toJson().toString()).apply()
+        }
+    }
 }

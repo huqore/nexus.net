@@ -40,9 +40,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -50,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import net.nexus.app.auth.TelegramUser
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +83,8 @@ import net.nexus.app.vpn.VpnStatus
 fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> Unit) {
     val providers by vm.providers.collectAsState()
     val settings by vm.settings.collectAsState()
+    val tgUser by vm.telegramUser.collectAsState()
+    val isSyncingTg by vm.isSyncingTelegram.collectAsState()
     val status by VpnState.status.collectAsState()
     val speed by vm.speedMbps.collectAsState()
     val speedTesting by vm.speedTesting.collectAsState()
@@ -140,6 +145,13 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             Spacer(Modifier.height(20.dp))
             StatusLabel(status)
             Spacer(Modifier.weight(1f))
+            TelegramSyncBar(
+                user = tgUser,
+                isSyncing = isSyncingTg,
+                onLogin = { vm.startTelegramAuth() },
+                onSync = { vm.syncTelegramSubscription() }
+            )
+            Spacer(Modifier.height(10.dp))
             ServerCard(selected, onAddServers)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -447,4 +459,93 @@ private fun InfoTile(
         }
     }
 }
+
+@Composable
+private fun TelegramSyncBar(
+    user: TelegramUser?,
+    isSyncing: Boolean,
+    onLogin: () -> Unit,
+    onSync: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(NX.card)
+            .border(1.dp, if (user != null) NX.accent.copy(alpha = 0.35f) else NX.cardBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = if (user == null) onLogin else onSync)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(if (user != null) NX.accentDim else NX.iconBtn),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Send,
+                contentDescription = null,
+                tint = if (user != null) NX.accentLight else NX.muted,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            if (user == null) {
+                Text(
+                    text = stringResource(R.string.tg_auth_banner_title),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = NX.text
+                )
+                Text(
+                    text = stringResource(R.string.tg_auth_banner_subtitle),
+                    fontSize = 11.sp,
+                    color = NX.muted
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "@${user.tgUsername}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NX.text
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(if (user.isSubscribed) NX.green else NX.yellow)
+                    )
+                }
+                Text(
+                    text = if (user.isSubscribed) stringResource(R.string.tg_auth_status_active) else stringResource(R.string.tg_auth_status_inactive),
+                    fontSize = 11.sp,
+                    color = if (user.isSubscribed) NX.green else NX.yellow
+                )
+            }
+        }
+
+        if (isSyncing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                color = NX.accentLight,
+                strokeWidth = 2.dp
+            )
+        } else {
+            Icon(
+                imageVector = if (user == null) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.Refresh,
+                contentDescription = null,
+                tint = NX.muted,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
 
