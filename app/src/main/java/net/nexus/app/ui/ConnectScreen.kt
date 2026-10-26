@@ -75,6 +75,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.nexus.app.MainViewModel
@@ -154,7 +155,10 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             Spacer(Modifier.height(32.dp))
             Header()
             Spacer(Modifier.weight(1f))
-            PowerButton(status, onToggle)
+            PowerButton(status) {
+                HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
+                onToggle()
+            }
             Spacer(Modifier.height(20.dp))
             StatusLabel(status)
             Spacer(Modifier.weight(1f))
@@ -174,18 +178,28 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
                 onRenew = { openUrl(ctx.getString(R.string.tg_auth_bot_url)) }
             )
             Spacer(Modifier.height(10.dp))
-            ServerCard(selected, isAuto, connected, onAddServers)
+            ServerCard(selected, isAuto, connected) {
+                HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                onAddServers()
+            }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 InfoTile(
                     Modifier.weight(1f), Icons.Filled.BarChart, stringResource(R.string.speed_label),
-                    speedValue, speedTesting, onClick = { vm.runSpeedTest() },
+                    speedValue, speedTesting, onClick = {
+                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                        vm.runSpeedTest()
+                    },
                 )
                 InfoTile(
                     Modifier.weight(1f), Icons.Filled.AccessTime, stringResource(R.string.ping_label),
-                    pingValue, selected != null && selected.id in pinging, onClick = { vm.checkSelected() },
+                    pingValue, selected != null && selected.id in pinging, onClick = {
+                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                        vm.checkSelected()
+                    },
                 )
             }
+
             Spacer(Modifier.height(112.dp)) // room for the bottom bar
         }
     }
@@ -480,16 +494,16 @@ private fun InfoTile(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = NX.accent, modifier = Modifier.size(30.dp))
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(label, color = NX.muted, fontSize = 13.sp)
+        Icon(icon, null, tint = NX.accent, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f, fill = false)) {
+            Text(label, color = NX.muted, fontSize = 12.sp, maxLines = 1)
             Box(Modifier.height(26.dp), contentAlignment = Alignment.CenterStart) {
                 if (loading) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = NX.accent)
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = NX.accent)
                 } else {
                     AnimatedContent(
                         targetState = value,
@@ -499,7 +513,14 @@ private fun InfoTile(
                         },
                         label = "infoTileValue"
                     ) { targetVal ->
-                        Text(targetVal, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(
+                            targetVal,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }

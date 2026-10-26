@@ -34,9 +34,25 @@ object UpdateChecker {
     }
 
     private fun checkGitHubReleases(repo: String): AppReleaseInfo? {
-        val endpoint = "https://api.github.com/repos/$repo/releases/latest"
-        val jsonText = httpGet(endpoint, accept = "application/vnd.github.v3+json") ?: return null
-        val json = JSONObject(jsonText)
+        val endpoint = "https://api.github.com/repos/$repo/releases?per_page=5"
+        val jsonText = httpGet(endpoint, accept = "application/vnd.github.v3+json")
+            ?: httpGet("https://api.github.com/repos/$repo/releases/latest", accept = "application/vnd.github.v3+json")
+            ?: return null
+
+        val json = if (jsonText.trim().startsWith("[")) {
+            val arr = org.json.JSONArray(jsonText)
+            var found: JSONObject? = null
+            for (i in 0 until arr.length()) {
+                val rel = arr.getJSONObject(i)
+                if (!rel.optBoolean("draft", false)) {
+                    found = rel
+                    break
+                }
+            }
+            found ?: return null
+        } else {
+            JSONObject(jsonText)
+        }
 
         val tagName = json.optString("tag_name", "").trim()
         val name = json.optString("name", "").trim()
@@ -54,11 +70,12 @@ object UpdateChecker {
             val asset = assets.getJSONObject(i)
             val aName = asset.optString("name", "")
             if (aName.endsWith(".apk", ignoreCase = true)) {
-                val url = asset.optString("browser_download_url", "")
+                val browserUrl = asset.optString("browser_download_url", "")
+                val apiUrl = asset.optString("url", "")
                 val size = asset.optLong("size", 0)
                 // Prefer universal or release APK if multiple are present
                 if (apkUrl == null || aName.contains("universal", ignoreCase = true) || aName.contains("release", ignoreCase = true)) {
-                    apkUrl = url
+                    apkUrl = if (UpdateConfig.GITHUB_TOKEN.isNotBlank() && apiUrl.isNotBlank()) apiUrl else browserUrl
                     apkName = aName
                     apkSize = size
                 }
@@ -110,6 +127,9 @@ object UpdateChecker {
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "nexus.net-updater/1.0 (Android)")
             setRequestProperty("Accept", accept)
+            if (UpdateConfig.GITHUB_TOKEN.isNotBlank() && urlStr.contains("api.github.com")) {
+                setRequestProperty("Authorization", "Bearer ${UpdateConfig.GITHUB_TOKEN.trim()}")
+            }
         }
         try {
             val code = conn.responseCode
@@ -137,6 +157,12 @@ object UpdateChecker {
             if (r > c) return true
             if (r < c) return false
         }
+
+        // If numeric components are identical, a stable release is newer than a test/prerelease
+        val currentIsPreRelease = currentVersion.contains("-") || currentVersion.contains("test", ignoreCase = true)
+        val remoteIsPreRelease = remoteVersion.contains("-") || remoteVersion.contains("test", ignoreCase = true)
+        if (currentIsPreRelease && !remoteIsPreRelease) return true
+
         return false
     }
 

@@ -76,7 +76,7 @@
     <string name="ping_label">Пинг</string>
     <string name="unit_mbps">Мбит/с</string>
     <string name="unit_ms">мс</string>
-    <string name="tap_to_test">Нажмите</string>
+    <string name="tap_to_test">Замер</string>
     <string name="speed_need_connect">Сначала подключитесь, чтобы измерить скорость</string>
     <string name="speed_failed">Не удалось измерить скорость</string>
     <string name="choose_server">Выбрать сервер</string>
@@ -170,4 +170,16 @@
     <string name="sub_notif_title">nexus.net · Подписка</string>
     <string name="sub_notif_expiring_today">Ваша подписка заканчивается сегодня! Нажмите для продления.</string>
     <string name="sub_notif_expiring_days">Ваша подписка заканчивается через %1$d дн. Нажмите для продления.</string>
+
+    <!-- Kill Switch & Haptics & Speed Graph & Widget -->
+    <string name="settings_kill_switch">Kill Switch (Блокировка утечек)</string>
+    <string name="settings_kill_switch_desc">Блокировать сетевой доступ без VPN при разрыве туннеля</string>
+    <string name="settings_haptics_title">Тактильный отклик (Вибрация)</string>
+    <string name="haptic_off">Выключен</string>
+    <string name="haptic_light">Слабый</string>
+    <string name="haptic_medium">Средний (по умолчанию)</string>
+    <string name="haptic_strong">Сильный</string>
+    <string name="speed_testing_live">Тест скорости в реальном времени…</string>
+    <string name="speed_graph_title">График скорости (Мбит/с)</string>
+    <string name="widget_description">Быстрое подключение nexus.net на рабочем столе</string>
 </resources>

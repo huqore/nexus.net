@@ -88,6 +88,8 @@ data class Provider(
 
 enum class SplitMode { OFF, BYPASS, ONLY }
 
+enum class HapticIntensity { OFF, LIGHT, MEDIUM, STRONG }
+
 data class Settings(
     val splitMode: SplitMode = SplitMode.OFF,
     val splitApps: Set<String> = emptySet(),
@@ -96,4 +98,6 @@ data class Settings(
     val fontScale: Float = 1.0f,
     val autoCheckUpdates: Boolean = true,
     val autoConnectOnBoot: Boolean = false,
+    val hapticIntensity: HapticIntensity = HapticIntensity.MEDIUM,
+    val killSwitch: Boolean = false,
 )

@@ -79,6 +79,10 @@ class NexusTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
+        val store = Store(this)
+        val settings = store.loadSettings()
+        net.nexus.app.ui.HapticManager.trigger(this, settings.hapticIntensity, net.nexus.app.ui.HapticType.TOGGLE)
+
         val currentStatus = VpnState.status.value
         if (currentStatus == VpnStatus.CONNECTED || currentStatus == VpnStatus.CONNECTING) {
             NexusVpnService.stop(this)

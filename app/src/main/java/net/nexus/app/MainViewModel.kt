@@ -58,6 +58,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val adding = MutableStateFlow(false)
     /** Last speed-test result in Mbit/s (null = not measured). Measured only when the user taps the tile. */
     val speedMbps = MutableStateFlow<Double?>(null)
+    val speedSamples = MutableStateFlow<List<Float>>(emptyList())
     val speedTesting = MutableStateFlow(false)
 
     private val pingGate = Semaphore(4)
@@ -83,7 +84,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             VpnState.status.collect { st ->
-                if (st == VpnStatus.CONNECTED) checkSelected() else speedMbps.value = null
+                if (st == VpnStatus.CONNECTED) checkSelected() else {
+                    speedMbps.value = null
+                    speedSamples.value = emptyList()
+                }
             }
         }
         if (settings.value.autoCheckUpdates) {
@@ -346,6 +350,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setFontScale(scale: Float) = updateSettings { it.copy(fontScale = scale) }
     fun setAutoCheckUpdates(enabled: Boolean) = updateSettings { it.copy(autoCheckUpdates = enabled) }
     fun setAutoConnectOnBoot(enabled: Boolean) = updateSettings { it.copy(autoConnectOnBoot = enabled) }
+    fun setHapticIntensity(intensity: net.nexus.app.data.HapticIntensity) = updateSettings { it.copy(hapticIntensity = intensity) }
+    fun setKillSwitch(enabled: Boolean) = updateSettings { it.copy(killSwitch = enabled) }
 
     // ---------- updates ----------
 
@@ -440,14 +446,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch(Dispatchers.IO) {
             speedTesting.value = true
+            speedSamples.value = emptyList()
             try {
                 val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))
-                val conn = URL("https://speed.cloudflare.com/__down?bytes=30000000").openConnection(proxy) as HttpURLConnection
-                conn.connectTimeout = 10_000
-                conn.readTimeout = 10_000
+                val conn = URL("https://speed.cloudflare.com/__down?bytes=50000000").openConnection(proxy) as HttpURLConnection
+                conn.connectTimeout = 8_000
+                conn.readTimeout = 8_000
                 var total = 0L
                 val start = System.nanoTime()
-                val deadline = start + 8_000_000_000L
+                var lastSampleTime = start
+                var lastSampleBytes = 0L
+                val deadline = start + 7_000_000_000L
                 try {
                     conn.inputStream.use { ins ->
                         val buf = ByteArray(64 * 1024)
@@ -455,7 +464,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             val n = ins.read(buf)
                             if (n < 0) break
                             total += n
-                            if (System.nanoTime() > deadline) break
+                            val now = System.nanoTime()
+                            val intervalSec = (now - lastSampleTime) / 1e9
+                            if (intervalSec >= 0.25) {
+                                val chunk = total - lastSampleBytes
+                                val instantMbps = ((chunk * 8.0) / 1e6 / intervalSec).toFloat()
+                                lastSampleTime = now
+                                lastSampleBytes = total
+                                if (instantMbps > 0f) {
+                                    speedMbps.value = instantMbps.toDouble()
+                                    speedSamples.update { (it + instantMbps).takeLast(24) }
+                                }
+                            }
+                            if (now > deadline) break
                         }
                     }
                 } finally {
@@ -463,9 +484,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val seconds = (System.nanoTime() - start) / 1e9
                 if (total <= 0 || seconds <= 0) error("no data")
-                speedMbps.value = total * 8 / 1e6 / seconds
+                val finalMbps = (total * 8.0) / 1e6 / seconds
+                speedMbps.value = finalMbps
+                speedSamples.update { (it + finalMbps.toFloat()).takeLast(24) }
             } catch (e: Exception) {
                 speedMbps.value = null
+                speedSamples.value = emptyList()
                 emit(R.string.speed_failed)
             } finally {
                 speedTesting.value = false

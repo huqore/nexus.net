@@ -17,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.nexus.app.MainActivity
 import net.nexus.app.R
@@ -30,6 +32,10 @@ class NexusVpnService : VpnService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var tun: ParcelFileDescriptor? = null
     private var currentGoFd: Int = -1
+
+    private var watchdogJob: kotlinx.coroutines.Job? = null
+    private var activeServerId: String? = null
+    private var isAutoMode: Boolean = false
 
     val isConnected: Boolean get() = tun != null && XrayCore.isRunning
 
@@ -53,12 +59,16 @@ class NexusVpnService : VpnService() {
     private fun startVpn(serverId: String?) {
         val store = Store(this)
         val isAuto = (serverId == Store.AUTO_SERVER_ID || serverId == null)
+        isAutoMode = isAuto
         val server = if (isAuto) store.findBestServer() else store.findServer(serverId)
         if (server == null) {
             fail("server not found"); return
         }
+        activeServerId = server.id
         VpnState.connecting(server.id, isAuto = isAuto, serverName = server.name)
         updateTileState()
+        NexusAppWidgetProvider.updateAllWidgets(this)
+
         var goFd = -1
         try {
             XrayCore.init(this)
@@ -82,6 +92,11 @@ class NexusVpnService : VpnService() {
             }
             showNotification(notifText)
             updateTileState()
+            NexusAppWidgetProvider.updateAllWidgets(this)
+
+            if (isAuto) {
+                startWatchdog(socksPort)
+            }
         } catch (t: Throwable) {
             val fd = currentGoFd
             currentGoFd = -1
@@ -91,6 +106,69 @@ class NexusVpnService : VpnService() {
             runCatching { tun?.close() }; tun = null
             fail(t.message ?: t.javaClass.simpleName)
             updateTileState()
+            NexusAppWidgetProvider.updateAllWidgets(this)
+        }
+    }
+
+    private fun startWatchdog(socksPort: Int) {
+        watchdogJob?.cancel()
+        watchdogJob = scope.launch {
+            var consecutiveFailures = 0
+            while (isActive) {
+                delay(20_000)
+                if (!XrayCore.isRunning || tun == null) break
+
+                val ok = checkTunnelHealth(socksPort)
+                if (!ok) {
+                    consecutiveFailures++
+                    if (consecutiveFailures >= 2) {
+                        consecutiveFailures = 0
+                        performAutoFailover(socksPort)
+                    }
+                } else {
+                    consecutiveFailures = 0
+                }
+            }
+        }
+    }
+
+    private fun checkTunnelHealth(socksPort: Int): Boolean = runCatching {
+        val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", socksPort))
+        val conn = java.net.URL("http://www.google.com/generate_204").openConnection(proxy) as java.net.HttpURLConnection
+        conn.connectTimeout = 4000
+        conn.readTimeout = 4000
+        conn.instanceFollowRedirects = false
+        try {
+            conn.responseCode in 200..399
+        } finally {
+            conn.disconnect()
+        }
+    }.getOrDefault(false)
+
+    private fun performAutoFailover(socksPort: Int) {
+        if (!isAutoMode || tun == null) return
+        val store = Store(this)
+        val nextServer = store.findNextBestServer(activeServerId) ?: return
+        if (nextServer.id == activeServerId) return
+
+        try {
+            val newConfig = ConfigBuilder.forTunnel(nextServer, socksPort)
+            val currentFd = currentGoFd
+            if (currentFd >= 0 && tun != null) {
+                // Dup fd for the restarted core
+                val newGoFd = tun!!.dup().detachFd()
+                XrayCore.stopQuietly()
+                currentGoFd = newGoFd
+                XrayCore.start(newConfig, newGoFd) { }
+
+                activeServerId = nextServer.id
+                VpnState.connected(nextServer.id, isAuto = true, serverName = nextServer.name)
+                showNotification(getString(R.string.notif_connected_auto, nextServer.name))
+                updateTileState()
+                NexusAppWidgetProvider.updateAllWidgets(this)
+            }
+        } catch (_: Throwable) {
+            // If failover failed, let watchdog retry on next cycle
         }
     }
 
@@ -106,6 +184,9 @@ class NexusVpnService : VpnService() {
             .addDnsServer("1.1.1.1")
             .addDnsServer("8.8.8.8")
         if (Build.VERSION.SDK_INT >= 29) b.setMetered(false)
+        if (settings.killSwitch) {
+            b.setBlocking(true)
+        }
 
         // The app itself always stays outside the tunnel: the core's own sockets to the proxy server
         // must not loop back into the TUN, and subscription updates must work while connected.
@@ -125,6 +206,8 @@ class NexusVpnService : VpnService() {
     }
 
     private fun fail(message: String) {
+        watchdogJob?.cancel()
+        watchdogJob = null
         runCatching { tun?.close() }; tun = null
         val fd = currentGoFd
         currentGoFd = -1
@@ -132,6 +215,7 @@ class NexusVpnService : VpnService() {
         XrayCore.stopQuietly()
         VpnState.failed(message)
         updateTileState()
+        NexusAppWidgetProvider.updateAllWidgets(this)
         stopForegroundCompat()
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIF_ID)
@@ -139,6 +223,8 @@ class NexusVpnService : VpnService() {
     }
 
     fun stopVpn() {
+        watchdogJob?.cancel()
+        watchdogJob = null
         runCatching { tun?.close() }; tun = null
         val fd = currentGoFd
         currentGoFd = -1
@@ -146,6 +232,7 @@ class NexusVpnService : VpnService() {
         XrayCore.stopQuietly()
         VpnState.disconnected()
         updateTileState()
+        NexusAppWidgetProvider.updateAllWidgets(this)
         stopForegroundCompat()
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIF_ID)

@@ -171,4 +171,16 @@
     <string name="sub_notif_title">nexus.net · Subscription</string>
     <string name="sub_notif_expiring_today">Your subscription expires today! Tap to renew.</string>
     <string name="sub_notif_expiring_days">Your subscription expires in %1$d days. Tap to renew.</string>
+
+    <!-- Kill Switch & Haptics & Speed Graph & Widget -->
+    <string name="settings_kill_switch">Kill Switch (Leak Protection)</string>
+    <string name="settings_kill_switch_desc">Block non-VPN network traffic if the tunnel drops</string>
+    <string name="settings_haptics_title">Haptic Feedback</string>
+    <string name="haptic_off">Off</string>
+    <string name="haptic_light">Light</string>
+    <string name="haptic_medium">Medium (default)</string>
+    <string name="haptic_strong">Strong</string>
+    <string name="speed_testing_live">Live speed test…</string>
+    <string name="speed_graph_title">Speed Graph (Mbps)</string>
+    <string name="widget_description">Fast nexus.net VPN control on your home screen</string>
 </resources>
