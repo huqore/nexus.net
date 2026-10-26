@@ -143,4 +143,31 @@
     <string name="mandatory_auth_feature_security">Защита аккаунта и активных сессий</string>
     <string name="mandatory_auth_feature_speed">Мгновенное обновление конфигураций</string>
     <string name="tg_auth_bot_url">https://t.me/NEXUSnet_robot</string>
+
+    <!-- Auto-select Server -->
+    <string name="auto_server_title">Автовыбор</string>
+    <string name="auto_server_desc">Минимальная задержка</string>
+    <string name="auto_server_tag">АВТО</string>
+    <string name="auto_server_connected">Авто (%1$s)</string>
+    <string name="notif_connected_auto">Подключено: Авто (%1$s)</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="qs_tile_name">nexus.net</string>
+    <string name="qs_tile_connected">Подключено: %1$s</string>
+    <string name="qs_tile_disconnected">Отключено</string>
+
+    <!-- Auto connect on boot -->
+    <string name="settings_connection_title">Подключение</string>
+    <string name="settings_auto_connect_boot">Автоподключение при старте</string>
+    <string name="settings_auto_connect_boot_desc">Запускать VPN автоматически при включении устройства</string>
+
+    <!-- Subscription Renewal & Expiry -->
+    <string name="sub_renew_btn">Продлить подписку</string>
+    <string name="sub_open_bot_btn">Открыть в боте</string>
+    <string name="sub_expiring_soon">Истекает через %1$d дн.</string>
+    <string name="sub_expired">Подписка истекла</string>
+    <string name="sub_active_until">Активна до %1$s</string>
+    <string name="sub_notif_title">nexus.net · Подписка</string>
+    <string name="sub_notif_expiring_today">Ваша подписка заканчивается сегодня! Нажмите для продления.</string>
+    <string name="sub_notif_expiring_days">Ваша подписка заканчивается через %1$d дн. Нажмите для продления.</string>
 </resources>

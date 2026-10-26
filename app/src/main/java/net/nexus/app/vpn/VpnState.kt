@@ -19,25 +19,48 @@ object VpnState {
     private val _serverId = MutableStateFlow<String?>(null)
     val serverId: StateFlow<String?> = _serverId
 
+    private val _serverName = MutableStateFlow<String?>(null)
+    val serverName: StateFlow<String?> = _serverName
+
+    private val _isAutoSelected = MutableStateFlow(false)
+    val isAutoSelected: StateFlow<Boolean> = _isAutoSelected
+
     /** Loopback SOCKS port of the running core (0 = not running). Used by the speed test to go through the VPN. */
     @Volatile
     var socksPort: Int = 0
 
-    fun connecting(serverId: String) {
-        _serverId.value = serverId; _error.value = null; _status.value = VpnStatus.CONNECTING
+    fun connecting(serverId: String, isAuto: Boolean = false, serverName: String? = null) {
+        _serverId.value = serverId
+        _isAutoSelected.value = isAuto
+        _serverName.value = serverName
+        _error.value = null
+        _status.value = VpnStatus.CONNECTING
     }
 
-    fun connected() {
-        _connectedAt.value = System.currentTimeMillis(); _status.value = VpnStatus.CONNECTED
+    fun connected(serverId: String? = null, isAuto: Boolean = false, serverName: String? = null) {
+        _connectedAt.value = System.currentTimeMillis()
+        if (serverId != null) _serverId.value = serverId
+        if (serverName != null) _serverName.value = serverName
+        _isAutoSelected.value = isAuto
+        _status.value = VpnStatus.CONNECTED
     }
 
     fun disconnected() {
         socksPort = 0
-        _connectedAt.value = 0; _serverId.value = null; _status.value = VpnStatus.DISCONNECTED
+        _connectedAt.value = 0
+        _serverId.value = null
+        _serverName.value = null
+        _isAutoSelected.value = false
+        _status.value = VpnStatus.DISCONNECTED
     }
 
     fun failed(message: String) {
         socksPort = 0
-        _connectedAt.value = 0; _serverId.value = null; _error.value = message; _status.value = VpnStatus.ERROR
+        _connectedAt.value = 0
+        _serverId.value = null
+        _serverName.value = null
+        _isAutoSelected.value = false
+        _error.value = message
+        _status.value = VpnStatus.ERROR
     }
 }

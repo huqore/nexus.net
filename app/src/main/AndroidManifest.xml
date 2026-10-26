@@ -13,6 +13,7 @@
         tools:ignore="QueryAllPackagesPermission" />
     <!-- needed to install APK updates from inside the app -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".NexusApp"
@@ -60,6 +61,28 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="net.nexus.app.STOP" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".vpn.NexusTileService"
+            android:icon="@drawable/ic_stat_vpn"
+            android:label="@string/qs_tile_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".vpn.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 

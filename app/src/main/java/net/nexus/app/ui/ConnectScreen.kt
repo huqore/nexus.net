@@ -1,5 +1,10 @@
 package net.nexus.app.ui
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import net.nexus.app.auth.SubscriptionNotifier
+import net.nexus.app.data.Store
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -86,12 +91,20 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
     val tgUser by vm.telegramUser.collectAsState()
     val isSyncingTg by vm.isSyncingTelegram.collectAsState()
     val status by VpnState.status.collectAsState()
+    val activeId by VpnState.serverId.collectAsState()
     val speed by vm.speedMbps.collectAsState()
     val speedTesting by vm.speedTesting.collectAsState()
     val pinging by vm.pinging.collectAsState()
     val locale = LocalConfiguration.current.locales[0]
 
-    val selected = providers.flatMap { it.servers }.firstOrNull { it.id == settings.selectedServerId }
+    val ctx = LocalContext.current
+    val isAuto = settings.selectedServerId == Store.AUTO_SERVER_ID
+    val selected = if (isAuto) {
+        providers.flatMap { it.servers }.firstOrNull { it.id == activeId }
+            ?: remember(providers) { Store(ctx).findBestServer() }
+    } else {
+        providers.flatMap { it.servers }.firstOrNull { it.id == settings.selectedServerId }
+    }
     val connected = status == VpnStatus.CONNECTED
     val connecting = status == VpnStatus.CONNECTING
 
@@ -145,14 +158,23 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             Spacer(Modifier.height(20.dp))
             StatusLabel(status)
             Spacer(Modifier.weight(1f))
+            val openUrl: (String) -> Unit = { link ->
+                runCatching {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link)).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    ctx.startActivity(intent)
+                }
+            }
             TelegramSyncBar(
                 user = tgUser,
                 isSyncing = isSyncingTg,
                 onLogin = { vm.startTelegramAuth() },
-                onSync = { vm.syncTelegramSubscription() }
+                onSync = { vm.syncTelegramSubscription() },
+                onRenew = { openUrl(ctx.getString(R.string.tg_auth_bot_url)) }
             )
             Spacer(Modifier.height(10.dp))
-            ServerCard(selected, onAddServers)
+            ServerCard(selected, isAuto, connected, onAddServers)
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 InfoTile(
@@ -351,7 +373,12 @@ private fun StatusLabel(status: VpnStatus) {
 }
 
 @Composable
-private fun ServerCard(selected: Server?, onClick: () -> Unit) {
+private fun ServerCard(
+    selected: Server?,
+    isAuto: Boolean,
+    isConnected: Boolean,
+    onClick: () -> Unit
+) {
     val shape = RoundedCornerShape(22.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -381,26 +408,46 @@ private fun ServerCard(selected: Server?, onClick: () -> Unit) {
     ) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(NX.iconBtn), contentAlignment = Alignment.Center) {
             AnimatedContent(
-                targetState = selected?.name,
+                targetState = if (isAuto && !isConnected) "⚡" else selected?.name,
                 transitionSpec = { fadeIn(tween(200)).togetherWith(fadeOut(tween(150))) },
                 label = "flagTransition"
             ) { name ->
-                Text(if (name != null) flagFor(name) else "🌐", fontSize = 22.sp)
+                if (name == "⚡") {
+                    Text("⚡", fontSize = 20.sp)
+                } else {
+                    Text(if (name != null) flagFor(name) else "🌐", fontSize = 22.sp)
+                }
             }
         }
         Spacer(Modifier.width(14.dp))
+        val titleText = when {
+            isAuto && isConnected && selected != null -> stringResource(R.string.auto_server_connected, cleanServerName(selected.name))
+            isAuto -> stringResource(R.string.auto_server_title)
+            selected != null -> cleanServerName(selected.name)
+            else -> stringResource(R.string.choose_server)
+        }
         AnimatedContent(
-            targetState = selected?.name ?: stringResource(R.string.choose_server),
+            targetState = titleText,
             transitionSpec = { (slideInVertically(tween(220)) { it / 3 } + fadeIn(tween(200))).togetherWith(slideOutVertically(tween(180)) { -it / 3 } + fadeOut(tween(150))) },
             modifier = Modifier.weight(1f),
             label = "serverNameTransition"
-        ) { serverName ->
-            Text(
-                cleanServerName(serverName),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-            )
+        ) { text ->
+            Column {
+                Text(
+                    text,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                )
+                if (isAuto && !isConnected) {
+                    Text(
+                        stringResource(R.string.auto_server_desc),
+                        fontSize = 12.sp,
+                        color = NX.muted,
+                        maxLines = 1
+                    )
+                }
+            }
         }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = NX.muted, modifier = Modifier.size(28.dp))
     }
@@ -466,13 +513,27 @@ private fun TelegramSyncBar(
     isSyncing: Boolean,
     onLogin: () -> Unit,
     onSync: () -> Unit,
+    onRenew: () -> Unit,
 ) {
+    val daysLeft = user?.let { SubscriptionNotifier.getDaysLeft(it.expireAt) }
+    val isExpiringSoon = user != null && user.isSubscribed && daysLeft != null && daysLeft in 0..3
+    val isExpired = user != null && (!user.isSubscribed || (daysLeft != null && daysLeft <= 0))
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(NX.card)
-            .border(1.dp, if (user != null) NX.accent.copy(alpha = 0.35f) else NX.cardBorder, RoundedCornerShape(16.dp))
+            .border(
+                1.dp,
+                when {
+                    isExpired -> NX.red.copy(alpha = 0.5f)
+                    isExpiringSoon -> NX.yellow.copy(alpha = 0.5f)
+                    user != null -> NX.accent.copy(alpha = 0.35f)
+                    else -> NX.cardBorder
+                },
+                RoundedCornerShape(16.dp)
+            )
             .clickable(onClick = if (user == null) onLogin else onSync)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -520,15 +581,51 @@ private fun TelegramSyncBar(
                         modifier = Modifier
                             .size(6.dp)
                             .clip(CircleShape)
-                            .background(if (user.isSubscribed) NX.green else NX.yellow)
+                            .background(
+                                when {
+                                    isExpired -> NX.red
+                                    isExpiringSoon -> NX.yellow
+                                    else -> NX.green
+                                }
+                            )
                     )
                 }
+                val statusText = when {
+                    isExpired -> stringResource(R.string.sub_expired)
+                    isExpiringSoon && daysLeft != null -> stringResource(R.string.sub_expiring_soon, daysLeft)
+                    user.isSubscribed -> stringResource(R.string.tg_auth_status_active)
+                    else -> stringResource(R.string.tg_auth_status_inactive)
+                }
+                val statusColor = when {
+                    isExpired -> NX.red
+                    isExpiringSoon -> NX.yellow
+                    user.isSubscribed -> NX.green
+                    else -> NX.yellow
+                }
                 Text(
-                    text = if (user.isSubscribed) stringResource(R.string.tg_auth_status_active) else stringResource(R.string.tg_auth_status_inactive),
+                    text = statusText,
                     fontSize = 11.sp,
-                    color = if (user.isSubscribed) NX.green else NX.yellow
+                    color = statusColor
                 )
             }
+        }
+
+        if (user != null && (isExpired || isExpiringSoon)) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isExpired) NX.accent else NX.yellow.copy(alpha = 0.2f))
+                    .clickable(onClick = onRenew)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.sub_renew_btn),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isExpired) Color.White else NX.yellow
+                )
+            }
+            Spacer(Modifier.width(8.dp))
         }
 
         if (isSyncing) {
@@ -547,5 +644,6 @@ private fun TelegramSyncBar(
         }
     }
 }
+
 
 

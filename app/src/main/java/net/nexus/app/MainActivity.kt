@@ -45,11 +45,7 @@ class MainActivity : AppCompatActivity() {
                 val tgUser by vm.telegramUser.collectAsState()
 
                 fun startVpn() {
-                    val id = settings.selectedServerId
-                    if (id == null) {
-                        Toast.makeText(ctx, ctx.getString(R.string.no_server_selected), Toast.LENGTH_SHORT).show()
-                        return
-                    }
+                    val id = settings.selectedServerId ?: net.nexus.app.data.Store.AUTO_SERVER_ID
                     NexusVpnService.start(ctx, id)
                 }
 

@@ -52,11 +52,13 @@ class NexusVpnService : VpnService() {
 
     private fun startVpn(serverId: String?) {
         val store = Store(this)
-        val server = store.findServer(serverId)
+        val isAuto = (serverId == Store.AUTO_SERVER_ID || serverId == null)
+        val server = if (isAuto) store.findBestServer() else store.findServer(serverId)
         if (server == null) {
             fail("server not found"); return
         }
-        VpnState.connecting(server.id)
+        VpnState.connecting(server.id, isAuto = isAuto, serverName = server.name)
+        updateTileState()
         var goFd = -1
         try {
             XrayCore.init(this)
@@ -72,8 +74,14 @@ class NexusVpnService : VpnService() {
 
             XrayCore.start(config, goFd) { /* core log line; ignored in release */ }
 
-            VpnState.connected()
-            showNotification(getString(R.string.notif_connected, server.name))
+            VpnState.connected(server.id, isAuto = isAuto, serverName = server.name)
+            val notifText = if (isAuto) {
+                getString(R.string.notif_connected_auto, server.name)
+            } else {
+                getString(R.string.notif_connected, server.name)
+            }
+            showNotification(notifText)
+            updateTileState()
         } catch (t: Throwable) {
             val fd = currentGoFd
             currentGoFd = -1
@@ -82,6 +90,7 @@ class NexusVpnService : VpnService() {
             XrayCore.stopQuietly()
             runCatching { tun?.close() }; tun = null
             fail(t.message ?: t.javaClass.simpleName)
+            updateTileState()
         }
     }
 
@@ -122,6 +131,7 @@ class NexusVpnService : VpnService() {
         if (fd >= 0) runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
         XrayCore.stopQuietly()
         VpnState.failed(message)
+        updateTileState()
         stopForegroundCompat()
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIF_ID)
@@ -135,6 +145,7 @@ class NexusVpnService : VpnService() {
         if (fd >= 0) runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
         XrayCore.stopQuietly()
         VpnState.disconnected()
+        updateTileState()
         stopForegroundCompat()
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIF_ID)
@@ -154,11 +165,23 @@ class NexusVpnService : VpnService() {
         if (fd >= 0) runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
         XrayCore.stopQuietly()
         if (VpnState.status.value != VpnStatus.ERROR) VpnState.disconnected()
+        updateTileState()
         stopForegroundCompat()
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIF_ID)
         scope.cancel()
         super.onDestroy()
+    }
+
+    private fun updateTileState() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            runCatching {
+                android.service.quicksettings.TileService.requestListeningState(
+                    this,
+                    android.content.ComponentName(this, NexusTileService::class.java)
+                )
+            }
+        }
     }
 
     // ---------- notification ----------
@@ -181,16 +204,8 @@ class NexusVpnService : VpnService() {
             this, 1, Intent(this, VpnActionReceiver::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val avatar = runCatching {
-            BitmapFactory.decodeResource(resources, R.drawable.app_logo)
-        }.getOrNull()
         val n = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_vpn)
-            .apply {
-                if (avatar != null) {
-                    setLargeIcon(avatar)
-                }
-            }
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setOngoing(true)

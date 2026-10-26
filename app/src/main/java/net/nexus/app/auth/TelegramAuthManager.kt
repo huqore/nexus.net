@@ -105,7 +105,7 @@ object TelegramAuthManager {
                 put("platform", "Android")
                 put("deviceModel", deviceModel)
                 put("osVersion", Build.VERSION.RELEASE ?: "Android")
-                put("userAgent", "NEXUS.net App/2.1.0 (Android)")
+                put("userAgent", "NEXUS.net App/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
             }
 
             val resp = httpPost(AUTH_BASE_URL, payload.toString())
@@ -138,7 +138,7 @@ object TelegramAuthManager {
             connectTimeout = 10_000
             readTimeout = 12_000
             instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "nexus.net-app/2.1.0 (Android)")
+            setRequestProperty("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
             setRequestProperty("Accept", "application/json")
         }
         try {
@@ -158,7 +158,7 @@ object TelegramAuthManager {
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("User-Agent", "nexus.net-app/2.1.0 (Android)")
+            setRequestProperty("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
         }
         return try {
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(jsonBody) }

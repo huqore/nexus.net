@@ -214,6 +214,24 @@ fun SettingsScreen(vm: MainViewModel) {
                                 }
 
                                 Button(
+                                    onClick = { openUrl(ctx.getString(R.string.tg_auth_bot_url)) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = NX.accent,
+                                        contentColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Send,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.sub_renew_btn), fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
                                     onClick = { vm.syncTelegramSubscription() },
                                     enabled = !isSyncing,
                                     colors = ButtonDefaults.buttonColors(
@@ -288,6 +306,39 @@ fun SettingsScreen(vm: MainViewModel) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(stringResource(R.string.split_note), color = NX.muted, fontSize = 13.sp)
                             }
+                        }
+                    }
+                }
+
+                item {
+                    Section(stringResource(R.string.settings_connection_title)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    stringResource(R.string.settings_auto_connect_boot),
+                                    fontSize = 15.sp,
+                                    color = NX.text
+                                )
+                                Text(
+                                    stringResource(R.string.settings_auto_connect_boot_desc),
+                                    fontSize = 12.sp,
+                                    color = NX.muted
+                                )
+                            }
+                            Switch(
+                                checked = s.autoConnectOnBoot,
+                                onCheckedChange = { vm.setAutoConnectOnBoot(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = NX.accent,
+                                    uncheckedThumbColor = NX.muted,
+                                    uncheckedTrackColor = NX.iconBtn,
+                                )
+                            )
                         }
                     }
                 }

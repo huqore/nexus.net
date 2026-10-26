@@ -9,3 +9,4 @@
 /app/libs/libv2ray.aar.part
 *.apk
 .kotlin
+/nexus-support-bot/

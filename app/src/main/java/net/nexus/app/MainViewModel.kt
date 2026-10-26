@@ -76,6 +76,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         refreshAllSubscriptions(quiet = true)
         startPeriodicHourlyRefresh()
         if (telegramUser.value != null) {
+            net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(app, telegramUser.value!!)
             viewModelScope.launch {
                 syncTelegramSubscription(quiet = true)
             }
@@ -113,8 +114,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun ensureSelection() {
         val sel = settings.value.selectedServerId
+        if (sel == Store.AUTO_SERVER_ID) return
         if (sel == null || allServers().none { it.id == sel }) {
-            updateSettings { it.copy(selectedServerId = allServers().firstOrNull()?.id) }
+            updateSettings { it.copy(selectedServerId = Store.AUTO_SERVER_ID) }
         }
     }
 
@@ -325,9 +327,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Re-measures the selected server's latency (also runs automatically after connecting). */
     fun checkSelected() {
-        val s = allServers().firstOrNull { it.id == settings.value.selectedServerId } ?: return
-        if (s.id in pinging.value) return
-        pingServers(listOf(s))
+        val selId = settings.value.selectedServerId
+        val target = if (selId == Store.AUTO_SERVER_ID) {
+            store.findBestServer()
+        } else {
+            allServers().firstOrNull { it.id == selId }
+        } ?: return
+        if (target.id in pinging.value) return
+        pingServers(listOf(target))
     }
 
     // ---------- settings ----------
@@ -338,6 +345,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setTestUrl(url: String) = updateSettings { it.copy(testUrl = url.trim().ifEmpty { Settings().testUrl }) }
     fun setFontScale(scale: Float) = updateSettings { it.copy(fontScale = scale) }
     fun setAutoCheckUpdates(enabled: Boolean) = updateSettings { it.copy(autoCheckUpdates = enabled) }
+    fun setAutoConnectOnBoot(enabled: Boolean) = updateSettings { it.copy(autoConnectOnBoot = enabled) }
 
     // ---------- updates ----------
 
@@ -538,6 +546,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val updatedUser = TelegramAuthManager.refreshFromRemnaWave(user)
                 telegramUser.value = updatedUser
                 store.saveTelegramUser(updatedUser)
+                net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), updatedUser)
 
                 val hwid = store.getOrCreateHwid()
                 if (updatedUser.subscriptionUrl.isNotBlank()) {

@@ -29,6 +29,7 @@ class Store(context: Context) {
             selectedServerId = o.optString("selectedServerId").ifEmpty { null },
             fontScale = o.optDouble("fontScale", 1.0).toFloat(),
             autoCheckUpdates = o.optBoolean("autoCheckUpdates", true),
+            autoConnectOnBoot = o.optBoolean("autoConnectOnBoot", false),
         )
     }.getOrDefault(Settings())
 
@@ -40,12 +41,47 @@ class Store(context: Context) {
             .put("selectedServerId", s.selectedServerId)
             .put("fontScale", s.fontScale.toDouble())
             .put("autoCheckUpdates", s.autoCheckUpdates)
+            .put("autoConnectOnBoot", s.autoConnectOnBoot)
         prefs.edit().putString("settings", o.toString()).apply()
     }
 
-    /** Looks a server up by id across all providers (used by the VPN service). */
-    fun findServer(id: String?): Server? =
-        if (id == null) null else loadProviders().asSequence().flatMap { it.servers.asSequence() }.firstOrNull { it.id == id }
+    fun isWlBypass(server: Server): Boolean {
+        val n = server.name.lowercase()
+        return n.contains("wl bypass") ||
+               n.contains("wl-bypass") ||
+               n.contains("wl_bypass") ||
+               n.contains("whitelist") ||
+               Regex("""\bwl\b""", RegexOption.IGNORE_CASE).containsMatchIn(server.name)
+    }
+
+    /** Finds the best server by lowest positive ping, or falls back to the first available server.
+     * Excludes WL bypass servers if other servers have a valid ping. */
+    fun findBestServer(): Server? {
+        val servers = loadProviders().flatMap { it.servers }.filter { it.outbounds != null || it.fullConfig != null }
+        if (servers.isEmpty()) return null
+        val withPing = servers.filter { it.pingMs > 0 }.sortedBy { it.pingMs }
+
+        // If other (non-WL-bypass) servers have positive ping, select among them
+        val nonWlWithPing = withPing.filterNot { isWlBypass(it) }
+        if (nonWlWithPing.isNotEmpty()) {
+            return nonWlWithPing.first()
+        }
+
+        // If only WL-bypass servers have positive ping, use them
+        if (withPing.isNotEmpty()) {
+            return withPing.first()
+        }
+
+        // Fallback when no ping is measured yet: prefer non-WL bypass
+        return servers.firstOrNull { !isWlBypass(it) } ?: servers.firstOrNull()
+    }
+
+    /** Looks a server up by id across all providers (used by the VPN service). Supports AUTO_SERVER_ID. */
+    fun findServer(id: String?): Server? = when (id) {
+        null -> null
+        AUTO_SERVER_ID -> findBestServer()
+        else -> loadProviders().asSequence().flatMap { it.servers.asSequence() }.firstOrNull { it.id == id }
+    }
 
     fun loadTelegramUser(): net.nexus.app.auth.TelegramUser? = runCatching {
         val s = prefs.getString("telegram_user", null) ?: return null
@@ -73,5 +109,13 @@ class Store(context: Context) {
         }
         prefs.edit().putString("device_hwid", newHwid).apply()
         return newHwid
+    }
+
+    var lastExpiryNotifiedDay: String?
+        get() = prefs.getString("last_expiry_notified_day", null)
+        set(value) = prefs.edit().putString("last_expiry_notified_day", value).apply()
+
+    companion object {
+        const val AUTO_SERVER_ID = "__auto__"
     }
 }
