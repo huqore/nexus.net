@@ -340,6 +340,55 @@ fun SettingsScreen(vm: MainViewModel) {
                                 )
                             )
                         }
+                        Spacer(Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    stringResource(R.string.settings_kill_switch),
+                                    fontSize = 15.sp,
+                                    color = NX.text
+                                )
+                                Text(
+                                    stringResource(R.string.settings_kill_switch_desc),
+                                    fontSize = 12.sp,
+                                    color = NX.muted
+                                )
+                            }
+                            Switch(
+                                checked = s.killSwitch,
+                                onCheckedChange = { vm.setKillSwitch(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = NX.accent,
+                                    uncheckedThumbColor = NX.muted,
+                                    uncheckedTrackColor = NX.iconBtn,
+                                )
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Section(stringResource(R.string.settings_haptics_title)) {
+                        RadioRow(s.hapticIntensity == net.nexus.app.data.HapticIntensity.OFF, stringResource(R.string.haptic_off)) {
+                            vm.setHapticIntensity(net.nexus.app.data.HapticIntensity.OFF)
+                        }
+                        RadioRow(s.hapticIntensity == net.nexus.app.data.HapticIntensity.LIGHT, stringResource(R.string.haptic_light)) {
+                            HapticManager.trigger(ctx, net.nexus.app.data.HapticIntensity.LIGHT, HapticType.CLICK)
+                            vm.setHapticIntensity(net.nexus.app.data.HapticIntensity.LIGHT)
+                        }
+                        RadioRow(s.hapticIntensity == net.nexus.app.data.HapticIntensity.MEDIUM, stringResource(R.string.haptic_medium)) {
+                            HapticManager.trigger(ctx, net.nexus.app.data.HapticIntensity.MEDIUM, HapticType.CLICK)
+                            vm.setHapticIntensity(net.nexus.app.data.HapticIntensity.MEDIUM)
+                        }
+                        RadioRow(s.hapticIntensity == net.nexus.app.data.HapticIntensity.STRONG, stringResource(R.string.haptic_strong)) {
+                            HapticManager.trigger(ctx, net.nexus.app.data.HapticIntensity.STRONG, HapticType.CLICK)
+                            vm.setHapticIntensity(net.nexus.app.data.HapticIntensity.STRONG)
+                        }
                     }
                 }
 

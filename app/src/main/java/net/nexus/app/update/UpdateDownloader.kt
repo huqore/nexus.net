@@ -40,9 +40,14 @@ object UpdateDownloader {
                 val connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 15_000
                     readTimeout = 30_000
-                    instanceFollowRedirects = true
+                    instanceFollowRedirects = false
                     setRequestProperty("User-Agent", "nexus.net-updater/1.0 (Android)")
-                    setRequestProperty("Accept", "*/*")
+                    if (UpdateConfig.GITHUB_TOKEN.isNotBlank() && currentUrl.contains("api.github.com")) {
+                        setRequestProperty("Authorization", "Bearer ${UpdateConfig.GITHUB_TOKEN.trim()}")
+                        setRequestProperty("Accept", "application/octet-stream")
+                    } else {
+                        setRequestProperty("Accept", "*/*")
+                    }
                 }
 
                 val code = connection.responseCode

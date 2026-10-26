@@ -30,6 +30,8 @@ class Store(context: Context) {
             fontScale = o.optDouble("fontScale", 1.0).toFloat(),
             autoCheckUpdates = o.optBoolean("autoCheckUpdates", true),
             autoConnectOnBoot = o.optBoolean("autoConnectOnBoot", false),
+            hapticIntensity = runCatching { HapticIntensity.valueOf(o.optString("hapticIntensity", "MEDIUM")) }.getOrDefault(HapticIntensity.MEDIUM),
+            killSwitch = o.optBoolean("killSwitch", false),
         )
     }.getOrDefault(Settings())
 
@@ -42,6 +44,8 @@ class Store(context: Context) {
             .put("fontScale", s.fontScale.toDouble())
             .put("autoCheckUpdates", s.autoCheckUpdates)
             .put("autoConnectOnBoot", s.autoConnectOnBoot)
+            .put("hapticIntensity", s.hapticIntensity.name)
+            .put("killSwitch", s.killSwitch)
         prefs.edit().putString("settings", o.toString()).apply()
     }
 
@@ -56,8 +60,13 @@ class Store(context: Context) {
 
     /** Finds the best server by lowest positive ping, or falls back to the first available server.
      * Excludes WL bypass servers if other servers have a valid ping. */
-    fun findBestServer(): Server? {
-        val servers = loadProviders().flatMap { it.servers }.filter { it.outbounds != null || it.fullConfig != null }
+    fun findBestServer(): Server? = findNextBestServer(null)
+
+    /** Finds the best server excluding a specific server ID (e.g. for failover). */
+    fun findNextBestServer(excludeId: String?): Server? {
+        val servers = loadProviders().flatMap { it.servers }
+            .filter { it.outbounds != null || it.fullConfig != null }
+            .filter { excludeId == null || it.id != excludeId }
         if (servers.isEmpty()) return null
         val withPing = servers.filter { it.pingMs > 0 }.sortedBy { it.pingMs }
 

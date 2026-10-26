@@ -10,3 +10,5 @@
 *.apk
 .kotlin
 /nexus-support-bot/
+.vscode/
+apks/

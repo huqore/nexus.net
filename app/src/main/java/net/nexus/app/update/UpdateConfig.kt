@@ -13,6 +13,7 @@ object UpdateConfig {
      * Replace with your actual repository.
      */
     const val GITHUB_REPO = "huqore/nexus.net"
+    const val GITHUB_TOKEN = ""
 
     /**
      * Optional custom JSON endpoint if you decide to host update metadata on your own server.

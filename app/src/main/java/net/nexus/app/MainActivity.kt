@@ -71,12 +71,21 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 fun toggleVpn() {
+                    HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
                     when (status) {
                         VpnStatus.CONNECTED, VpnStatus.CONNECTING -> NexusVpnService.stop(ctx)
                         else -> {
                             val prepare = VpnService.prepare(ctx)
                             if (prepare != null) vpnPermission.launch(prepare) else startVpn()
                         }
+                    }
+                }
+
+                LaunchedEffect(status) {
+                    when (status) {
+                        VpnStatus.CONNECTED -> HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.SUCCESS)
+                        VpnStatus.ERROR -> HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.ERROR)
+                        else -> {}
                     }
                 }
 
