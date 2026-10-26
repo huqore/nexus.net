@@ -95,4 +95,5 @@ data class Settings(
     val selectedServerId: String? = null,
     val fontScale: Float = 1.0f,
     val autoCheckUpdates: Boolean = true,
+    val autoConnectOnBoot: Boolean = false,
 )

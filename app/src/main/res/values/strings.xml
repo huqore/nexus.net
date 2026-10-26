@@ -144,4 +144,31 @@
     <string name="mandatory_auth_feature_security">Protected account &amp; active sessions</string>
     <string name="mandatory_auth_feature_speed">Instant configuration updates</string>
     <string name="tg_auth_bot_url">https://t.me/NEXUSnet_robot</string>
+
+    <!-- Auto-select Server -->
+    <string name="auto_server_title">Auto-select</string>
+    <string name="auto_server_desc">Lowest latency</string>
+    <string name="auto_server_tag">AUTO</string>
+    <string name="auto_server_connected">Auto (%1$s)</string>
+    <string name="notif_connected_auto">Connected: Auto (%1$s)</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="qs_tile_name">nexus.net</string>
+    <string name="qs_tile_connected">Connected: %1$s</string>
+    <string name="qs_tile_disconnected">Disconnected</string>
+
+    <!-- Auto connect on boot -->
+    <string name="settings_connection_title">Connection</string>
+    <string name="settings_auto_connect_boot">Auto-connect on device boot</string>
+    <string name="settings_auto_connect_boot_desc">Automatically start VPN when your device turns on</string>
+
+    <!-- Subscription Renewal & Expiry -->
+    <string name="sub_renew_btn">Renew subscription</string>
+    <string name="sub_open_bot_btn">Open in Bot</string>
+    <string name="sub_expiring_soon">Expires in %1$d d.</string>
+    <string name="sub_expired">Subscription expired</string>
+    <string name="sub_active_until">Active until %1$s</string>
+    <string name="sub_notif_title">nexus.net · Subscription</string>
+    <string name="sub_notif_expiring_today">Your subscription expires today! Tap to renew.</string>
+    <string name="sub_notif_expiring_days">Your subscription expires in %1$d days. Tap to renew.</string>
 </resources>

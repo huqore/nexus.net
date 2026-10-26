@@ -1,12 +1,23 @@
 package net.nexus.app.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalContext
+import net.nexus.app.data.Server
+import net.nexus.app.data.Store
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -75,6 +86,9 @@ fun ServersScreen(vm: MainViewModel) {
         label = "addBtnScale"
     )
 
+    val ctx = LocalContext.current
+    val bestServer = remember(providers) { Store(ctx).findBestServer() }
+
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 130.dp),
@@ -95,6 +109,15 @@ fun ServersScreen(vm: MainViewModel) {
                         .clickable(interactionSource = addInteraction, indication = null) { showAdd = true },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Filled.Add, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
+            }
+        }
+        if (providers.isNotEmpty()) {
+            item {
+                AutoServerCard(
+                    selected = settings.selectedServerId == Store.AUTO_SERVER_ID,
+                    bestServer = bestServer,
+                    onClick = { vm.select(Store.AUTO_SERVER_ID) }
+                )
             }
         }
         if (providers.isEmpty()) {
@@ -119,6 +142,84 @@ fun ServersScreen(vm: MainViewModel) {
             onSubmit = { submitted = true; vm.addInput(it) },
             onDismiss = { if (!adding) showAdd = false },
         )
+    }
+}
+
+@Composable
+private fun AutoServerCard(
+    selected: Boolean,
+    bestServer: Server?,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(18.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        if (isPressed) 0.98f else 1f,
+        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "autoCardPress"
+    )
+    val bgColor by animateColorAsState(
+        if (selected) NX.accentDim else NX.card,
+        tween(250),
+        label = "autoCardBg"
+    )
+    val borderColor by animateColorAsState(
+        if (selected) NX.accent.copy(alpha = 0.45f) else NX.cardBorder,
+        tween(250),
+        label = "autoCardBorder"
+    )
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .background(bgColor)
+            .border(1.dp, borderColor, shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (selected) NX.accent.copy(alpha = 0.25f) else NX.iconBtn),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("⚡", fontSize = 24.sp)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.auto_server_title),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val subText = if (bestServer != null) {
+                cleanServerName(bestServer.name)
+            } else {
+                stringResource(R.string.auto_server_desc)
+            }
+            val tagText = buildAnnotatedString {
+                withStyle(SpanStyle(color = NX.accent)) { append("AUTO") }
+                withStyle(SpanStyle(color = NX.muted)) { append(" · ") }
+                withStyle(SpanStyle(color = NX.muted2)) { append(subText) }
+            }
+            Text(tagText, fontFamily = FontFamily.Monospace, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.width(8.dp))
+        PingBadge(bestServer?.pingMs ?: -1, loading = false)
     }
 }
 
