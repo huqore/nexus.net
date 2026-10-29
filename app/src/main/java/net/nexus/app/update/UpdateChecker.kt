@@ -34,67 +34,63 @@ object UpdateChecker {
     }
 
     private fun checkGitHubReleases(repo: String): AppReleaseInfo? {
-        val endpoint = "https://api.github.com/repos/$repo/releases?per_page=5"
+        val endpoint = "https://api.github.com/repos/$repo/releases?per_page=10"
         val jsonText = httpGet(endpoint, accept = "application/vnd.github.v3+json")
             ?: httpGet("https://api.github.com/repos/$repo/releases/latest", accept = "application/vnd.github.v3+json")
             ?: return null
 
-        val json = if (jsonText.trim().startsWith("[")) {
+        val candidates = if (jsonText.trim().startsWith("[")) {
             val arr = org.json.JSONArray(jsonText)
-            var found: JSONObject? = null
-            for (i in 0 until arr.length()) {
-                val rel = arr.getJSONObject(i)
-                if (!rel.optBoolean("draft", false)) {
-                    found = rel
-                    break
-                }
-            }
-            found ?: return null
+            (0 until arr.length())
+                .map { arr.getJSONObject(it) }
+                .filter { !it.optBoolean("draft", false) }
         } else {
-            JSONObject(jsonText)
+            listOf(JSONObject(jsonText))
         }
 
-        val tagName = json.optString("tag_name", "").trim()
-        val name = json.optString("name", "").trim()
-        val body = json.optString("body", "").trim()
-        val publishedAt = json.optString("published_at", "")
+        for (json in candidates) {
+            val tagName = json.optString("tag_name", "").trim()
+            val name = json.optString("name", "").trim()
+            val body = json.optString("body", "").trim()
+            val publishedAt = json.optString("published_at", "")
 
-        val versionName = cleanVersion(if (name.isNotBlank()) name else tagName)
-        val assets = json.optJSONArray("assets") ?: error("No assets found in GitHub release $tagName")
+            val versionName = cleanVersion(if (name.isNotBlank()) name else tagName)
+            val assets = json.optJSONArray("assets") ?: continue
 
-        var apkUrl: String? = null
-        var apkName: String? = null
-        var apkSize: Long = 0
+            var apkUrl: String? = null
+            var apkName: String? = null
+            var apkSize: Long = 0
 
-        for (i in 0 until assets.length()) {
-            val asset = assets.getJSONObject(i)
-            val aName = asset.optString("name", "")
-            if (aName.endsWith(".apk", ignoreCase = true)) {
-                val browserUrl = asset.optString("browser_download_url", "")
-                val apiUrl = asset.optString("url", "")
-                val size = asset.optLong("size", 0)
-                // Prefer universal or release APK if multiple are present
-                if (apkUrl == null || aName.contains("universal", ignoreCase = true) || aName.contains("release", ignoreCase = true)) {
-                    apkUrl = if (UpdateConfig.GITHUB_TOKEN.isNotBlank() && apiUrl.isNotBlank()) apiUrl else browserUrl
-                    apkName = aName
-                    apkSize = size
+            for (i in 0 until assets.length()) {
+                val asset = assets.getJSONObject(i)
+                val aName = asset.optString("name", "")
+                if (aName.endsWith(".apk", ignoreCase = true)) {
+                    val browserUrl = asset.optString("browser_download_url", "")
+                    val apiUrl = asset.optString("url", "")
+                    val size = asset.optLong("size", 0)
+                    // Prefer universal or release APK if multiple are present
+                    if (apkUrl == null || aName.contains("universal", ignoreCase = true) || aName.contains("release", ignoreCase = true)) {
+                        apkUrl = if (UpdateConfig.GITHUB_TOKEN.isNotBlank() && apiUrl.isNotBlank()) apiUrl else browserUrl
+                        apkName = aName
+                        apkSize = size
+                    }
                 }
+            }
+
+            if (!apkUrl.isNullOrBlank()) {
+                return AppReleaseInfo(
+                    tagName = tagName,
+                    versionName = versionName,
+                    changelog = body,
+                    downloadUrl = apkUrl,
+                    apkFileName = apkName ?: "nexus-vpn-$versionName.apk",
+                    apkSize = apkSize,
+                    publishedAt = publishedAt,
+                )
             }
         }
 
-        if (apkUrl.isNullOrBlank()) {
-            error("No APK file found in latest GitHub release $tagName")
-        }
-
-        return AppReleaseInfo(
-            tagName = tagName,
-            versionName = versionName,
-            changelog = body,
-            downloadUrl = apkUrl,
-            apkFileName = apkName ?: "nexus-vpn-$versionName.apk",
-            apkSize = apkSize,
-            publishedAt = publishedAt,
-        )
+        return null
     }
 
     private fun checkCustomJson(url: String): AppReleaseInfo? {
@@ -150,18 +146,37 @@ object UpdateChecker {
         val currentDigits = extractVersionDigits(currentVersion)
         if (remoteDigits.isEmpty() || currentDigits.isEmpty()) return false
 
+        val currentIsPreRelease = currentVersion.contains("-") || currentVersion.contains("test", ignoreCase = true)
+        val remoteIsPreRelease = remoteVersion.contains("-") || remoteVersion.contains("test", ignoreCase = true)
+
+        // If the current app is any test/pre-release build (e.g. 2.3.1-test, 3.2.2-test)
+        // and remote is an official release, ALWAYS offer the update!
+        if (currentIsPreRelease && !remoteIsPreRelease) {
+            return true
+        }
+
         val maxLen = maxOf(remoteDigits.size, currentDigits.size)
         for (i in 0 until maxLen) {
             val r = remoteDigits.getOrElse(i) { 0 }
             val c = currentDigits.getOrElse(i) { 0 }
             if (r > c) return true
-            if (r < c) return false
+            if (r < c) {
+                // If current is a test version and remote is a different stable version, update
+                if (currentIsPreRelease && cleanVersion(remoteVersion) != cleanVersion(currentVersion)) {
+                    return true
+                }
+                return false
+            }
         }
 
-        // If numeric components are identical, a stable release is newer than a test/prerelease
-        val currentIsPreRelease = currentVersion.contains("-") || currentVersion.contains("test", ignoreCase = true)
-        val remoteIsPreRelease = remoteVersion.contains("-") || remoteVersion.contains("test", ignoreCase = true)
+        // If numeric components are identical:
+        // A stable release is newer than a test version (e.g., 2.4.0 > 2.4.0-test)
         if (currentIsPreRelease && !remoteIsPreRelease) return true
+
+        // If current is a test build and remote has a different clean version
+        if (currentIsPreRelease && cleanVersion(remoteVersion) != cleanVersion(currentVersion)) {
+            return true
+        }
 
         return false
     }
@@ -169,6 +184,11 @@ object UpdateChecker {
     private fun extractVersionDigits(v: String): List<Int> =
         Regex("""\d+""").findAll(v).mapNotNull { it.value.toIntOrNull() }.toList()
 
-    private fun cleanVersion(raw: String): String =
-        raw.trim().removePrefix("v").removePrefix("V").trim()
+    fun cleanVersion(raw: String): String {
+        var s = raw.trim()
+        if (s.startsWith("nexus", ignoreCase = true)) {
+            s = s.substringAfter(" ").trim()
+        }
+        return s.removePrefix("v").removePrefix("V").trim()
+    }
 }

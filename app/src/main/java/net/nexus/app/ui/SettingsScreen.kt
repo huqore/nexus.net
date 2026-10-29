@@ -96,16 +96,26 @@ import net.nexus.app.MainViewModel
 import net.nexus.app.R
 import net.nexus.app.core.XrayCore
 import net.nexus.app.data.SplitMode
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.ui.res.painterResource
+import android.widget.Toast
+import net.nexus.app.data.AppIcon
+import net.nexus.app.data.AppTheme
+import net.nexus.app.data.Settings
+
+
+
+enum class SettingsSubscreen { MAIN, APP_PICKER, APPEARANCE }
 
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
     val s by vm.settings.collectAsState()
-    var picker by remember { mutableStateOf(false) }
+    var subscreen by remember { mutableStateOf(SettingsSubscreen.MAIN) }
 
     AnimatedContent(
-        targetState = picker,
+        targetState = subscreen,
         transitionSpec = {
-            if (targetState) {
+            if (targetState != SettingsSubscreen.MAIN) {
                 (slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(260)))
                     .togetherWith(slideOutHorizontally(tween(250, easing = FastOutSlowInEasing)) { -it / 3 } + fadeOut(tween(200)))
             } else {
@@ -113,11 +123,21 @@ fun SettingsScreen(vm: MainViewModel) {
                     .togetherWith(slideOutHorizontally(tween(250, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(200)))
             }
         },
-        label = "settingsPickerTransition"
-    ) { showPicker ->
-        if (showPicker) {
-            AppPicker(selected = s.splitApps, onToggle = vm::toggleSplitApp, onBack = { picker = false })
-        } else {
+        label = "settingsSubscreenTransition"
+    ) { currentSubscreen ->
+        when (currentSubscreen) {
+            SettingsSubscreen.APP_PICKER -> {
+                AppPicker(selected = s.splitApps, onToggle = vm::toggleSplitApp, onBack = { subscreen = SettingsSubscreen.MAIN })
+            }
+            SettingsSubscreen.APPEARANCE -> {
+                AppearanceScreen(
+                    settings = s,
+                    onSetTheme = vm::setAppTheme,
+                    onSetIcon = vm::setAppIcon,
+                    onBack = { subscreen = SettingsSubscreen.MAIN }
+                )
+            }
+            SettingsSubscreen.MAIN -> {
             val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags().substringBefore('-')
             val coreVersion = remember { XrayCore.version() }
             val ctx = LocalContext.current
@@ -299,7 +319,7 @@ fun SettingsScreen(vm: MainViewModel) {
                             Column {
                                 Spacer(Modifier.height(8.dp))
                                 Button(
-                                    onClick = { picker = true },
+                                    onClick = { subscreen = SettingsSubscreen.APP_PICKER },
                                     colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
                                     modifier = Modifier.fillMaxWidth(),
                                 ) { Text(stringResource(R.string.split_pick_apps, s.splitApps.size)) }
@@ -369,6 +389,17 @@ fun SettingsScreen(vm: MainViewModel) {
                                 )
                             )
                         }
+                    }
+                }
+
+                item {
+                    Section(stringResource(R.string.settings_appearance_title)) {
+                        LinkRow(
+                            icon = Icons.Filled.Palette,
+                            title = stringResource(R.string.settings_appearance_title),
+                            subtitle = "${s.appTheme.title} • ${s.appIcon.title}",
+                            onClick = { subscreen = SettingsSubscreen.APPEARANCE }
+                        )
                     }
                 }
 
@@ -532,6 +563,7 @@ fun SettingsScreen(vm: MainViewModel) {
             }
         }
     }
+}
 }
 
 @Composable
@@ -725,3 +757,237 @@ private fun AppPicker(selected: Set<String>, onToggle: (String) -> Unit, onBack:
     }
 }
 
+
+// ---------------------------------------------------------------- appearance & theme & icon picker
+
+@Composable
+private fun AppearanceScreen(
+    settings: Settings,
+    onSetTheme: (AppTheme) -> Unit,
+    onSetIcon: (AppIcon) -> Unit,
+    onBack: () -> Unit
+) {
+    val ctx = LocalContext.current
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(NX.iconBtn)
+                        .clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = NX.text
+                    )
+                }
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    stringResource(R.string.settings_appearance_title),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NX.text
+                )
+            }
+        }
+
+        item {
+            Section(stringResource(R.string.appearance_theme_title)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    AppTheme.entries.forEach { theme ->
+                        val selected = settings.appTheme == theme
+                        val palette = theme.palette()
+                        ThemeOptionRow(
+                            theme = theme,
+                            palette = palette,
+                            selected = selected,
+                            onClick = { onSetTheme(theme) }
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Section(stringResource(R.string.appearance_icon_title)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AppIcon.entries.forEach { icon ->
+                        val selected = settings.appIcon == icon
+                        val iconRes = when (icon) {
+                            AppIcon.DEFAULT -> R.drawable.ic_avatar_base
+                            AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
+                            AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+                        }
+                        IconOptionRow(
+                            icon = icon,
+                            drawableRes = iconRes,
+                            selected = selected,
+                            onClick = {
+                                if (!selected) {
+                                    onSetIcon(icon)
+                                    Toast.makeText(
+                                        ctx,
+                                        ctx.getString(R.string.appearance_icon_applied),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeOptionRow(
+    theme: AppTheme,
+    palette: NexusColorPalette,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        if (isPressed) 0.98f else 1f,
+        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "themeRowPress"
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) NX.chip else Color.Transparent)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = null,
+            colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                selectedColor = NX.accent,
+                unselectedColor = NX.muted
+            )
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = theme.title,
+            fontSize = 16.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) NX.text else NX.muted2,
+            modifier = Modifier.weight(1f)
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ColorCircle(palette.bg, borderColor = palette.cardBorder)
+            ColorCircle(palette.card, borderColor = palette.cardBorder)
+            ColorCircle(palette.accent)
+            ColorCircle(palette.accentLight)
+        }
+    }
+}
+
+@Composable
+private fun ColorCircle(color: Color, borderColor: Color? = null) {
+    Box(
+        modifier = Modifier
+            .size(16.dp)
+            .clip(RoundedCornerShape(50))
+            .background(color)
+            .then(
+                if (borderColor != null) Modifier.border(1.dp, borderColor, RoundedCornerShape(50))
+                else Modifier
+            )
+    )
+}
+
+@Composable
+private fun IconOptionRow(
+    icon: AppIcon,
+    drawableRes: Int,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        if (isPressed) 0.98f else 1f,
+        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "iconRowPress"
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (selected) NX.chip else NX.cardBorder.copy(alpha = 0.25f))
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) NX.accent else NX.cardBorder.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(18.dp)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(drawableRes),
+            contentDescription = icon.title,
+            modifier = Modifier
+                .size(54.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .border(1.dp, NX.cardBorder, RoundedCornerShape(14.dp))
+        )
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = icon.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = NX.text
+            )
+        }
+        RadioButton(
+            selected = selected,
+            onClick = null,
+            colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                selectedColor = NX.accent,
+                unselectedColor = NX.muted
+            )
+        )
+    }
+}

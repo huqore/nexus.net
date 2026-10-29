@@ -25,6 +25,7 @@ import net.nexus.app.R
 import net.nexus.app.core.ConfigBuilder
 import net.nexus.app.core.XrayCore
 import net.nexus.app.data.SplitMode
+import net.nexus.app.data.AppIcon
 import net.nexus.app.data.Store
 
 class NexusVpnService : VpnService() {
@@ -276,7 +277,16 @@ class NexusVpnService : VpnService() {
     private fun stopForegroundCompat() =
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
 
+    private var lastNotifText: String = ""
+
+    fun refreshNotification() {
+        if (lastNotifText.isNotBlank()) {
+            showNotification(lastNotifText)
+        }
+    }
+
     private fun showNotification(text: String) {
+        lastNotifText = text
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             nm.createNotificationChannel(
@@ -291,14 +301,31 @@ class NexusVpnService : VpnService() {
             this, 1, Intent(this, VpnActionReceiver::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val n = NotificationCompat.Builder(this, CHANNEL)
+
+        // Resolve current active avatar/icon for notification large icon
+        val store = Store(this)
+        val avatarRes = when (store.loadSettings().appIcon) {
+            AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
+            AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+            else -> R.drawable.ic_avatar_base
+        }
+        val largeIcon = runCatching {
+            BitmapFactory.decodeResource(resources, avatarRes)
+        }.getOrNull()
+
+        val builder = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_vpn)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setOngoing(true)
             .setContentIntent(open)
             .addAction(0, getString(R.string.notif_disconnect), stop)
-            .build()
+
+        if (largeIcon != null) {
+            builder.setLargeIcon(largeIcon)
+        }
+
+        val n = builder.build()
         if (Build.VERSION.SDK_INT >= 34) {
             ServiceCompat.startForeground(this, NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {

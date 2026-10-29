@@ -182,4 +182,13 @@
     <string name="speed_testing_live">Тест скорости в реальном времени…</string>
     <string name="speed_graph_title">График скорости (Мбит/с)</string>
     <string name="widget_description">Быстрое подключение nexus.net на рабочем столе</string>
+
+    <!-- Appearance / Customization -->
+    <string name="settings_appearance_title">Внешний вид</string>
+    <string name="settings_appearance_desc">Цветовая схема и иконка приложения</string>
+    <string name="appearance_theme_title">ЦВЕТОВАЯ СХЕМА</string>
+    <string name="appearance_icon_title">ИКОНКА ПРИЛОЖЕНИЯ</string>
+    <string name="appearance_icon_applied">Иконка приложения обновлена</string>
+    <string name="trial_already_used">Пробный период на этом устройстве уже был использован ранее. Пожалуйста, оформите подписку.</string>
+    <string name="trial_activated_success">🎉 Пробный период на 24 часа (15 ГБ) успешно активирован!</string>
 </resources>

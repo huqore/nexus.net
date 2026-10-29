@@ -3,12 +3,14 @@ package net.nexus.app.auth
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.graphics.BitmapFactory
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import net.nexus.app.R
+import net.nexus.app.data.AppIcon
 import net.nexus.app.data.Store
 import java.time.Duration
 import java.time.Instant
@@ -56,7 +58,16 @@ object SubscriptionNotifier {
                 else -> context.getString(R.string.sub_notif_expiring_days, daysLeft)
             }
 
-            val notif = NotificationCompat.Builder(context, CHANNEL_ID)
+            val avatarRes = when (store.loadSettings().appIcon) {
+                AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
+                AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+                else -> R.drawable.ic_avatar_base
+            }
+            val largeIcon = runCatching {
+                BitmapFactory.decodeResource(context.resources, avatarRes)
+            }.getOrNull()
+
+            val notifBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_vpn)
                 .setContentTitle(context.getString(R.string.sub_notif_title))
                 .setContentText(text)
@@ -68,7 +79,11 @@ object SubscriptionNotifier {
                     context.getString(R.string.sub_renew_btn),
                     pi
                 )
-                .build()
+
+            if (largeIcon != null) {
+                notifBuilder.setLargeIcon(largeIcon)
+            }
+            val notif = notifBuilder.build()
 
             nm.notify(NOTIF_ID, notif)
         }

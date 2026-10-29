@@ -331,7 +331,7 @@ private fun PowerButton(status: VpnStatus, onClick: () -> Unit) {
                 }
             }
             drawCircle(
-                Brush.verticalGradient(listOf(Color(0xFF1B1733), Color(0xFF120F22))),
+                Brush.verticalGradient(listOf(NX.btnGradTop, NX.btnGradBottom)),
                 radius = r - stroke * 1.3f,
             )
         }

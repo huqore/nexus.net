@@ -10,6 +10,13 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class DeviceRegisterResult(
+    val success: Boolean,
+    val trialStatus: String? = null,
+    val message: String? = null,
+    val subscriptionUrl: String? = null,
+)
+
 object TelegramAuthManager {
 
     private const val AUTH_BASE_URL = "https://nexus-net.xyz/api/auth/telegram"
@@ -94,7 +101,7 @@ object TelegramAuthManager {
     /**
      * Registers the current device session via secure backend API (zero secrets on device).
      */
-    suspend fun registerDevice(user: TelegramUser, hwid: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun registerDevice(user: TelegramUser, hwid: String): DeviceRegisterResult = withContext(Dispatchers.IO) {
         try {
             val deviceModel = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
             val payload = JSONObject().apply {
@@ -109,9 +116,25 @@ object TelegramAuthManager {
             }
 
             val resp = httpPost(AUTH_BASE_URL, payload.toString())
-            resp != null && JSONObject(resp).optBoolean("success", false)
+            if (resp != null) {
+                val json = JSONObject(resp)
+                val success = json.optBoolean("success", false)
+                val trialStatus = json.optString("trialStatus", "none")
+                val message = json.optString("message", "")
+                val subObj = json.optJSONObject("subscription")
+                val subUrl = subObj?.optString("subscriptionUrl", "")
+
+                DeviceRegisterResult(
+                    success = success,
+                    trialStatus = trialStatus,
+                    message = message,
+                    subscriptionUrl = subUrl,
+                )
+            } else {
+                DeviceRegisterResult(success = false)
+            }
         } catch (_: Exception) {
-            false
+            DeviceRegisterResult(success = false)
         }
     }
 

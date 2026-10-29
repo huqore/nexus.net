@@ -32,6 +32,8 @@ class Store(context: Context) {
             autoConnectOnBoot = o.optBoolean("autoConnectOnBoot", false),
             hapticIntensity = runCatching { HapticIntensity.valueOf(o.optString("hapticIntensity", "MEDIUM")) }.getOrDefault(HapticIntensity.MEDIUM),
             killSwitch = o.optBoolean("killSwitch", false),
+            appTheme = AppTheme.fromId(o.optString("appTheme", "base")),
+            appIcon = AppIcon.fromId(o.optString("appIcon", "default")),
         )
     }.getOrDefault(Settings())
 
@@ -46,6 +48,8 @@ class Store(context: Context) {
             .put("autoConnectOnBoot", s.autoConnectOnBoot)
             .put("hapticIntensity", s.hapticIntensity.name)
             .put("killSwitch", s.killSwitch)
+            .put("appTheme", s.appTheme.id)
+            .put("appIcon", s.appIcon.id)
         prefs.edit().putString("settings", o.toString()).apply()
     }
 
@@ -108,11 +112,19 @@ class Store(context: Context) {
     fun getOrCreateHwid(): String {
         val existing = prefs.getString("device_hwid", null)
         if (!existing.isNullOrBlank()) return existing
+
         val androidId = runCatching {
             android.provider.Settings.Secure.getString(prefsContext.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
-        }.getOrNull()
-        val newHwid = if (!androidId.isNullOrBlank() && androidId != "9774d56d682e549c") {
-            androidId
+        }.getOrNull().orEmpty()
+
+        val rawFingerprint = "${android.os.Build.MANUFACTURER}:${android.os.Build.MODEL}:${android.os.Build.HARDWARE}:$androidId"
+        val newHwid = if (androidId.isNotBlank() && androidId != "9774d56d682e549c") {
+            try {
+                val md = java.security.MessageDigest.getInstance("SHA-256")
+                md.digest(rawFingerprint.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+            } catch (_: Exception) {
+                androidId
+            }
         } else {
             java.util.UUID.randomUUID().toString()
         }

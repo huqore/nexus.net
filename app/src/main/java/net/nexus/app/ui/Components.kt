@@ -447,7 +447,7 @@ fun BoundProviderCard(vm: MainViewModel, p: Provider, selectedId: String?, refre
 fun FloatingNavBar(selected: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     Row(
-        modifier.fillMaxWidth().clip(shape).background(Color(0xF2110F22)).border(1.dp, NX.cardBorder, shape)
+        modifier.fillMaxWidth().clip(shape).background(NX.sheetBg).border(1.dp, NX.cardBorder, shape)
             .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceAround,
     ) {
