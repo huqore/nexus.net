@@ -10,18 +10,28 @@ object AppIconManager {
         val pm = context.packageManager
         val packageName = context.packageName
 
-        AppIcon.entries.forEach { icon ->
-            val component = ComponentName(packageName, icon.aliasName)
-            val targetState = if (icon == targetIcon) {
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            } else {
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        // 1. Enable target alias first so there is always at least one active launcher
+        val targetComponent = ComponentName(packageName, targetIcon.aliasName)
+        try {
+            if (pm.getComponentEnabledSetting(targetComponent) != PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                pm.setComponentEnabledSetting(
+                    targetComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 2. Disable all other aliases
+        AppIcon.entries.filter { it != targetIcon }.forEach { icon ->
+            val component = ComponentName(packageName, icon.aliasName)
             try {
-                if (pm.getComponentEnabledSetting(component) != targetState) {
+                if (pm.getComponentEnabledSetting(component) != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
                     pm.setComponentEnabledSetting(
                         component,
-                        targetState,
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                         PackageManager.DONT_KILL_APP
                     )
                 }
@@ -31,4 +41,3 @@ object AppIconManager {
         }
     }
 }
-

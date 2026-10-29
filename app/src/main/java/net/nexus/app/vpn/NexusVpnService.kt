@@ -293,8 +293,20 @@ class NexusVpnService : VpnService() {
                 NotificationChannel(CHANNEL, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_LOW)
             )
         }
+        val store = Store(this)
+        val avatarRes = when (store.loadSettings().appIcon) {
+            AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
+            AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+            else -> R.drawable.ic_avatar_base
+        }
+
+        val activeAlias = store.loadSettings().appIcon.aliasName
+        val openIntent = Intent().apply {
+            component = android.content.ComponentName(packageName, activeAlias)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
         val open = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java),
+            this, 0, openIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val stop = PendingIntent.getBroadcast(
@@ -302,28 +314,13 @@ class NexusVpnService : VpnService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Resolve current active avatar/icon for notification large icon
-        val store = Store(this)
-        val avatarRes = when (store.loadSettings().appIcon) {
-            AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
-            AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
-            else -> R.drawable.ic_avatar_base
-        }
-        val largeIcon = runCatching {
-            BitmapFactory.decodeResource(resources, avatarRes)
-        }.getOrNull()
-
         val builder = NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_vpn)
+            .setSmallIcon(avatarRes)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setOngoing(true)
             .setContentIntent(open)
             .addAction(0, getString(R.string.notif_disconnect), stop)
-
-        if (largeIcon != null) {
-            builder.setLargeIcon(largeIcon)
-        }
 
         val n = builder.build()
         if (Build.VERSION.SDK_INT >= 34) {
@@ -331,6 +328,7 @@ class NexusVpnService : VpnService() {
         } else {
             startForeground(NOTIF_ID, n)
         }
+        nm.notify(NOTIF_ID, n)
     }
 
     companion object {
