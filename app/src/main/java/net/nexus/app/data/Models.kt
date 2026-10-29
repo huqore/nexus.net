@@ -90,6 +90,29 @@ enum class SplitMode { OFF, BYPASS, ONLY }
 
 enum class HapticIntensity { OFF, LIGHT, MEDIUM, STRONG }
 
+enum class AppTheme(val id: String, val title: String) {
+    BASE("base", "base"),
+    AMOLED_BLACK("amoled_black", "amoled black"),
+    GREEN_SCREEN("green_screen", "green screen"),
+    BLUE_SCREEN("blue_screen", "blue screen"),
+    RED_SCREEN("red_screen", "red screen"),
+    WHITE_SCREEN("white_screen", "white screen");
+
+    companion object {
+        fun fromId(id: String?): AppTheme = entries.firstOrNull { it.id == id } ?: BASE
+    }
+}
+
+enum class AppIcon(val id: String, val title: String, val aliasName: String) {
+    DEFAULT("default", "base", "net.nexus.app.LauncherDefault"),
+    MINIMAL_GREY("minimal_grey", "minimal grey", "net.nexus.app.LauncherMinimalGrey"),
+    TOTAL_BLACK("total_black", "total black minimal", "net.nexus.app.LauncherTotalBlack");
+
+    companion object {
+        fun fromId(id: String?): AppIcon = entries.firstOrNull { it.id == id } ?: DEFAULT
+    }
+}
+
 data class Settings(
     val splitMode: SplitMode = SplitMode.OFF,
     val splitApps: Set<String> = emptySet(),
@@ -100,4 +123,6 @@ data class Settings(
     val autoConnectOnBoot: Boolean = false,
     val hapticIntensity: HapticIntensity = HapticIntensity.MEDIUM,
     val killSwitch: Boolean = false,
+    val appTheme: AppTheme = AppTheme.BASE,
+    val appIcon: AppIcon = AppIcon.DEFAULT,
 )

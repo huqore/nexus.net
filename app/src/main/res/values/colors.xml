@@ -2,4 +2,6 @@
 <resources>
     <color name="nx_bg">#0D0E14</color>
     <color name="ic_launcher_background">#0D0E14</color>
+    <color name="ic_launcher_grey_background">#141519</color>
+    <color name="ic_launcher_black_background">#000000</color>
 </resources>

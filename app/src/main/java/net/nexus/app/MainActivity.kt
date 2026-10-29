@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContent {
             val settings by vm.settings.collectAsState()
-            NexusTheme {
+            NexusTheme(fontScale = settings.fontScale, appTheme = settings.appTheme) {
                 val ctx = LocalContext.current
                 var tab by rememberSaveable { mutableStateOf(Tab.CONNECT) }
                 val status by VpnState.status.collectAsState()

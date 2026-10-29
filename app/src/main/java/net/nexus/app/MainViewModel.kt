@@ -72,6 +72,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var telegramAuthJob: Job? = null
 
     init {
+        net.nexus.app.ui.AppIconManager.applyIcon(app, settings.value.appIcon)
         cleanupDuplicateNexusProviders()
         ensureSelection()
         refreshAllSubscriptions(quiet = true)
@@ -247,6 +248,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             while (true) {
                 delay(3600_000L) // 1 hour
+                if (settings.value.autoCheckUpdates) {
+                    checkForUpdates(manual = false)
+                }
                 refreshAllSubscriptions(quiet = true)
             }
         }
@@ -352,6 +356,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoConnectOnBoot(enabled: Boolean) = updateSettings { it.copy(autoConnectOnBoot = enabled) }
     fun setHapticIntensity(intensity: net.nexus.app.data.HapticIntensity) = updateSettings { it.copy(hapticIntensity = intensity) }
     fun setKillSwitch(enabled: Boolean) = updateSettings { it.copy(killSwitch = enabled) }
+    fun setAppTheme(theme: net.nexus.app.data.AppTheme) = updateSettings { it.copy(appTheme = theme) }
+    fun setAppIcon(icon: net.nexus.app.data.AppIcon) {
+        updateSettings { it.copy(appIcon = icon) }
+        net.nexus.app.ui.AppIconManager.applyIcon(getApplication(), icon)
+        net.nexus.app.vpn.NexusVpnService.instance?.refreshNotification()
+    }
 
     // ---------- updates ----------
 
@@ -542,8 +552,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     } catch (_: Exception) {}
                 }
 
-                // Register active device session in RemnaWave
-                TelegramAuthManager.registerDevice(finalUser, hwid)
+                // Register active device session in RemnaWave and handle trial status
+                val regResult = TelegramAuthManager.registerDevice(finalUser, hwid)
+                if (regResult.trialStatus == "hwid_already_used") {
+                    emit(R.string.trial_already_used)
+                } else if (regResult.trialStatus == "activated") {
+                    emit(R.string.trial_activated_success)
+                    try {
+                        finalUser = TelegramAuthManager.refreshFromRemnaWave(finalUser)
+                        telegramUser.value = finalUser
+                        store.saveTelegramUser(finalUser)
+                        if (finalUser.subscriptionUrl.isNotBlank()) {
+                            val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl, hwid)
+                            upsertSubscription(finalUser.subscriptionUrl, r)
+                            serverCount = r.servers.size
+                        }
+                    } catch (_: Exception) {}
+                }
 
                 telegramAuthState.value = TelegramAuthState.Success(finalUser, serverCount)
                 emit(R.string.tg_auth_success, finalUser.formattedUsername)
@@ -583,7 +608,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     emit(R.string.tg_no_active_sub)
                 }
 
-                TelegramAuthManager.registerDevice(updatedUser, hwid)
+                val regRes = TelegramAuthManager.registerDevice(updatedUser, hwid)
+                if (regRes.trialStatus == "hwid_already_used" && !quiet) {
+                    emit(R.string.trial_already_used)
+                } else if (regRes.trialStatus == "activated") {
+                    emit(R.string.trial_activated_success)
+                }
             } catch (e: Exception) {
                 if (!quiet) {
                     emit(R.string.tg_sync_failed, e.message ?: "Ошибка синхронизации")
