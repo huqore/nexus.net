@@ -125,10 +125,13 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+
+        <!-- Dedicated non-exported receiver for widget toggle button to prevent 3rd-party component hijacking -->
+        <receiver
+            android:name=".vpn.NexusWidgetToggleReceiver"
+            android:exported="false" />
 
         <!-- Home screen App Widget -->
         <receiver

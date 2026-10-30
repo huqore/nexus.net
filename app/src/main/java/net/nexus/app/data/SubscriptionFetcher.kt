@@ -27,10 +27,7 @@ object SubscriptionFetcher {
 
     fun fetch(url: String, hwid: String? = null): FetchResult {
         val trimmed = url.trim()
-        if (!trimmed.startsWith("https://", ignoreCase = true) &&
-            !trimmed.startsWith("http://127.0.0.1", ignoreCase = true) &&
-            !trimmed.startsWith("http://localhost", ignoreCase = true)
-        ) {
+        if (!net.nexus.app.security.UrlValidator.isSecureUrl(trimmed, allowLoopback = true)) {
             error("Insecure subscription URL: HTTPS is required to protect credentials")
         }
         val conn = (URL(trimmed).openConnection() as HttpURLConnection).apply {

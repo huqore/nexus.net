@@ -157,7 +157,7 @@ object TelegramAuthManager {
     }
 
     private fun httpGet(urlStr: String): String {
-        if (!urlStr.startsWith("https://", ignoreCase = true)) error("HTTPS is required for secure authentication")
+        if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 12_000
@@ -175,7 +175,7 @@ object TelegramAuthManager {
     }
 
     private fun httpPost(urlStr: String, jsonBody: String): String? {
-        if (!urlStr.startsWith("https://", ignoreCase = true)) error("HTTPS is required for secure authentication")
+        if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 10_000

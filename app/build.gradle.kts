@@ -27,8 +27,8 @@ android {
         applicationId = "net.nexus.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "2.4.4"
+        versionCode = 27
+        versionName = "2.4.5"
     }
 
     splits {
@@ -38,9 +38,19 @@ android {
     }
 
     signingConfigs {
-        // Debug keystore is used for the release build too, so the APK is installable out of the box.
-        // Replace with your own keystore before publishing anywhere.
-        getByName("debug")
+        create("release") {
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+            val keystoreFile = keystorePath?.let { file(it) }
+            if (keystoreFile != null && keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            } else {
+                // Fallback to debug configuration only when release keystore is not supplied in environment
+                initWith(getByName("debug"))
+            }
+        }
     }
 
     buildTypes {
@@ -48,7 +58,7 @@ android {
             // The gomobile core uses JNI/reflection heavily; keep shrinking off unless tested with proguard-rules.pro.
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -78,6 +88,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    testImplementation("junit:junit:4.13.2")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)

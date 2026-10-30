@@ -8,10 +8,8 @@ import net.nexus.app.data.Store
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
-            intent.action != "android.intent.action.QUICKBOOT_POWERON" &&
-            intent.action != "com.htc.intent.action.QUICKBOOT_POWERON"
-        ) return
+        // Enforce system-only BOOT_COMPLETED broadcast; reject any vendor quickboot or custom spoofed actions
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
 
         val store = Store(context)
         val settings = store.loadSettings()

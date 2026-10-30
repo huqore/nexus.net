@@ -33,7 +33,7 @@ object UpdateDownloader {
         if (tempFile.exists()) tempFile.delete()
 
         var currentUrl = release.downloadUrl
-        if (!currentUrl.startsWith("https://", ignoreCase = true)) {
+        if (!net.nexus.app.security.UrlValidator.isSecureUrl(currentUrl, allowLoopback = false)) {
             error("Insecure download URL: HTTPS is required")
         }
         var conn: HttpURLConnection? = null
@@ -57,10 +57,10 @@ object UpdateDownloader {
                 val code = connection.responseCode
                 if (code in 300..399) {
                     val location = connection.getHeaderField("Location") ?: break
-                    val redirectedUrl = URL(URL(currentUrl), location).toString()
-                    if (!redirectedUrl.startsWith("https://", ignoreCase = true)) {
-                        error("Insecure redirect: HTTPS is required")
+                    if (!net.nexus.app.security.UrlValidator.isSafeRedirect(currentUrl, location)) {
+                        error("Insecure redirect rejected: HTTPS required")
                     }
+                    val redirectedUrl = java.net.URI(currentUrl).resolve(location).toString()
                     currentUrl = redirectedUrl
                     redirects++
                     connection.disconnect()

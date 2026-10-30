@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.VpnService
-import android.os.Build
 import android.widget.RemoteViews
 import net.nexus.app.MainActivity
 import net.nexus.app.R
@@ -16,7 +15,6 @@ import net.nexus.app.data.Store
 import net.nexus.app.ui.HapticManager
 import net.nexus.app.ui.HapticType
 import net.nexus.app.ui.cleanServerName
-import net.nexus.app.ui.flagFor
 
 class NexusAppWidgetProvider : AppWidgetProvider() {
 
@@ -26,38 +24,29 @@ class NexusAppWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        if (intent.action == ACTION_TOGGLE_VPN) {
-            handleToggle(context)
-        }
-    }
-
-    private fun handleToggle(context: Context) {
-        val store = Store(context)
-        val settings = store.loadSettings()
-        HapticManager.trigger(context, settings.hapticIntensity, HapticType.TOGGLE)
-
-        val currentStatus = VpnState.status.value
-        if (currentStatus == VpnStatus.CONNECTED || currentStatus == VpnStatus.CONNECTING) {
-            NexusVpnService.stop(context)
-        } else {
-            val prepare = VpnService.prepare(context)
-            if (prepare != null) {
-                val openIntent = Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }
-                context.startActivity(openIntent)
-            } else {
-                val targetServerId = settings.selectedServerId ?: Store.AUTO_SERVER_ID
-                NexusVpnService.start(context, targetServerId)
-            }
-        }
-        updateAllWidgets(context)
-    }
-
     companion object {
-        const val ACTION_TOGGLE_VPN = "net.nexus.app.widget.ACTION_TOGGLE_VPN"
+        fun handleToggle(context: Context) {
+            val store = Store(context)
+            val settings = store.loadSettings()
+            HapticManager.trigger(context, settings.hapticIntensity, HapticType.TOGGLE)
+
+            val currentStatus = VpnState.status.value
+            if (currentStatus == VpnStatus.CONNECTED || currentStatus == VpnStatus.CONNECTING) {
+                NexusVpnService.stop(context)
+            } else {
+                val prepare = VpnService.prepare(context)
+                if (prepare != null) {
+                    val openIntent = Intent(context, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    }
+                    context.startActivity(openIntent)
+                } else {
+                    val targetServerId = settings.selectedServerId ?: Store.AUTO_SERVER_ID
+                    NexusVpnService.start(context, targetServerId)
+                }
+            }
+            updateAllWidgets(context)
+        }
 
         fun updateAllWidgets(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context) ?: return
@@ -130,11 +119,8 @@ class NexusAppWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
 
-            // Click on toggle button -> toggle VPN
-            val toggleIntent = Intent(context, NexusAppWidgetProvider::class.java).apply {
-                action = ACTION_TOGGLE_VPN
-                setPackage(context.packageName)
-            }
+            // Click on toggle button -> toggle VPN via dedicated non-exported receiver
+            val toggleIntent = Intent(context, NexusWidgetToggleReceiver::class.java)
             val togglePendingIntent = PendingIntent.getBroadcast(
                 context, 1, toggleIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT

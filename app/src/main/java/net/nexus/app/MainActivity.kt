@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleDeepLink(intent)
         enableEdgeToEdge()
         setContent {
             val settings by vm.settings.collectAsState()
@@ -142,6 +143,24 @@ class MainActivity : AppCompatActivity() {
                     UpdateDialog(state = updateState, vm = vm)
                     TelegramAuthDialog(state = tgAuthState, vm = vm)
                 }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLink(intent)
+    }
+
+    private fun handleDeepLink(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme.equals("nexus", ignoreCase = true)) {
+            val subUrl = uri.getQueryParameter("url")
+                ?: uri.getQueryParameter("sub")
+                ?: uri.getQueryParameter("link")
+            if (!subUrl.isNullOrBlank()) {
+                vm.addInput(subUrl.trim())
             }
         }
     }

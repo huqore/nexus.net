@@ -21,3 +21,4 @@
 -keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+
