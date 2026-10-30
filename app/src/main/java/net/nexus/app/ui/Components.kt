@@ -18,6 +18,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -109,30 +113,119 @@ fun countryCodeFor(name: String): String {
 }
 
 @Composable
-fun FlagBox(name: String, size: Dp = 48.dp) {
+fun CountryFlag(code: String, size: Dp, modifier: Modifier = Modifier) {
+    when (code) {
+        "DE" -> {
+            // Germany: 3 horizontal stripes Black, Red, Gold
+            Canvas(modifier = modifier.fillMaxSize()) {
+                val h = this.size.height / 3f
+                drawRect(Color(0xFF1E1E1E), Offset(0f, 0f), Size(this.size.width, h))
+                drawRect(Color(0xFFDD0000), Offset(0f, h), Size(this.size.width, h))
+                drawRect(Color(0xFFFFCC00), Offset(0f, h * 2f), Size(this.size.width, h))
+            }
+        }
+        "FI" -> {
+            // Finland: White background with Blue Nordic cross
+            Canvas(modifier = modifier.fillMaxSize()) {
+                drawRect(Color(0xFFFFFFFF), Offset.Zero, this.size)
+                val barH = this.size.height * 0.26f
+                val barW = this.size.width * 0.22f
+                val crossX = this.size.width * 0.36f
+                drawRect(Color(0xFF003580), Offset(0f, (this.size.height - barH) / 2f), Size(this.size.width, barH))
+                drawRect(Color(0xFF003580), Offset(crossX - barW / 2f, 0f), Size(barW, this.size.height))
+            }
+        }
+        "NL" -> {
+            // Netherlands: 3 horizontal stripes Bright Red, White, Cobalt Blue
+            Canvas(modifier = modifier.fillMaxSize()) {
+                val h = this.size.height / 3f
+                drawRect(Color(0xFFC8102E), Offset(0f, 0f), Size(this.size.width, h))
+                drawRect(Color(0xFFFFFFFF), Offset(0f, h), Size(this.size.width, h))
+                drawRect(Color(0xFF003DA5), Offset(0f, h * 2f), Size(this.size.width, h))
+            }
+        }
+        "SE" -> {
+            // Sweden: Blue background with Yellow Nordic cross
+            Canvas(modifier = modifier.fillMaxSize()) {
+                drawRect(Color(0xFF006AA7), Offset.Zero, this.size)
+                val barH = this.size.height * 0.26f
+                val barW = this.size.width * 0.22f
+                val crossX = this.size.width * 0.36f
+                drawRect(Color(0xFFFECC00), Offset(0f, (this.size.height - barH) / 2f), Size(this.size.width, barH))
+                drawRect(Color(0xFFFECC00), Offset(crossX - barW / 2f, 0f), Size(barW, this.size.height))
+            }
+        }
+        "PL" -> {
+            // Poland: 2 horizontal stripes White, Crimson Red
+            Canvas(modifier = modifier.fillMaxSize()) {
+                val h = this.size.height / 2f
+                drawRect(Color(0xFFFFFFFF), Offset(0f, 0f), Size(this.size.width, h))
+                drawRect(Color(0xFFDC143C), Offset(0f, h), Size(this.size.width, h))
+            }
+        }
+        "RU" -> {
+            // Russia: 3 horizontal stripes White, Blue, Red
+            Canvas(modifier = modifier.fillMaxSize()) {
+                val h = this.size.height / 3f
+                drawRect(Color(0xFFFFFFFF), Offset(0f, 0f), Size(this.size.width, h))
+                drawRect(Color(0xFF0039A6), Offset(0f, h), Size(this.size.width, h))
+                drawRect(Color(0xFFD52B1E), Offset(0f, h * 2f), Size(this.size.width, h))
+            }
+        }
+        "US" -> {
+            // USA
+            Canvas(modifier = modifier.fillMaxSize()) {
+                val stripeH = this.size.height / 7f
+                for (i in 0 until 7) {
+                    drawRect(if (i % 2 == 0) Color(0xFFB22234) else Color.White, Offset(0f, i * stripeH), Size(this.size.width, stripeH))
+                }
+                drawRect(Color(0xFF3C3B6E), Offset.Zero, Size(this.size.width * 0.45f, stripeH * 4f))
+            }
+        }
+        "WL" -> {
+            // Whitelist Bypass (Shield vector icon styled to theme)
+            Box(
+                modifier = modifier.fillMaxSize().background(NX.accentDim.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.Shield,
+                    contentDescription = null,
+                    tint = NX.accentLight,
+                    modifier = Modifier.size(size * 0.56f)
+                )
+            }
+        }
+        else -> {
+            // Generic server icon
+            Box(
+                modifier = modifier.fillMaxSize().background(NX.iconBtn),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.Dns,
+                    contentDescription = null,
+                    tint = NX.muted2,
+                    modifier = Modifier.size(size * 0.52f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FlagBox(name: String, size: Dp = 42.dp) {
     val code = countryCodeFor(name)
     val isWl = code == "WL"
+    val shape = RoundedCornerShape(12.dp)
     Box(
         Modifier
             .size(size)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isWl) NX.accentDim.copy(alpha = 0.5f) else NX.iconBtn)
-            .border(1.dp, if (isWl) NX.accentLight.copy(alpha = 0.6f) else NX.cardBorder, RoundedCornerShape(14.dp)),
+            .clip(shape)
+            .border(1.dp, if (isWl) NX.accentLight.copy(alpha = 0.7f) else NX.cardBorder.copy(alpha = 0.65f), shape),
         contentAlignment = Alignment.Center,
     ) {
-        if (isWl) {
-            Icon(Icons.Filled.Shield, contentDescription = null, tint = NX.accentLight, modifier = Modifier.size(size * 0.52f))
-        } else if (code.isNotEmpty()) {
-            Text(
-                code,
-                fontWeight = FontWeight.Bold,
-                fontSize = (size.value * 0.36f).sp,
-                color = NX.accentLight,
-                fontFamily = FontFamily.Monospace
-            )
-        } else {
-            Icon(Icons.Filled.Dns, contentDescription = null, tint = NX.muted2, modifier = Modifier.size(size * 0.5f))
-        }
+        CountryFlag(code = code, size = size)
     }
 }
 
@@ -152,7 +245,7 @@ fun TagLine(s: Server) {
         part(" - ", NX.muted)
         part(s.source, if (s.source == "JSON") NX.yellow else NX.purple)
     }
-    Text(text, fontFamily = FontFamily.Monospace, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(text, fontFamily = FontFamily.Monospace, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
@@ -222,13 +315,20 @@ fun ServerRow(
                 .padding(horizontal = 12.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            FlagBox(server.name)
-            Spacer(Modifier.width(14.dp))
+            FlagBox(server.name, size = 42.dp)
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(cleanServerName(server.name), fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    cleanServerName(server.name),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
                 TagLine(server)
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
             PingBadge(server.pingMs, pinging)
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

@@ -367,7 +367,7 @@ private fun AutoServerButton(
 
     Row(
         modifier
-            .height(68.dp)
+            .height(66.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -376,34 +376,36 @@ private fun AutoServerButton(
             .background(bgColor)
             .border(1.dp, borderColor, shape)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .size(30.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(if (selected) NX.accent.copy(alpha = 0.25f) else NX.iconBtn),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.Bolt, null, tint = if (selected) Color.White else NX.accent, modifier = Modifier.size(22.dp))
+            Icon(Icons.Filled.Bolt, null, tint = if (selected) Color.White else NX.accent, modifier = Modifier.size(18.dp))
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(6.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 stringResource(R.string.globe_auto_select),
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = NX.text,
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis
             )
             val sub = if (bestServer != null) cleanServerName(bestServer.name) else "AUTO"
             Text(
                 sub,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 color = NX.muted,
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -438,7 +440,7 @@ private fun PingTestButton(
 
     Row(
         modifier
-            .height(68.dp)
+            .height(66.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -447,13 +449,13 @@ private fun PingTestButton(
             .background(NX.card)
             .border(1.dp, NX.cardBorder, shape)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .size(30.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(NX.iconBtn),
             contentAlignment = Alignment.Center
         ) {
@@ -462,25 +464,27 @@ private fun PingTestButton(
                 null,
                 tint = NX.accent,
                 modifier = Modifier
-                    .size(22.dp)
+                    .size(18.dp)
                     .graphicsLayer { if (isPinging) rotationZ = rotation }
             )
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(6.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 stringResource(R.string.globe_ping_test),
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = NX.text,
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 if (isPinging) stringResource(R.string.globe_pinging) else stringResource(R.string.globe_all_servers_short),
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 color = NX.muted,
                 maxLines = 1,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -578,10 +582,11 @@ private fun SelectedServerCard(
                 }
                 Text(
                     text = title,
-                    fontSize = 20.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))

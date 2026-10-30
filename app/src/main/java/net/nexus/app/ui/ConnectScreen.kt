@@ -48,6 +48,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
@@ -420,17 +421,15 @@ private fun ServerCard(
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background(NX.iconBtn), contentAlignment = Alignment.Center) {
-            AnimatedContent(
-                targetState = if (isAuto && !isConnected) "⚡" else selected?.name,
-                transitionSpec = { fadeIn(tween(200)).togetherWith(fadeOut(tween(150))) },
-                label = "flagTransition"
-            ) { name ->
-                if (name == "⚡") {
-                    Text("⚡", fontSize = 20.sp)
-                } else {
-                    Text(if (name != null) flagFor(name) else "🌐", fontSize = 22.sp)
-                }
+        if (isAuto && !isConnected) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(NX.iconBtn), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Bolt, contentDescription = null, tint = NX.accent, modifier = Modifier.size(24.dp))
+            }
+        } else if (selected != null) {
+            FlagBox(selected.name, size = 40.dp)
+        } else {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(NX.iconBtn), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Bolt, contentDescription = null, tint = NX.accent, modifier = Modifier.size(24.dp))
             }
         }
         Spacer(Modifier.width(14.dp))
