@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
+    <!-- Scoped strictly to the updates directory to prevent exposure of internal app data -->
     <cache-path name="cache_updates" path="updates" />
-    <cache-path name="cache" path="." />
-    <external-cache-path name="external_cache" path="." />
-    <files-path name="files" path="." />
 </paths>

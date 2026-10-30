@@ -45,8 +45,9 @@ android {
 
     buildTypes {
         release {
-            // The gomobile core uses JNI/reflection heavily; keep shrinking off.
+            // The gomobile core uses JNI/reflection heavily; keep shrinking off unless tested with proguard-rules.pro.
             isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
     }

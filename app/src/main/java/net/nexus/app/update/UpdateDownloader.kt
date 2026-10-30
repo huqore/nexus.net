@@ -26,12 +26,16 @@ object UpdateDownloader {
         onProgress: (Float, Long, Long) -> Unit,
     ): File = withContext(Dispatchers.IO) {
         val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
-        val targetFile = File(updatesDir, release.apkFileName.ifBlank { "nexus-update.apk" })
+        val safeName = File(release.apkFileName.ifBlank { "nexus-update.apk" }).name.replace("..", "")
+        val targetFile = File(updatesDir, if (safeName.endsWith(".apk", true)) safeName else "$safeName.apk")
         val tempFile = File(updatesDir, "${targetFile.name}.part")
 
         if (tempFile.exists()) tempFile.delete()
 
         var currentUrl = release.downloadUrl
+        if (!currentUrl.startsWith("https://", ignoreCase = true)) {
+            error("Insecure download URL: HTTPS is required")
+        }
         var conn: HttpURLConnection? = null
         var redirects = 0
 
@@ -53,7 +57,11 @@ object UpdateDownloader {
                 val code = connection.responseCode
                 if (code in 300..399) {
                     val location = connection.getHeaderField("Location") ?: break
-                    currentUrl = URL(URL(currentUrl), location).toString()
+                    val redirectedUrl = URL(URL(currentUrl), location).toString()
+                    if (!redirectedUrl.startsWith("https://", ignoreCase = true)) {
+                        error("Insecure redirect: HTTPS is required")
+                    }
+                    currentUrl = redirectedUrl
                     redirects++
                     connection.disconnect()
                     continue

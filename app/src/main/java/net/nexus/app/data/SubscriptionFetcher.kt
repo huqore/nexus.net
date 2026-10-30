@@ -26,7 +26,14 @@ object SubscriptionFetcher {
     private const val MAX_BYTES = 8 * 1024 * 1024
 
     fun fetch(url: String, hwid: String? = null): FetchResult {
-        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+        val trimmed = url.trim()
+        if (!trimmed.startsWith("https://", ignoreCase = true) &&
+            !trimmed.startsWith("http://127.0.0.1", ignoreCase = true) &&
+            !trimmed.startsWith("http://localhost", ignoreCase = true)
+        ) {
+            error("Insecure subscription URL: HTTPS is required to protect credentials")
+        }
+        val conn = (URL(trimmed).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 20_000
             instanceFollowRedirects = true
