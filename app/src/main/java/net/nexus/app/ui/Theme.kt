@@ -12,6 +12,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import android.os.Build
+import android.content.Context
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
+
 import androidx.compose.ui.unit.Density
 import net.nexus.app.data.AppTheme
 
@@ -58,6 +64,61 @@ val BaseThemeColors = NexusColorPalette(
     btnGradBottom = Color(0xFF120F22),
     sheetBg = Color(0xF2110F22),
 )
+
+val HomeScreenFallbackColors = NexusColorPalette(
+    bg = Color(0xFF0F1216),
+    card = Color(0xFF181C22),
+    cardBorder = Color(0xFF2C333D),
+    chip = Color(0xFF222831),
+    iconBtn = Color(0xFF222831),
+    accent = Color(0xFF38BDF8),
+    accentDim = Color(0xFF1E3A5F),
+    accentLight = Color(0xFF7DD3FC),
+    text = Color(0xFFF1F5F9),
+    muted = Color(0xFF94A3B8),
+    muted2 = Color(0xFFCBD5E1),
+    yellow = Color(0xFFE5C14A),
+    green = Color(0xFF3DDC97),
+    red = Color(0xFFFF5C6C),
+    purple = Color(0xFF38BDF8),
+    btnGradTop = Color(0xFF252D37),
+    btnGradBottom = Color(0xFF181C22),
+    sheetBg = Color(0xF2181C22),
+)
+
+@Composable
+fun rememberDynamicPalette(context: Context): NexusColorPalette {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val dyn = dynamicDarkColorScheme(context)
+        return remember(dyn) {
+            val bg = dyn.background
+            val card = dyn.surface
+            val primary = dyn.primary
+            val cardBorder = dyn.outlineVariant.copy(alpha = 0.5f)
+            NexusColorPalette(
+                bg = bg,
+                card = card,
+                cardBorder = cardBorder,
+                chip = dyn.surfaceVariant,
+                iconBtn = dyn.surfaceVariant,
+                accent = primary,
+                accentDim = dyn.primaryContainer.copy(alpha = 0.5f),
+                accentLight = dyn.inversePrimary,
+                text = dyn.onSurface,
+                muted = dyn.onSurfaceVariant,
+                muted2 = dyn.onSurfaceVariant.copy(alpha = 0.8f),
+                yellow = Color(0xFFE5C14A),
+                green = Color(0xFF3DDC97),
+                red = Color(0xFFFF5C6C),
+                purple = primary,
+                btnGradTop = dyn.surfaceContainerHigh,
+                btnGradBottom = card,
+                sheetBg = card.copy(alpha = 0.95f)
+            )
+        }
+    }
+    return HomeScreenFallbackColors
+}
 
 val WhiteScreenThemeColors = NexusColorPalette(
     bg = Color(0xFF0D0E12),
@@ -171,6 +232,7 @@ fun AppTheme.palette(): NexusColorPalette = when (this) {
     AppTheme.BLUE_SCREEN -> BlueScreenThemeColors
     AppTheme.RED_SCREEN -> RedScreenThemeColors
     AppTheme.WHITE_SCREEN -> WhiteScreenThemeColors
+    AppTheme.HOME_SCREEN -> HomeScreenFallbackColors
 }
 
 /** Dynamic colour tokens responding to the active theme */
@@ -203,7 +265,8 @@ fun NexusTheme(
     appTheme: AppTheme = AppTheme.BASE,
     content: @Composable () -> Unit
 ) {
-    NX.palette = appTheme.palette()
+    val ctx = LocalContext.current
+    NX.palette = if (appTheme == AppTheme.HOME_SCREEN) rememberDynamicPalette(ctx) else appTheme.palette()
     val density = LocalDensity.current
     val customDensity = Density(
         density = density.density,

@@ -841,9 +841,10 @@ private fun AppearanceScreen(
                     AppTheme.entries.forEach { theme ->
                         val selected = settings.appTheme == theme
                         val palette = theme.palette()
+                        val activePalette = if (theme == AppTheme.HOME_SCREEN) rememberDynamicPalette(ctx) else palette
                         ThemeOptionRow(
                             theme = theme,
-                            palette = palette,
+                            palette = activePalette,
                             selected = selected,
                             onClick = { onSetTheme(theme) }
                         )

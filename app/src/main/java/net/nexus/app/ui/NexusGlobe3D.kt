@@ -960,22 +960,22 @@ fun buildGlobeNodes(
         val isWl = Store.isWlBypass(s)
         val n = s.name.lowercase()
         when {
-            isWl || n.contains("bypass") || n.contains("wl") || n.contains("??????") || n.contains("russia") -> {
+            isWl || n.contains("bypass") || n.contains("wl") || n.contains("\u0440\u043E\u0441\u0441\u0438\u044F") || n.contains("russia") -> {
                 wlBypassServers.add(s)
             }
-            n.contains("??????") || n.contains("germany") || s.name.contains("????") || Regex("""\bde\b""").containsMatchIn(n) -> {
+            n.contains("\u0433\u0435\u0440\u043C\u0430\u043D") || n.contains("germany") || s.name.contains("\uD83C\uDDE9\uD83C\uDDEA") || Regex("""\\bde\\b""").containsMatchIn(n) -> {
                 germanyServers.add(s)
             }
-            n.contains("???????") || n.contains("finland") || s.name.contains("????") || Regex("""\bfi\b""").containsMatchIn(n) -> {
+            n.contains("\u0444\u0438\u043D\u043B\u044F\u043D\u0434") || n.contains("finland") || s.name.contains("\uD83C\uDDEB\uD83C\uDDEE") || Regex("""\\bfi\\b""").containsMatchIn(n) -> {
                 finlandServers.add(s)
             }
-            n.contains("?????????") || n.contains("netherlands") || n.contains("amsterdam") || s.name.contains("????") || Regex("""\bnl\b""").containsMatchIn(n) -> {
+            n.contains("\u043D\u0438\u0434\u0435\u0440\u043B\u0430\u043D\u0434") || n.contains("netherlands") || n.contains("amsterdam") || s.name.contains("\uD83C\uDDF3\uD83C\uDDF1") || Regex("""\\bnl\\b""").containsMatchIn(n) -> {
                 netherlandsServers.add(s)
             }
-            n.contains("?????") || n.contains("sweden") || n.contains("stockholm") || s.name.contains("????") || Regex("""\bse\b""").containsMatchIn(n) -> {
+            n.contains("\u0448\u0432\u0435\u0446") || n.contains("sweden") || n.contains("stockholm") || s.name.contains("\uD83C\uDDF8\uD83C\uDDEA") || Regex("""\\bse\\b""").containsMatchIn(n) -> {
                 swedenServers.add(s)
             }
-            n.contains("?????") || n.contains("poland") || n.contains("warsaw") || s.name.contains("????") || Regex("""\bpl\b""").containsMatchIn(n) -> {
+            n.contains("\u043F\u043E\u043B\u044C\u0448") || n.contains("poland") || n.contains("warsaw") || s.name.contains("\uD83C\uDDF5\uD83C\uDDF1") || Regex("""\\bpl\\b""").containsMatchIn(n) -> {
                 polandServers.add(s)
             }
         }
@@ -1006,7 +1006,7 @@ fun buildGlobeNodes(
         GlobeNode(
             id = "NODE_DE",
             countryCode = "DE",
-            countryName = "????????",
+            countryName = "\u0413\u0435\u0440\u043C\u0430\u043D\u0438\u044F",
             flag = "",
             lat = GlobeCoordinates.GERMANY_LAT,
             lon = GlobeCoordinates.GERMANY_LON,
@@ -1024,7 +1024,7 @@ fun buildGlobeNodes(
         GlobeNode(
             id = "NODE_FI",
             countryCode = "FI",
-            countryName = "?????????",
+            countryName = "\u0424\u0438\u043D\u043B\u044F\u043D\u0434\u0438\u044F",
             flag = "",
             lat = GlobeCoordinates.FINLAND_LAT,
             lon = GlobeCoordinates.FINLAND_LON,
@@ -1042,7 +1042,7 @@ fun buildGlobeNodes(
         GlobeNode(
             id = "NODE_NL",
             countryCode = "NL",
-            countryName = "??????????",
+            countryName = "\u041D\u0438\u0434\u0435\u0440\u043B\u0430\u043D\u0434\u044B",
             flag = "",
             lat = GlobeCoordinates.NETHERLANDS_LAT,
             lon = GlobeCoordinates.NETHERLANDS_LON,
@@ -1060,7 +1060,7 @@ fun buildGlobeNodes(
         GlobeNode(
             id = "NODE_SE",
             countryCode = "SE",
-            countryName = "??????",
+            countryName = "\u0428\u0432\u0435\u0446\u0438\u044F",
             flag = "",
             lat = GlobeCoordinates.SWEDEN_LAT,
             lon = GlobeCoordinates.SWEDEN_LON,
@@ -1078,7 +1078,7 @@ fun buildGlobeNodes(
         GlobeNode(
             id = "NODE_PL",
             countryCode = "PL",
-            countryName = "??????",
+            countryName = "\u041F\u043E\u043B\u044C\u0448\u0430",
             flag = "",
             lat = GlobeCoordinates.POLAND_LAT,
             lon = GlobeCoordinates.POLAND_LON,

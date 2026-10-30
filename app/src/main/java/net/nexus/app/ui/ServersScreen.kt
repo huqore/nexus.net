@@ -288,17 +288,17 @@ private fun getLocationForServer(server: Server): Pair<Float, Float> {
     val isWl = Store.isWlBypass(server)
     val n = server.name.lowercase()
     return when {
-        isWl || n.contains("bypass") || n.contains("wl") || n.contains("??????") || n.contains("russia") ->
+        isWl || n.contains("bypass") || n.contains("wl") || n.contains("\u0440\u043E\u0441\u0441\u0438\u044F") || n.contains("russia") ->
             Pair(GlobeCoordinates.RUSSIA_WL_LAT, GlobeCoordinates.RUSSIA_WL_LON)
-        n.contains("??????") || n.contains("germany") || server.name.contains("????") || Regex("""\bde\b""").containsMatchIn(n) ->
+        n.contains("\u0433\u0435\u0440\u043C\u0430\u043D") || n.contains("germany") || server.name.contains("\uD83C\uDDE9\uD83C\uDDEA") || Regex("""\\bde\\b""").containsMatchIn(n) ->
             Pair(GlobeCoordinates.GERMANY_LAT, GlobeCoordinates.GERMANY_LON)
-        n.contains("???????") || n.contains("finland") || server.name.contains("????") || Regex("""\bfi\b""").containsMatchIn(n) ->
+        n.contains("\u0444\u0438\u043D\u043B\u044F\u043D\u0434") || n.contains("finland") || server.name.contains("\uD83C\uDDEB\uD83C\uDDEE") || Regex("""\\bfi\\b""").containsMatchIn(n) ->
             Pair(GlobeCoordinates.FINLAND_LAT, GlobeCoordinates.FINLAND_LON)
-        n.contains("?????????") || n.contains("netherlands") || n.contains("amsterdam") || server.name.contains("????") || Regex("""\bnl\b""").containsMatchIn(n) ->
+        n.contains("\u043D\u0438\u0434\u0435\u0440\u043B\u0430\u043D\u0434") || n.contains("netherlands") || n.contains("amsterdam") || server.name.contains("\uD83C\uDDF3\uD83C\uDDF1") || Regex("""\\bnl\\b""").containsMatchIn(n) ->
             Pair(GlobeCoordinates.NETHERLANDS_LAT, GlobeCoordinates.NETHERLANDS_LON)
-        n.contains("?????") || n.contains("sweden") || n.contains("stockholm") || server.name.contains("????") || Regex("""\bse\b""").containsMatchIn(n) ->
+        n.contains("\u0448\u0432\u0435\u0446") || n.contains("sweden") || n.contains("stockholm") || server.name.contains("\uD83C\uDDF8\uD83C\uDDEA") || Regex("""\\bse\\b""").containsMatchIn(n) ->
             Pair(GlobeCoordinates.SWEDEN_LAT, GlobeCoordinates.SWEDEN_LON)
-        n.contains("?????") || n.contains("poland") || n.contains("warsaw") || server.name.contains("????") || Regex("""\bpl\b""").containsMatchIn(n) ->
+        n.contains("\u043F\u043E\u043B\u044C\u0448") || n.contains("poland") || n.contains("warsaw") || server.name.contains("\uD83C\uDDF5\uD83C\uDDF1") || Regex("""\\bpl\\b""").containsMatchIn(n) ->
             Pair(GlobeCoordinates.POLAND_LAT, GlobeCoordinates.POLAND_LON)
         else ->
             Pair(GlobeCoordinates.GERMANY_LAT, GlobeCoordinates.GERMANY_LON)
