@@ -36,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.layout
+import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -72,24 +74,24 @@ data class GlobeNode(
 )
 
 object GlobeCoordinates {
-    // Placed strictly inside real national borders, at maximal border separation
-    const val NETHERLANDS_LAT = 52.2f
-    const val NETHERLANDS_LON = 5.3f
+    // Exact real geographic centers of each country on a real globe
+    const val GERMANY_LAT = 51.16f
+    const val GERMANY_LON = 10.45f
 
-    const val GERMANY_LAT = 48.0f
-    const val GERMANY_LON = 10.5f
+    const val NETHERLANDS_LAT = 52.13f
+    const val NETHERLANDS_LON = 5.29f
 
-    const val POLAND_LAT = 51.5f
-    const val POLAND_LON = 23.5f
+    const val POLAND_LAT = 52.07f
+    const val POLAND_LON = 19.48f
 
-    const val SWEDEN_LAT = 63.5f
-    const val SWEDEN_LON = 14.0f
+    const val SWEDEN_LAT = 60.13f
+    const val SWEDEN_LON = 15.00f
 
-    const val FINLAND_LAT = 64.5f
-    const val FINLAND_LON = 29.8f
+    const val FINLAND_LAT = 64.00f
+    const val FINLAND_LON = 26.00f
 
-    const val RUSSIA_WL_LAT = 56.2f
-    const val RUSSIA_WL_LON = 41.5f
+    const val RUSSIA_WL_LAT = 55.75f
+    const val RUSSIA_WL_LON = 37.62f
 }
 
 // 826 authentic land points
@@ -1122,10 +1124,10 @@ fun NexusGlobe3D(
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // Magnified view centered on European & Eurasian servers (zoom 2.35x)
+    // Natural realistic globe view centered on European & Eurasian servers
     val yawAnim = remember { Animatable(Math.toRadians(18.0).toFloat()) }
     val pitchAnim = remember { Animatable(Math.toRadians(-52.0).toFloat()) }
-    val zoomAnim = remember { Animatable(2.35f) }
+    val zoomAnim = remember { Animatable(1.75f) }
 
     var isUserInteracting by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
@@ -1150,7 +1152,7 @@ fun NexusGlobe3D(
             // Smoothly zoom in close to the country
             launch {
                 zoomAnim.animateTo(
-                    2.60f,
+                    2.15f,
                     animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
                 )
             }
@@ -1172,7 +1174,7 @@ fun NexusGlobe3D(
                 pitchAnim.animateTo(homePitch, tween(850, easing = FastOutSlowInEasing))
             }
             launch {
-                zoomAnim.animateTo(2.35f, tween(850, easing = FastOutSlowInEasing))
+                zoomAnim.animateTo(1.75f, tween(850, easing = FastOutSlowInEasing))
             }
         }
     }
@@ -1321,63 +1323,7 @@ fun NexusGlobe3D(
                 }
             }
 
-            // 5a. Authentic Vector Coastlines
-            val coastColor = accentColor.copy(alpha = 0.65f)
-            val coastStroke = 1.4.dp.toPx()
-            for (coast in WorldVectors.ALL_COASTLINES) {
-                var pIdx = 0
-                var prevPt: Offset? = null
-                var prevZ = 0f
-                while (pIdx < coast.size) {
-                    val lat = coast[pIdx]
-                    val lon = coast[pIdx + 1]
-                    pIdx += 2
-                    val (px, py, pz) = projectGlobePoint(lat, lon, currentYaw, currentPitch, r)
-                    val currPt = Offset(cx + px, cy + py)
-                    if (prevPt != null && (prevZ > -0.05f * r && pz > -0.05f * r)) {
-                        val depth = ((prevZ + pz) / (2f * r)).coerceIn(0f, 1f)
-                        val alpha = (0.25f + 0.75f * depth).coerceIn(0.15f, 1f)
-                        drawLine(
-                            color = coastColor.copy(alpha = coastColor.alpha * alpha),
-                            start = prevPt,
-                            end = currPt,
-                            strokeWidth = coastStroke
-                        )
-                    }
-                    prevPt = currPt
-                    prevZ = pz
-                }
-            }
-
-            // 5b. Authentic National Country Borders (Europe)
-            val borderColorVal = NX.accentLight.copy(alpha = 0.45f)
-            val borderStroke = 1.1.dp.toPx()
-            for (border in WorldVectors.BORDERS) {
-                var pIdx = 0
-                var prevPt: Offset? = null
-                var prevZ = 0f
-                while (pIdx < border.size) {
-                    val lat = border[pIdx]
-                    val lon = border[pIdx + 1]
-                    pIdx += 2
-                    val (px, py, pz) = projectGlobePoint(lat, lon, currentYaw, currentPitch, r)
-                    val currPt = Offset(cx + px, cy + py)
-                    if (prevPt != null && (prevZ > -0.05f * r && pz > -0.05f * r)) {
-                        val depth = ((prevZ + pz) / (2f * r)).coerceIn(0f, 1f)
-                        val alpha = (0.20f + 0.80f * depth).coerceIn(0.15f, 1f)
-                        drawLine(
-                            color = borderColorVal.copy(alpha = borderColorVal.alpha * alpha),
-                            start = prevPt,
-                            end = currPt,
-                            strokeWidth = borderStroke
-                        )
-                    }
-                    prevPt = currPt
-                    prevZ = pz
-                }
-            }
-
-            // 5c. Interior land point texture
+            // 5. Authentic continent dot matrix (clean sci-fi radar map)
             var idx = 0
             val len = CONTINENT_POINTS.size
             while (idx < len) {
@@ -1412,25 +1358,25 @@ fun NexusGlobe3D(
                     val nodeCenter = Offset(cx + nx, cy + ny)
                     val baseColor = if (node.isWlBypass) wlThemeColor else accentLight
 
-                    // Pulsing radar ripple waves
-                    val maxWaveR = 24.dp.toPx()
-                    val waveR1 = 6.dp.toPx() + maxWaveR * radarPulse
-                    val waveA1 = (0.65f * (1f - radarPulse) * depth).coerceIn(0f, 1f)
+                    // Pulsing radar ripple waves (compact and crisp)
+                    val maxWaveR = 14.dp.toPx()
+                    val waveR1 = 4.dp.toPx() + maxWaveR * radarPulse
+                    val waveA1 = (0.50f * (1f - radarPulse) * depth).coerceIn(0f, 1f)
                     drawCircle(
                         color = baseColor.copy(alpha = waveA1),
                         radius = waveR1,
                         center = nodeCenter,
-                        style = Stroke(width = 1.6.dp.toPx())
+                        style = Stroke(width = 1.4.dp.toPx())
                     )
 
                     val p2 = (radarPulse + 0.5f) % 1f
-                    val waveR2 = 6.dp.toPx() + maxWaveR * p2
-                    val waveA2 = (0.65f * (1f - p2) * depth).coerceIn(0f, 1f)
+                    val waveR2 = 4.dp.toPx() + maxWaveR * p2
+                    val waveA2 = (0.50f * (1f - p2) * depth).coerceIn(0f, 1f)
                     drawCircle(
                         color = baseColor.copy(alpha = waveA2),
                         radius = waveR2,
                         center = nodeCenter,
-                        style = Stroke(width = 1.4.dp.toPx())
+                        style = Stroke(width = 1.2.dp.toPx())
                     )
 
                     // Vertical 3D light pillar / beacon if node is selected
@@ -1498,14 +1444,14 @@ fun NexusGlobe3D(
                         if (isWl) wlThemeDim.copy(alpha = 0.30f) else cardColor.copy(alpha = 0.88f)
                     }
 
-                    // Smart directional offset for each country so labels NEVER overlap
+                    // Radial directional offsets from cluster center so labels NEVER overlap
                     val (dirOffsetX, dirOffsetY) = when (node.countryCode) {
-                        "SE" -> Pair((-12).dp, (-26).dp)  // Sweden: Top-Left (over Scandinavia)
-                        "FI" -> Pair(34.dp, (-22).dp)     // Finland: Top-Right (over Lapland/White Sea)
-                        "NL" -> Pair((-44).dp, (-6).dp)   // Netherlands: Left (towards North Sea)
-                        "DE" -> Pair((-18).dp, 24.dp)     // Germany: Bottom-Left (over Alps)
-                        "PL" -> Pair(26.dp, 22.dp)        // Poland: Bottom-Right (over Southeast)
-                        "WL" -> Pair(42.dp, 0.dp)         // WL Bypass (Russia): Right (into Russia)
+                        "NL" -> Pair((-54).dp, (-4).dp)   // Netherlands: West
+                        "DE" -> Pair(0.dp, 34.dp)         // Germany: South
+                        "PL" -> Pair(26.dp, 32.dp)        // Poland: South-East
+                        "SE" -> Pair((-18).dp, (-34).dp)  // Sweden: North / Up-Left
+                        "FI" -> Pair(34.dp, (-30).dp)     // Finland: North-East / Up-Right
+                        "WL" -> Pair(52.dp, 0.dp)         // WL Bypass: East
                         else -> Pair(0.dp, (-22).dp)
                     }
 
@@ -1513,9 +1459,15 @@ fun NexusGlobe3D(
 
                     Box(
                         modifier = Modifier
+                            .layout { measurable, constraints ->
+                                val p = measurable.measure(constraints)
+                                layout(p.width, p.height) {
+                                    val px = (nodeX + dirOffsetX.toPx() - p.width / 2f).roundToInt()
+                                    val py = (nodeY + dirOffsetY.toPx() - p.height / 2f).roundToInt()
+                                    p.placeRelative(px, py)
+                                }
+                            }
                             .graphicsLayer {
-                                translationX = nodeX + dirOffsetX.toPx() - 32.dp.toPx()
-                                translationY = nodeY + dirOffsetY.toPx() - 14.dp.toPx()
                                 this.alpha = alpha
                                 scaleX = 0.85f + 0.15f * depth
                                 scaleY = 0.85f + 0.15f * depth
