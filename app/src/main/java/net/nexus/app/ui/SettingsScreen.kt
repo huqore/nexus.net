@@ -134,6 +134,7 @@ fun SettingsScreen(vm: MainViewModel) {
                     settings = s,
                     onSetTheme = vm::setAppTheme,
                     onSetIcon = vm::setAppIcon,
+                    onSetUse3dGlobe = vm::setUse3dGlobe,
                     onBack = { subscreen = SettingsSubscreen.MAIN }
                 )
             }
@@ -381,35 +382,6 @@ fun SettingsScreen(vm: MainViewModel) {
                             Switch(
                                 checked = s.killSwitch,
                                 onCheckedChange = { vm.setKillSwitch(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = NX.accent,
-                                    uncheckedThumbColor = NX.muted,
-                                    uncheckedTrackColor = NX.iconBtn,
-                                )
-                            )
-                        }
-                    }
-                }
-
-                item {
-                    Section(stringResource(R.string.settings_server_display_title)) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(stringResource(R.string.settings_use_3d_globe), fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    stringResource(R.string.settings_use_3d_globe_desc),
-                                    fontSize = 12.sp,
-                                    color = NX.muted
-                                )
-                            }
-                            Switch(
-                                checked = s.use3dGlobe,
-                                onCheckedChange = { vm.setUse3dGlobe(it) },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.White,
                                     checkedTrackColor = NX.accent,
@@ -794,6 +766,7 @@ private fun AppearanceScreen(
     settings: Settings,
     onSetTheme: (AppTheme) -> Unit,
     onSetIcon: (AppIcon) -> Unit,
+    onSetUse3dGlobe: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -830,6 +803,35 @@ private fun AppearanceScreen(
                     fontWeight = FontWeight.Bold,
                     color = NX.text
                 )
+            }
+        }
+
+        item {
+            Section(stringResource(R.string.settings_server_display_title)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(stringResource(R.string.settings_use_3d_globe), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            stringResource(R.string.settings_use_3d_globe_desc),
+                            fontSize = 12.sp,
+                            color = NX.muted
+                        )
+                    }
+                    Switch(
+                        checked = settings.use3dGlobe,
+                        onCheckedChange = { onSetUse3dGlobe(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = NX.accent,
+                            uncheckedThumbColor = NX.muted,
+                            uncheckedTrackColor = NX.iconBtn,
+                        )
+                    )
+                }
             }
         }
 

@@ -30,6 +30,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -367,7 +369,7 @@ private fun SelectedServerCard(
                         .border(1.dp, Color(0x66FFA000), RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("???", fontSize = 26.sp)
+                    Icon(Icons.Filled.Shield, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(28.dp))
                 }
             } else if (selected != null) {
                 FlagBox(selected.name, size = 52.dp)
@@ -379,7 +381,7 @@ private fun SelectedServerCard(
                         .background(NX.iconBtn),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("?", fontSize = 26.sp)
+                    Icon(Icons.Filled.Bolt, contentDescription = null, tint = NX.accent, modifier = Modifier.size(28.dp))
                 }
             }
 
@@ -711,7 +713,7 @@ private fun AutoServerCard(
                 .background(if (selected) NX.accent.copy(alpha = 0.25f) else NX.iconBtn),
             contentAlignment = Alignment.Center
         ) {
-            Text("?", fontSize = 24.sp)
+            Icon(Icons.Filled.Bolt, contentDescription = null, tint = if (selected) Color.White else NX.accent, modifier = Modifier.size(28.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -729,7 +731,7 @@ private fun AutoServerCard(
             }
             val tagText = buildAnnotatedString {
                 withStyle(SpanStyle(color = NX.accent)) { append("AUTO") }
-                withStyle(SpanStyle(color = NX.muted)) { append(" ? ") }
+                withStyle(SpanStyle(color = NX.muted)) { append(" - ") }
                 withStyle(SpanStyle(color = NX.muted2)) { append(subText) }
             }
             Text(tagText, fontFamily = FontFamily.Monospace, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
