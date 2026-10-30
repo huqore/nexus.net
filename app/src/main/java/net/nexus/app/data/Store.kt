@@ -34,6 +34,7 @@ class Store(context: Context) {
             killSwitch = o.optBoolean("killSwitch", false),
             appTheme = AppTheme.fromId(o.optString("appTheme", "base")),
             appIcon = AppIcon.fromId(o.optString("appIcon", "default")),
+            use3dGlobe = o.optBoolean("use3dGlobe", true),
         )
     }.getOrDefault(Settings())
 
@@ -50,6 +51,7 @@ class Store(context: Context) {
             .put("killSwitch", s.killSwitch)
             .put("appTheme", s.appTheme.id)
             .put("appIcon", s.appIcon.id)
+            .put("use3dGlobe", s.use3dGlobe)
         prefs.edit().putString("settings", o.toString()).apply()
     }
 
@@ -138,5 +140,14 @@ class Store(context: Context) {
 
     companion object {
         const val AUTO_SERVER_ID = "__auto__"
+
+        fun isWlBypass(server: Server): Boolean {
+            val n = server.name.lowercase()
+            return n.contains("wl bypass") ||
+                   n.contains("wl-bypass") ||
+                   n.contains("wl_bypass") ||
+                   n.contains("whitelist") ||
+                   Regex("""\bwl\b""", RegexOption.IGNORE_CASE).containsMatchIn(server.name)
+        }
     }
 }

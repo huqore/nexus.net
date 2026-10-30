@@ -125,4 +125,5 @@ data class Settings(
     val killSwitch: Boolean = false,
     val appTheme: AppTheme = AppTheme.BASE,
     val appIcon: AppIcon = AppIcon.DEFAULT,
+    val use3dGlobe: Boolean = true,
 )

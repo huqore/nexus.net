@@ -363,6 +363,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         net.nexus.app.vpn.NexusVpnService.instance?.refreshNotification()
     }
 
+    fun setUse3dGlobe(enabled: Boolean) = updateSettings { it.copy(use3dGlobe = enabled) }
+
     // ---------- updates ----------
 
     fun checkForUpdates(manual: Boolean = false) {

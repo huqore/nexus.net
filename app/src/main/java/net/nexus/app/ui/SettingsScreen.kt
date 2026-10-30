@@ -393,6 +393,35 @@ fun SettingsScreen(vm: MainViewModel) {
                 }
 
                 item {
+                    Section(stringResource(R.string.settings_server_display_title)) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(stringResource(R.string.settings_use_3d_globe), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    stringResource(R.string.settings_use_3d_globe_desc),
+                                    fontSize = 12.sp,
+                                    color = NX.muted
+                                )
+                            }
+                            Switch(
+                                checked = s.use3dGlobe,
+                                onCheckedChange = { vm.setUse3dGlobe(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = NX.accent,
+                                    uncheckedThumbColor = NX.muted,
+                                    uncheckedTrackColor = NX.iconBtn,
+                                )
+                            )
+                        }
+                    }
+                }
+
+                item {
                     Section(stringResource(R.string.settings_appearance_title)) {
                         LinkRow(
                             icon = Icons.Filled.Palette,
