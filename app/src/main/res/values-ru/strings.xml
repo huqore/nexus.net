@@ -170,6 +170,11 @@
     <string name="sub_notif_title">nexus.net · Подписка</string>
     <string name="sub_notif_expiring_today">Ваша подписка заканчивается сегодня! Нажмите для продления.</string>
     <string name="sub_notif_expiring_days">Ваша подписка заканчивается через %1$d дн. Нажмите для продления.</string>
+    <string name="sub_banner_renew_1click">Продлить в 1 клик</string>
+    <string name="sub_banner_subtitle">Продлите доступ, чтобы сохранить высокую скорость</string>
+    <string name="sub_banner_days_left">Осталось %1$d дн. подписки</string>
+    <string name="sub_banner_1_day">Остался 1 день подписки</string>
+    <string name="sub_banner_today">Подписка заканчивается сегодня</string>
 
     <!-- Kill Switch & Haptics & Speed Graph & Widget -->
     <string name="settings_kill_switch">Kill Switch (Блокировка утечек)</string>

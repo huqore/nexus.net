@@ -6,6 +6,9 @@ import androidx.compose.ui.platform.LocalContext
 import net.nexus.app.auth.SubscriptionNotifier
 import net.nexus.app.data.Store
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -171,6 +174,13 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
                     ctx.startActivity(intent)
                 }
             }
+            SubscriptionExpiringBanner(
+                user = tgUser,
+                onRenew = {
+                    HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                    openUrl(ctx.getString(R.string.tg_auth_bot_url))
+                }
+            )
             TelegramSyncBar(
                 user = tgUser,
                 isSyncing = isSyncingTg,
@@ -235,8 +245,14 @@ private fun PowerButton(status: VpnStatus, onClick: () -> Unit) {
     val angle by spin.animateFloat(
         0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "angle",
     )
-    val pulse by spin.animateFloat(
-        0.82f, 1.05f, infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "pulse",
+    val breathePulse by spin.animateFloat(
+        0.75f, 1.0f, infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breathePulse",
+    )
+    val wave1 by spin.animateFloat(
+        0f, 1f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "wave1",
+    )
+    val wave2 by spin.animateFloat(
+        0f, 1f, infiniteRepeatable(tween(2600, delayMillis = 1300, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "wave2",
     )
     val rippleProgress by spin.animateFloat(
         0f, 1f, infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart), label = "ripple",
@@ -296,14 +312,32 @@ private fun PowerButton(status: VpnStatus, onClick: () -> Unit) {
             val stroke = 7.dp.toPx()
             val r = outer - 22.dp.toPx()
 
-            // Outer breathing glow when connected
+            // Outer soft breathing glow and smooth expanding waves in active theme color
             if (connected) {
                 drawCircle(
                     Brush.radialGradient(
-                        listOf(ringColor.copy(alpha = 0.45f * pulse), Color.Transparent),
-                        radius = outer * 1.05f
+                        listOf(NX.accent.copy(alpha = 0.40f * breathePulse), Color.Transparent),
+                        radius = outer * 1.18f
                     ),
-                    radius = outer * 1.05f,
+                    radius = outer * 1.18f,
+                )
+
+                // Soft wave 1 - expanding ripple in theme accent
+                val rWave1 = r + (outer - r + 16.dp.toPx()) * wave1
+                val alphaWave1 = (0.38f * (1f - wave1)).coerceIn(0f, 1f)
+                drawCircle(
+                    color = NX.accent.copy(alpha = alphaWave1),
+                    radius = rWave1,
+                    style = Stroke(3.5.dp.toPx()),
+                )
+
+                // Soft wave 2 - staggered second ripple in theme accentLight
+                val rWave2 = r + (outer - r + 16.dp.toPx()) * wave2
+                val alphaWave2 = (0.30f * (1f - wave2)).coerceIn(0f, 1f)
+                drawCircle(
+                    color = NX.accentLight.copy(alpha = alphaWave2),
+                    radius = rWave2,
+                    style = Stroke(2.5.dp.toPx()),
                 )
             }
 
@@ -318,8 +352,9 @@ private fun PowerButton(status: VpnStatus, onClick: () -> Unit) {
                 )
             }
 
-            // soft halo + crisp ring
-            drawCircle(color = ringColor.copy(alpha = 0.22f * ringAlpha), radius = r, style = Stroke(stroke * 2.8f))
+            // soft halo + crisp ring in active theme color
+            val haloAlpha = if (connected) 0.30f * breathePulse else 0.18f * ringAlpha
+            drawCircle(color = ringColor.copy(alpha = haloAlpha), radius = r, style = Stroke(stroke * 2.8f))
             drawCircle(color = ringColor.copy(alpha = ringAlpha), radius = r, style = Stroke(stroke))
 
             if (connecting) {
@@ -335,6 +370,16 @@ private fun PowerButton(status: VpnStatus, onClick: () -> Unit) {
                 Brush.verticalGradient(listOf(NX.btnGradTop, NX.btnGradBottom)),
                 radius = r - stroke * 1.3f,
             )
+            if (connected) {
+                // Soft inner glow inside button in theme accent
+                drawCircle(
+                    Brush.radialGradient(
+                        listOf(NX.accent.copy(alpha = 0.20f * breathePulse), Color.Transparent),
+                        radius = (r - stroke * 1.3f) * 0.95f
+                    ),
+                    radius = (r - stroke * 1.3f) * 0.95f,
+                )
+            }
         }
         Icon(
             Icons.Filled.PowerSettingsNew, null,
@@ -667,3 +712,104 @@ private fun TelegramSyncBar(
 
 
 
+
+
+@Composable
+private fun SubscriptionExpiringBanner(
+    user: TelegramUser?,
+    onRenew: () -> Unit,
+) {
+    val daysLeft = user?.let { SubscriptionNotifier.getDaysLeft(it.expireAt) }
+    val isVisible = user != null && ((daysLeft != null && daysLeft in 0..3) || !user.isSubscribed || (daysLeft != null && daysLeft < 0))
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(tween(250)) + expandVertically(tween(250)),
+        exit = fadeOut(tween(200)) + shrinkVertically(tween(200)),
+    ) {
+        val isExpired = user != null && (!user.isSubscribed || (daysLeft != null && daysLeft <= 0))
+        val isCritical = isExpired || daysLeft == 0L || daysLeft == 1L
+        val borderColor = if (isCritical) NX.red.copy(alpha = 0.6f) else NX.yellow.copy(alpha = 0.6f)
+        val iconBg = if (isCritical) NX.red.copy(alpha = 0.15f) else NX.yellow.copy(alpha = 0.15f)
+        val iconTint = if (isCritical) NX.red else NX.yellow
+
+        val title = when {
+            isExpired -> stringResource(R.string.sub_expired)
+            daysLeft == 0L -> stringResource(R.string.sub_banner_today)
+            daysLeft == 1L -> stringResource(R.string.sub_banner_1_day)
+            daysLeft != null -> stringResource(R.string.sub_banner_days_left, daysLeft)
+            else -> stringResource(R.string.sub_expired)
+        }
+
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(NX.card)
+                    .border(1.dp, borderColor, RoundedCornerShape(18.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(iconBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Bolt,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NX.text,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.sub_banner_subtitle),
+                        fontSize = 11.sp,
+                        color = NX.muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Spacer(Modifier.width(10.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(NX.accent, NX.accentLight)
+                            )
+                        )
+                        .clickable(onClick = onRenew)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.sub_banner_renew_1click),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+    }
+}

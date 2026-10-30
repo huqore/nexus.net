@@ -171,6 +171,11 @@
     <string name="sub_notif_title">nexus.net · Subscription</string>
     <string name="sub_notif_expiring_today">Your subscription expires today! Tap to renew.</string>
     <string name="sub_notif_expiring_days">Your subscription expires in %1$d days. Tap to renew.</string>
+    <string name="sub_banner_renew_1click">Renew in 1 click</string>
+    <string name="sub_banner_subtitle">Renew to maintain full speed and protection</string>
+    <string name="sub_banner_days_left">%1$d days of subscription left</string>
+    <string name="sub_banner_1_day">1 day of subscription left</string>
+    <string name="sub_banner_today">Subscription expires today</string>
 
     <!-- Kill Switch & Haptics & Speed Graph & Widget -->
     <string name="settings_kill_switch">Kill Switch (Leak Protection)</string>

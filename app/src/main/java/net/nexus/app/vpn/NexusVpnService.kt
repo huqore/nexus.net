@@ -37,6 +37,7 @@ class NexusVpnService : VpnService() {
     private var watchdogJob: kotlinx.coroutines.Job? = null
     private var activeServerId: String? = null
     private var isAutoMode: Boolean = false
+    private var speedTickerJob: kotlinx.coroutines.Job? = null
 
     val isConnected: Boolean get() = tun != null && XrayCore.isRunning
 
@@ -92,6 +93,7 @@ class NexusVpnService : VpnService() {
                 getString(R.string.notif_connected, server.name)
             }
             showNotification(notifText)
+            startSpeedTicker(server.name)
             updateTileState()
             NexusAppWidgetProvider.updateAllWidgets(this)
 
@@ -165,6 +167,7 @@ class NexusVpnService : VpnService() {
                 activeServerId = nextServer.id
                 VpnState.connected(nextServer.id, isAuto = true, serverName = nextServer.name)
                 showNotification(getString(R.string.notif_connected_auto, nextServer.name))
+                startSpeedTicker(nextServer.name)
                 updateTileState()
                 NexusAppWidgetProvider.updateAllWidgets(this)
             }
@@ -207,6 +210,8 @@ class NexusVpnService : VpnService() {
     }
 
     private fun fail(message: String) {
+        speedTickerJob?.cancel()
+        speedTickerJob = null
         watchdogJob?.cancel()
         watchdogJob = null
         runCatching { tun?.close() }; tun = null
@@ -224,6 +229,8 @@ class NexusVpnService : VpnService() {
     }
 
     fun stopVpn() {
+        speedTickerJob?.cancel()
+        speedTickerJob = null
         watchdogJob?.cancel()
         watchdogJob = null
         runCatching { tun?.close() }; tun = null
@@ -246,6 +253,8 @@ class NexusVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        speedTickerJob?.cancel()
+        speedTickerJob = null
         if (instance === this) instance = null
         runCatching { tun?.close() }; tun = null
         val fd = currentGoFd
@@ -319,6 +328,8 @@ class NexusVpnService : VpnService() {
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
             .setContentIntent(open)
             .addAction(0, getString(R.string.notif_disconnect), stop)
 
@@ -330,6 +341,98 @@ class NexusVpnService : VpnService() {
         }
         nm.notify(NOTIF_ID, n)
     }
+
+    private fun startSpeedTicker(serverName: String) {
+        speedTickerJob?.cancel()
+        speedTickerJob = scope.launch {
+            var lastRx = getRxBytes()
+            var lastTx = getTxBytes()
+            var lastTime = System.currentTimeMillis()
+
+            while (isActive && isConnected) {
+                delay(1500)
+                val now = System.currentTimeMillis()
+                val curRx = getRxBytes()
+                val curTx = getTxBytes()
+                val dtSec = ((now - lastTime) / 1000f).coerceAtLeast(0.5f)
+
+                val rxDiff = (curRx - lastRx).coerceAtLeast(0)
+                val txDiff = (curTx - lastTx).coerceAtLeast(0)
+
+                val rxSpeedBps = (rxDiff / dtSec).toLong()
+                val txSpeedBps = (txDiff / dtSec).toLong()
+
+                lastRx = curRx
+                lastTx = curTx
+                lastTime = now
+
+                val speedText = "↓ ${formatSpeed(rxSpeedBps)}   ↑ ${formatSpeed(txSpeedBps)}"
+                updateLiveNotification(serverName, speedText)
+            }
+        }
+    }
+
+    private fun getRxBytes(): Long {
+        val total = android.net.TrafficStats.getTotalRxBytes()
+        return if (total != android.net.TrafficStats.UNSUPPORTED.toLong()) total
+        else android.net.TrafficStats.getUidRxBytes(android.os.Process.myUid()).coerceAtLeast(0)
+    }
+
+    private fun getTxBytes(): Long {
+        val total = android.net.TrafficStats.getTotalTxBytes()
+        return if (total != android.net.TrafficStats.UNSUPPORTED.toLong()) total
+        else android.net.TrafficStats.getUidTxBytes(android.os.Process.myUid()).coerceAtLeast(0)
+    }
+
+    private fun formatSpeed(bytesPerSec: Long): String {
+        return when {
+            bytesPerSec < 1024 -> "$bytesPerSec Б/с"
+            bytesPerSec < 1024 * 1024 -> String.format(java.util.Locale.US, "%.0f КБ/с", bytesPerSec / 1024f)
+            else -> String.format(java.util.Locale.US, "%.1f МБ/с", bytesPerSec / (1024f * 1024f))
+        }
+    }
+
+    private fun updateLiveNotification(serverName: String, speedText: String) {
+        if (!isConnected) return
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val store = Store(this)
+        val avatarRes = when (store.loadSettings().appIcon) {
+            AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
+            AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+            else -> R.drawable.ic_avatar_base
+        }
+
+        val activeAlias = store.loadSettings().appIcon.aliasName
+        val openIntent = Intent().apply {
+            component = android.content.ComponentName(packageName, activeAlias)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val open = PendingIntent.getActivity(
+            this, 0, openIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val stop = PendingIntent.getBroadcast(
+            this, 1, Intent(this, VpnActionReceiver::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val cleanName = net.nexus.app.ui.cleanServerName(serverName)
+        val title = "${getString(R.string.app_name)} • $cleanName"
+
+        val builder = NotificationCompat.Builder(this, CHANNEL)
+            .setSmallIcon(avatarRes)
+            .setContentTitle(title)
+            .setContentText(speedText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$cleanName\n$speedText"))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .setContentIntent(open)
+            .addAction(0, getString(R.string.notif_disconnect), stop)
+
+        nm.notify(NOTIF_ID, builder.build())
+    }
+
 
     companion object {
         const val ACTION_START = "net.nexus.app.START"
