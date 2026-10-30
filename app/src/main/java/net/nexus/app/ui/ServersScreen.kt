@@ -34,15 +34,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -95,21 +91,6 @@ fun ServersScreen(vm: MainViewModel) {
     val ctx = LocalContext.current
     val bestServer = remember(providers) { Store(ctx).findBestServer() }
     val allServers = remember(providers) { providers.flatMap { it.servers } }
-
-    var searchQuery by remember { mutableStateOf("") }
-
-    val filteredServers = remember(allServers, searchQuery) {
-        if (searchQuery.isBlank()) {
-            emptyList()
-        } else {
-            allServers.filter { s ->
-                s.name.contains(searchQuery, ignoreCase = true) ||
-                s.protocol.contains(searchQuery, ignoreCase = true) ||
-                s.network.contains(searchQuery, ignoreCase = true) ||
-                s.security.contains(searchQuery, ignoreCase = true)
-            }
-        }
-    }
 
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding(),
@@ -164,43 +145,9 @@ fun ServersScreen(vm: MainViewModel) {
                     )
                 }
             }
-
-            // Search Bar
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = {
-                        Text(
-                            stringResource(R.string.globe_search_hint),
-                            fontSize = 14.sp,
-                            color = NX.muted
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Search, null, tint = NX.muted, modifier = Modifier.size(20.dp))
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Filled.Close, null, tint = NX.muted, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NX.accent,
-                        unfocusedBorderColor = NX.cardBorder,
-                        focusedContainerColor = NX.card,
-                        unfocusedContainerColor = NX.card,
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
         }
 
-        // List Content
+        // Clean vertical list of provider cards with servers
         if (providers.isEmpty()) {
             item {
                 Spacer(Modifier.height(30.dp))
@@ -208,29 +155,6 @@ fun ServersScreen(vm: MainViewModel) {
                     stringResource(R.string.empty_servers), color = NX.muted, fontSize = 18.sp,
                     textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )
-            }
-        } else if (searchQuery.isNotBlank()) {
-            if (filteredServers.isEmpty()) {
-                item {
-                    Spacer(Modifier.height(20.dp))
-                    Text(
-                        stringResource(R.string.empty_servers),
-                        color = NX.muted,
-                        fontSize = 16.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    )
-                }
-            } else {
-                items(filteredServers, key = { it.id }) { s ->
-                    ServerRow(
-                        server = s,
-                        selected = s.id == settings.selectedServerId,
-                        pinging = s.id in pinging,
-                        onClick = { vm.select(s.id) },
-                        onDelete = { vm.deleteServer(s.id) }
-                    )
-                }
             }
         } else {
             items(providers, key = { it.id }) { p ->
