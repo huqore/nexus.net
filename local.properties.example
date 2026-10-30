@@ -1,0 +1,11 @@
+## NEXUS Android — Локальная конфигурация сборки
+## Этот файл можно скопировать в local.properties (игнорируется в git)
+
+# Путь к Android SDK (при необходимости)
+# sdk.dir=C\:\\Users\\sibas\\AppData\\Local\\Android\\Sdk
+
+# (Опционально) Настройки подписи Release APK собственным keystore
+# KEYSTORE_PATH=C\:\\path\\to\\nexus-release.jks
+# KEYSTORE_PASSWORD=your_keystore_password
+# KEY_ALIAS=nexus_release_alias
+# KEY_PASSWORD=your_key_password
