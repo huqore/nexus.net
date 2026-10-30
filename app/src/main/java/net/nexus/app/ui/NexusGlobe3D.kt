@@ -72,24 +72,24 @@ data class GlobeNode(
 )
 
 object GlobeCoordinates {
-    // Strictly within real national borders, pushed to edges for maximum mutual distance
+    // Placed strictly inside real national borders, at maximal border separation
     const val NETHERLANDS_LAT = 52.2f
-    const val NETHERLANDS_LON = 6.2f
+    const val NETHERLANDS_LON = 5.3f
 
-    const val GERMANY_LAT = 48.2f
-    const val GERMANY_LON = 10.2f
+    const val GERMANY_LAT = 48.0f
+    const val GERMANY_LON = 10.5f
 
-    const val POLAND_LAT = 51.8f
-    const val POLAND_LON = 23.2f
+    const val POLAND_LAT = 51.5f
+    const val POLAND_LON = 23.5f
 
-    const val SWEDEN_LAT = 62.8f
-    const val SWEDEN_LON = 14.2f
+    const val SWEDEN_LAT = 63.5f
+    const val SWEDEN_LON = 14.0f
 
     const val FINLAND_LAT = 64.5f
-    const val FINLAND_LON = 29.5f
+    const val FINLAND_LON = 29.8f
 
-    const val RUSSIA_WL_LAT = 56.0f
-    const val RUSSIA_WL_LON = 40.5f
+    const val RUSSIA_WL_LAT = 56.2f
+    const val RUSSIA_WL_LON = 41.5f
 }
 
 // 826 authentic land points
@@ -1122,10 +1122,10 @@ fun NexusGlobe3D(
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // Center camera across European territory (lon ~20, lat ~55)
-    val yawAnim = remember { Animatable(Math.toRadians(20.0).toFloat()) }
+    // Magnified view centered on European & Eurasian servers (zoom 2.35x)
+    val yawAnim = remember { Animatable(Math.toRadians(18.0).toFloat()) }
     val pitchAnim = remember { Animatable(Math.toRadians(-52.0).toFloat()) }
-    val zoomAnim = remember { Animatable(1.30f) }
+    val zoomAnim = remember { Animatable(2.35f) }
 
     var isUserInteracting by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
@@ -1150,7 +1150,7 @@ fun NexusGlobe3D(
             // Smoothly zoom in close to the country
             launch {
                 zoomAnim.animateTo(
-                    1.52f,
+                    2.60f,
                     animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
                 )
             }
@@ -1162,7 +1162,7 @@ fun NexusGlobe3D(
         if (lastInteractionTime > 0L) {
             delay(1500)
             isUserInteracting = false
-            val (homeLat, homeLon) = targetLocation ?: Pair(55.9f, 20.6f)
+            val (homeLat, homeLon) = targetLocation ?: Pair(54.0f, 18.0f)
             val homeYaw = Math.toRadians(homeLon.toDouble()).toFloat()
             val homePitch = (-Math.toRadians(homeLat.toDouble()) * 0.88).toFloat().coerceIn(-1.1f, 1.1f)
             launch {
@@ -1172,7 +1172,7 @@ fun NexusGlobe3D(
                 pitchAnim.animateTo(homePitch, tween(850, easing = FastOutSlowInEasing))
             }
             launch {
-                zoomAnim.animateTo(1.30f, tween(850, easing = FastOutSlowInEasing))
+                zoomAnim.animateTo(2.35f, tween(850, easing = FastOutSlowInEasing))
             }
         }
     }
@@ -1215,7 +1215,7 @@ fun NexusGlobe3D(
                             yawAnim.snapTo(newYaw)
                             pitchAnim.snapTo(newPitch)
 
-                            val newZoom = (zoomAnim.value * zoom).coerceIn(0.85f, 2.5f)
+                            val newZoom = (zoomAnim.value * zoom).coerceIn(0.9f, 4.5f)
                             zoomAnim.snapTo(newZoom)
                         }
                     }
@@ -1321,7 +1321,63 @@ fun NexusGlobe3D(
                 }
             }
 
-            // 5. Authentic continent point matrix
+            // 5a. Authentic Vector Coastlines
+            val coastColor = accentColor.copy(alpha = 0.65f)
+            val coastStroke = 1.4.dp.toPx()
+            for (coast in WorldVectors.ALL_COASTLINES) {
+                var pIdx = 0
+                var prevPt: Offset? = null
+                var prevZ = 0f
+                while (pIdx < coast.size) {
+                    val lat = coast[pIdx]
+                    val lon = coast[pIdx + 1]
+                    pIdx += 2
+                    val (px, py, pz) = projectGlobePoint(lat, lon, currentYaw, currentPitch, r)
+                    val currPt = Offset(cx + px, cy + py)
+                    if (prevPt != null && (prevZ > -0.05f * r && pz > -0.05f * r)) {
+                        val depth = ((prevZ + pz) / (2f * r)).coerceIn(0f, 1f)
+                        val alpha = (0.25f + 0.75f * depth).coerceIn(0.15f, 1f)
+                        drawLine(
+                            color = coastColor.copy(alpha = coastColor.alpha * alpha),
+                            start = prevPt,
+                            end = currPt,
+                            strokeWidth = coastStroke
+                        )
+                    }
+                    prevPt = currPt
+                    prevZ = pz
+                }
+            }
+
+            // 5b. Authentic National Country Borders (Europe)
+            val borderColorVal = NX.accentLight.copy(alpha = 0.45f)
+            val borderStroke = 1.1.dp.toPx()
+            for (border in WorldVectors.BORDERS) {
+                var pIdx = 0
+                var prevPt: Offset? = null
+                var prevZ = 0f
+                while (pIdx < border.size) {
+                    val lat = border[pIdx]
+                    val lon = border[pIdx + 1]
+                    pIdx += 2
+                    val (px, py, pz) = projectGlobePoint(lat, lon, currentYaw, currentPitch, r)
+                    val currPt = Offset(cx + px, cy + py)
+                    if (prevPt != null && (prevZ > -0.05f * r && pz > -0.05f * r)) {
+                        val depth = ((prevZ + pz) / (2f * r)).coerceIn(0f, 1f)
+                        val alpha = (0.20f + 0.80f * depth).coerceIn(0.15f, 1f)
+                        drawLine(
+                            color = borderColorVal.copy(alpha = borderColorVal.alpha * alpha),
+                            start = prevPt,
+                            end = currPt,
+                            strokeWidth = borderStroke
+                        )
+                    }
+                    prevPt = currPt
+                    prevZ = pz
+                }
+            }
+
+            // 5c. Interior land point texture
             var idx = 0
             val len = CONTINENT_POINTS.size
             while (idx < len) {
