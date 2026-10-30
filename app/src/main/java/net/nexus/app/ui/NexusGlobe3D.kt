@@ -72,24 +72,24 @@ data class GlobeNode(
 )
 
 object GlobeCoordinates {
-    // Spaced out broadly across the hemisphere so servers are clearly separated
-    const val NETHERLANDS_LAT = 46.0f
-    const val NETHERLANDS_LON = -16.0f
+    // Strictly within real national borders, pushed to edges for maximum mutual distance
+    const val NETHERLANDS_LAT = 52.2f
+    const val NETHERLANDS_LON = 6.2f
 
-    const val GERMANY_LAT = 34.0f
-    const val GERMANY_LON = 6.0f
+    const val GERMANY_LAT = 48.2f
+    const val GERMANY_LON = 10.2f
 
-    const val SWEDEN_LAT = 66.0f
-    const val SWEDEN_LON = -2.0f
+    const val POLAND_LAT = 51.8f
+    const val POLAND_LON = 23.2f
 
-    const val POLAND_LAT = 38.0f
-    const val POLAND_LON = 30.0f
+    const val SWEDEN_LAT = 62.8f
+    const val SWEDEN_LON = 14.2f
 
-    const val FINLAND_LAT = 68.0f
-    const val FINLAND_LON = 50.0f
+    const val FINLAND_LAT = 64.5f
+    const val FINLAND_LON = 29.5f
 
-    const val RUSSIA_WL_LAT = 50.0f
-    const val RUSSIA_WL_LON = 82.0f
+    const val RUSSIA_WL_LAT = 56.0f
+    const val RUSSIA_WL_LON = 40.5f
 }
 
 // 826 authentic land points
@@ -1122,10 +1122,10 @@ fun NexusGlobe3D(
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // Center camera across Europe and Eurasia (lon 30, lat 48) with magnified scale
-    val yawAnim = remember { Animatable(Math.toRadians(30.0).toFloat()) }
-    val pitchAnim = remember { Animatable(Math.toRadians(-46.0).toFloat()) }
-    val zoomAnim = remember { Animatable(1.35f) }
+    // Center camera across European territory (lon ~20, lat ~55)
+    val yawAnim = remember { Animatable(Math.toRadians(20.0).toFloat()) }
+    val pitchAnim = remember { Animatable(Math.toRadians(-52.0).toFloat()) }
+    val zoomAnim = remember { Animatable(1.30f) }
 
     var isUserInteracting by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
@@ -1162,7 +1162,7 @@ fun NexusGlobe3D(
         if (lastInteractionTime > 0L) {
             delay(1500)
             isUserInteracting = false
-            val (homeLat, homeLon) = targetLocation ?: Pair(GlobeCoordinates.POLAND_LAT, GlobeCoordinates.POLAND_LON)
+            val (homeLat, homeLon) = targetLocation ?: Pair(55.9f, 20.6f)
             val homeYaw = Math.toRadians(homeLon.toDouble()).toFloat()
             val homePitch = (-Math.toRadians(homeLat.toDouble()) * 0.88).toFloat().coerceIn(-1.1f, 1.1f)
             launch {
@@ -1172,7 +1172,7 @@ fun NexusGlobe3D(
                 pitchAnim.animateTo(homePitch, tween(850, easing = FastOutSlowInEasing))
             }
             launch {
-                zoomAnim.animateTo(1.35f, tween(850, easing = FastOutSlowInEasing))
+                zoomAnim.animateTo(1.30f, tween(850, easing = FastOutSlowInEasing))
             }
         }
     }
@@ -1444,12 +1444,12 @@ fun NexusGlobe3D(
 
                     // Smart directional offset for each country so labels NEVER overlap
                     val (dirOffsetX, dirOffsetY) = when (node.countryCode) {
-                        "SE" -> Pair(0.dp, (-24).dp)      // Sweden: Top
-                        "FI" -> Pair(36.dp, (-16).dp)     // Finland: Top-Right
-                        "NL" -> Pair((-42).dp, (-4).dp)   // Netherlands: Left
-                        "DE" -> Pair((-16).dp, 24.dp)     // Germany: Bottom-Left
-                        "PL" -> Pair(28.dp, 22.dp)        // Poland: Bottom-Right
-                        "WL" -> Pair(44.dp, 0.dp)         // WL Bypass (Russia): Right
+                        "SE" -> Pair((-12).dp, (-26).dp)  // Sweden: Top-Left (over Scandinavia)
+                        "FI" -> Pair(34.dp, (-22).dp)     // Finland: Top-Right (over Lapland/White Sea)
+                        "NL" -> Pair((-44).dp, (-6).dp)   // Netherlands: Left (towards North Sea)
+                        "DE" -> Pair((-18).dp, 24.dp)     // Germany: Bottom-Left (over Alps)
+                        "PL" -> Pair(26.dp, 22.dp)        // Poland: Bottom-Right (over Southeast)
+                        "WL" -> Pair(42.dp, 0.dp)         // WL Bypass (Russia): Right (into Russia)
                         else -> Pair(0.dp, (-22).dp)
                     }
 
