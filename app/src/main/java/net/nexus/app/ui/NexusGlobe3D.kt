@@ -74,24 +74,24 @@ data class GlobeNode(
 )
 
 object GlobeCoordinates {
-    // Exact authentic geographic coordinates
-    const val NETHERLANDS_LAT = 52.2f
-    const val NETHERLANDS_LON = 5.3f
+    // Authentic geographic coordinates
+    const val NETHERLANDS_LAT = 52.37f
+    const val NETHERLANDS_LON = 4.90f
 
-    const val GERMANY_LAT = 51.2f
-    const val GERMANY_LON = 10.4f
+    const val GERMANY_LAT = 51.50f
+    const val GERMANY_LON = 10.50f
 
-    const val POLAND_LAT = 52.1f
-    const val POLAND_LON = 19.5f
+    const val POLAND_LAT = 52.10f
+    const val POLAND_LON = 19.50f
 
-    const val SWEDEN_LAT = 60.1f
-    const val SWEDEN_LON = 15.0f
+    const val SWEDEN_LAT = 59.33f
+    const val SWEDEN_LON = 18.06f
 
-    const val FINLAND_LAT = 64.0f
-    const val FINLAND_LON = 26.0f
+    const val FINLAND_LAT = 61.92f
+    const val FINLAND_LON = 25.74f
 
-    const val RUSSIA_WL_LAT = 55.8f
-    const val RUSSIA_WL_LON = 37.6f
+    const val RUSSIA_WL_LAT = 55.75f
+    const val RUSSIA_WL_LON = 37.62f
 }
 
 
@@ -295,10 +295,10 @@ fun NexusGlobe3D(
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // Natural 3D globe perspective (true axial tilt ~24°, natural spherical curvature)
-    val yawAnim = remember { Animatable(Math.toRadians(20.0).toFloat()) }
-    val pitchAnim = remember { Animatable(Math.toRadians(-24.0).toFloat()) }
-    val zoomAnim = remember { Animatable(1.28f) }
+    // Natural zoomed-in 3D globe perspective focusing strictly on Europe & Western Russia
+    val yawAnim = remember { Animatable(Math.toRadians(19.0).toFloat()) }
+    val pitchAnim = remember { Animatable(Math.toRadians(-54.0).toFloat()) }
+    val zoomAnim = remember { Animatable(3.5f) }
 
     var isUserInteracting by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
@@ -307,7 +307,7 @@ fun NexusGlobe3D(
     LaunchedEffect(targetLocation) {
         targetLocation?.let { (lat, lon) ->
             val targetYaw = Math.toRadians(lon.toDouble()).toFloat()
-            val targetPitch = (-Math.toRadians(lat.toDouble()) * 0.45).toFloat().coerceIn(-0.65f, 0.65f)
+            val targetPitch = (-Math.toRadians(lat.toDouble())).toFloat().coerceIn(-1.35f, 1.35f)
             launch {
                 yawAnim.animateTo(
                     targetYaw,
@@ -323,7 +323,7 @@ fun NexusGlobe3D(
             // Smoothly zoom in close to the country
             launch {
                 zoomAnim.animateTo(
-                    1.65f,
+                    4.2f,
                     animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
                 )
             }
@@ -335,8 +335,9 @@ fun NexusGlobe3D(
         if (lastInteractionTime > 0L) {
             delay(1500)
             isUserInteracting = false
-            val homeYaw = targetLocation?.let { Math.toRadians(it.second.toDouble()).toFloat() } ?: Math.toRadians(20.0).toFloat()
-            val homePitch = targetLocation?.let { (-Math.toRadians(it.first.toDouble()) * 0.45).toFloat().coerceIn(-0.65f, 0.65f) } ?: Math.toRadians(-24.0).toFloat()
+            val homeYaw = targetLocation?.let { Math.toRadians(it.second.toDouble()).toFloat() } ?: Math.toRadians(19.0).toFloat()
+            val homePitch = targetLocation?.let { (-Math.toRadians(it.first.toDouble())).toFloat().coerceIn(-1.35f, 1.35f) } ?: Math.toRadians(-54.0).toFloat()
+            val homeZoom = if (targetLocation != null) 4.0f else 3.5f
             launch {
                 yawAnim.animateTo(homeYaw, tween(850, easing = FastOutSlowInEasing))
             }
@@ -344,7 +345,7 @@ fun NexusGlobe3D(
                 pitchAnim.animateTo(homePitch, tween(850, easing = FastOutSlowInEasing))
             }
             launch {
-                zoomAnim.animateTo(1.28f, tween(850, easing = FastOutSlowInEasing))
+                zoomAnim.animateTo(homeZoom, tween(850, easing = FastOutSlowInEasing))
             }
         }
     }
@@ -383,11 +384,11 @@ fun NexusGlobe3D(
                         lastInteractionTime = System.currentTimeMillis()
                         scope.launch {
                             val newYaw = yawAnim.value - pan.x * 0.0035f
-                            val newPitch = (pitchAnim.value - pan.y * 0.0035f).coerceIn(-1.15f, 1.15f)
+                            val newPitch = (pitchAnim.value - pan.y * 0.0035f).coerceIn(-1.45f, 1.45f)
                             yawAnim.snapTo(newYaw)
                             pitchAnim.snapTo(newPitch)
 
-                            val newZoom = (zoomAnim.value * zoom).coerceIn(0.9f, 4.5f)
+                            val newZoom = (zoomAnim.value * zoom).coerceIn(1.2f, 6.0f)
                             zoomAnim.snapTo(newZoom)
                         }
                     }
@@ -448,19 +449,18 @@ fun NexusGlobe3D(
                 style = Stroke(width = 1.5.dp.toPx())
             )
 
-            // 4. Parallels & Meridians (Lat/Lon grid)
-            val parallels = floatArrayOf(-60f, -30f, 0f, 30f, 60f)
+            // 4. Parallels & Meridians (Subtle geographic coordinate grid)
+            val parallels = floatArrayOf(30f, 45f, 60f, 75f)
             for (pLat in parallels) {
-                val step = 8
+                val step = 4
                 var prevPt: Offset? = null
                 var prevZ = 0f
-                for (lon in 0..360 step step) {
+                for (lon in -30..90 step step) {
                     val (px, py, pz) = projectGlobePoint(pLat, lon.toFloat(), currentYaw, currentPitch, r)
                     val currPt = Offset(cx + px, cy + py)
-                    if (prevPt != null && (prevZ > 0f || pz > 0f)) {
-                        val alpha = if (prevZ > 0f && pz > 0f) 0.18f else 0.06f
+                    if (prevPt != null && prevZ > 0.05f * r && pz > 0.05f * r) {
                         drawLine(
-                            color = borderColor.copy(alpha = alpha),
+                            color = borderColor.copy(alpha = 0.12f),
                             start = prevPt,
                             end = currPt,
                             strokeWidth = 1.dp.toPx()
@@ -471,18 +471,17 @@ fun NexusGlobe3D(
                 }
             }
 
-            val meridians = floatArrayOf(0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f)
+            val meridians = floatArrayOf(-15f, 0f, 15f, 30f, 45f, 60f)
             for (mLon in meridians) {
-                val step = 6
+                val step = 3
                 var prevPt: Offset? = null
                 var prevZ = 0f
-                for (lat in -90..90 step step) {
+                for (lat in 20..85 step step) {
                     val (px, py, pz) = projectGlobePoint(lat.toFloat(), mLon, currentYaw, currentPitch, r)
                     val currPt = Offset(cx + px, cy + py)
-                    if (prevPt != null && (prevZ > 0f || pz > 0f)) {
-                        val alpha = if (prevZ > 0f && pz > 0f) 0.18f else 0.06f
+                    if (prevPt != null && prevZ > 0.05f * r && pz > 0.05f * r) {
                         drawLine(
-                            color = borderColor.copy(alpha = alpha),
+                            color = borderColor.copy(alpha = 0.12f),
                             start = prevPt,
                             end = currPt,
                             strokeWidth = 1.dp.toPx()
@@ -502,19 +501,13 @@ fun NexusGlobe3D(
                 idx += 2
 
                 val (dx, dy, dz) = projectGlobePoint(cLat, cLon, currentYaw, currentPitch, r)
-                if (dz > 0f) {
+                if (dz > 0.02f * r) {
                     val depthFactor = (dz / r).coerceIn(0f, 1f)
-                    val dotAlpha = (0.28f + 0.52f * depthFactor).coerceIn(0.18f, 0.88f)
-                    val dotRadius = (1.4f + 1.2f * depthFactor).dp.toPx()
+                    val dotAlpha = (0.35f + 0.55f * depthFactor).coerceIn(0.2f, 0.90f)
+                    val dotRadius = (1.5f + 1.3f * depthFactor).dp.toPx()
                     drawCircle(
                         color = accentColor.copy(alpha = dotAlpha),
                         radius = dotRadius,
-                        center = Offset(cx + dx, cy + dy)
-                    )
-                } else {
-                    drawCircle(
-                        color = borderColor.copy(alpha = 0.06f),
-                        radius = 0.9.dp.toPx(),
                         center = Offset(cx + dx, cy + dy)
                     )
                 }
@@ -615,14 +608,14 @@ fun NexusGlobe3D(
                     }
 
                     // Clean non-overlapping directional offsets:
-                    // Netherlands -> left, Germany -> down, Poland -> right, Scandinavians -> up, WL Bypass -> deep right
+                    // Wide separation across whole screen: Netherlands left, Germany down-left, Poland down-right, Sweden up-left, Finland up-right, WL Bypass right
                     val (dirOffsetX, dirOffsetY) = when (node.countryCode) {
-                        "NL" -> Pair((-52).dp, (-2).dp)   // Netherlands: Left
-                        "DE" -> Pair(0.dp, 36.dp)         // Germany: Down
-                        "PL" -> Pair(44.dp, 24.dp)        // Poland: Right / Down-Right
-                        "SE" -> Pair((-14).dp, (-32).dp)  // Sweden: Up / Up-Left
-                        "FI" -> Pair(22.dp, (-32).dp)     // Finland: Up / Up-Right
-                        "WL" -> Pair(56.dp, 0.dp)         // WL Bypass: Deep Right
+                        "NL" -> Pair((-44).dp, 0.dp)       // Netherlands: Left
+                        "DE" -> Pair((-8).dp, 28.dp)       // Germany: Down-Left
+                        "PL" -> Pair(16.dp, 28.dp)        // Poland: Down-Right
+                        "SE" -> Pair((-36).dp, (-14).dp)   // Sweden: Up-Left
+                        "FI" -> Pair(36.dp, (-12).dp)      // Finland: Up-Right
+                        "WL" -> Pair(38.dp, 0.dp)          // WL Bypass: Right
                         else -> Pair(0.dp, (-22).dp)
                     }
 
