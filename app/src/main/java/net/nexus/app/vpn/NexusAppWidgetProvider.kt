@@ -133,6 +133,7 @@ class NexusAppWidgetProvider : AppWidgetProvider() {
             // Click on toggle button -> toggle VPN
             val toggleIntent = Intent(context, NexusAppWidgetProvider::class.java).apply {
                 action = ACTION_TOGGLE_VPN
+                setPackage(context.packageName)
             }
             val togglePendingIntent = PendingIntent.getBroadcast(
                 context, 1, toggleIntent,

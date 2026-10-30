@@ -12,3 +12,6 @@
 /nexus-support-bot/
 .vscode/
 apks/
+
+/scratch/
+*.bundle

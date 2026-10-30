@@ -137,7 +137,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="net.nexus.app.widget.ACTION_TOGGLE_VPN" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
