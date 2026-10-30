@@ -13,7 +13,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -1121,18 +1121,19 @@ fun NexusGlobe3D(
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // Start facing Europe
-    val yawAnim = remember { Animatable(Math.toRadians(12.0).toFloat()) }
-    val pitchAnim = remember { Animatable(Math.toRadians(-22.0).toFloat()) }
+    // Tilt camera towards Europe (Lat 50-60) so it is dead-center
+    val yawAnim = remember { Animatable(Math.toRadians(15.0).toFloat()) }
+    val pitchAnim = remember { Animatable(Math.toRadians(-48.0).toFloat()) }
+    val zoomAnim = remember { Animatable(1.18f) }
 
     var isUserInteracting by remember { mutableStateOf(false) }
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
 
-    // Smoothly turn to target location (e.g. on Auto-select or server click)
+    // Smoothly turn and zoom into target location on selection
     LaunchedEffect(targetLocation) {
         targetLocation?.let { (lat, lon) ->
             val targetYaw = Math.toRadians(lon.toDouble()).toFloat()
-            val targetPitch = (-Math.toRadians(lat.toDouble()) * 0.42).toFloat().coerceIn(-0.85f, 0.85f)
+            val targetPitch = (-Math.toRadians(lat.toDouble()) * 0.88).toFloat().coerceIn(-1.1f, 1.1f)
             launch {
                 yawAnim.animateTo(
                     targetYaw,
@@ -1145,21 +1146,32 @@ fun NexusGlobe3D(
                     animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
                 )
             }
+            // Smoothly zoom in close to the country
+            launch {
+                zoomAnim.animateTo(
+                    1.42f,
+                    animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
+                )
+            }
         }
     }
 
-    // Auto-return to home state after 3.5 seconds of user inactivity
-    LaunchedEffect(isUserInteracting, lastInteractionTime, targetLocation) {
-        if (!isUserInteracting && lastInteractionTime > 0L) {
-            delay(3500)
+    // Auto-return to home state after 1.5 seconds of user inactivity
+    LaunchedEffect(lastInteractionTime, targetLocation) {
+        if (lastInteractionTime > 0L) {
+            delay(1500)
+            isUserInteracting = false
             val (homeLat, homeLon) = targetLocation ?: Pair(GlobeCoordinates.GERMANY_LAT, GlobeCoordinates.GERMANY_LON)
             val homeYaw = Math.toRadians(homeLon.toDouble()).toFloat()
-            val homePitch = (-Math.toRadians(homeLat.toDouble()) * 0.42).toFloat().coerceIn(-0.85f, 0.85f)
+            val homePitch = (-Math.toRadians(homeLat.toDouble()) * 0.88).toFloat().coerceIn(-1.1f, 1.1f)
             launch {
-                yawAnim.animateTo(homeYaw, tween(900, easing = FastOutSlowInEasing))
+                yawAnim.animateTo(homeYaw, tween(850, easing = FastOutSlowInEasing))
             }
             launch {
-                pitchAnim.animateTo(homePitch, tween(900, easing = FastOutSlowInEasing))
+                pitchAnim.animateTo(homePitch, tween(850, easing = FastOutSlowInEasing))
+            }
+            launch {
+                zoomAnim.animateTo(1.20f, tween(850, easing = FastOutSlowInEasing))
             }
         }
     }
@@ -1179,38 +1191,31 @@ fun NexusGlobe3D(
     val currentYaw = yawAnim.value
     val currentPitch = pitchAnim.value
 
-    // Distinct theme colors
+    // Theme-based colors (no hardcoded yellow!)
     val accentColor = NX.accent
     val accentLight = NX.accentLight
     val cardColor = NX.card
     val bgColor = NX.bg
     val borderColor = NX.cardBorder
-    val wlGoldColor = Color(0xFFFFB300)
-    val wlGoldLight = Color(0xFFFFD54F)
+    val wlThemeColor = NX.accentLight
+    val wlThemeDim = NX.accentDim
 
     Box(
         modifier = modifier
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = {
+                detectTransformGestures(
+                    panZoomLock = false,
+                    onGesture = { _, pan, zoom, _ ->
                         isUserInteracting = true
-                    },
-                    onDragEnd = {
-                        isUserInteracting = false
                         lastInteractionTime = System.currentTimeMillis()
-                    },
-                    onDragCancel = {
-                        isUserInteracting = false
-                        lastInteractionTime = System.currentTimeMillis()
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
                         scope.launch {
-                            // Sensitivity reduced 2x: 0.0035f instead of 0.007f
-                            val newYaw = yawAnim.value - dragAmount.x * 0.0035f
-                            val newPitch = (pitchAnim.value - dragAmount.y * 0.0035f).coerceIn(-0.95f, 0.95f)
+                            val newYaw = yawAnim.value - pan.x * 0.0035f
+                            val newPitch = (pitchAnim.value - pan.y * 0.0035f).coerceIn(-1.15f, 1.15f)
                             yawAnim.snapTo(newYaw)
                             pitchAnim.snapTo(newPitch)
+
+                            val newZoom = (zoomAnim.value * zoom).coerceIn(0.85f, 2.5f)
+                            zoomAnim.snapTo(newZoom)
                         }
                     }
                 )
@@ -1225,7 +1230,7 @@ fun NexusGlobe3D(
         Canvas(modifier = Modifier.fillMaxSize()) {
             canvasWidth = size.width
             canvasHeight = size.height
-            globeRadius = min(size.width, size.height) * 0.44f
+            globeRadius = min(size.width, size.height) * 0.46f * zoomAnim.value
             centerX = size.width / 2f
             centerY = size.height / 2f
 
@@ -1348,7 +1353,7 @@ fun NexusGlobe3D(
                 if (nz > 0f) {
                     val depth = (nz / r).coerceIn(0f, 1f)
                     val nodeCenter = Offset(cx + nx, cy + ny)
-                    val baseColor = if (node.isWlBypass) wlGoldColor else accentLight
+                    val baseColor = if (node.isWlBypass) wlThemeColor else accentLight
 
                     // Pulsing radar ripple waves
                     val maxWaveR = 24.dp.toPx()
@@ -1426,14 +1431,14 @@ fun NexusGlobe3D(
 
                     val isWl = node.isWlBypass
                     val badgeBorder = if (node.isSelected) {
-                        if (isWl) wlGoldColor else accentLight
+                        accentLight
                     } else {
-                        borderColor.copy(alpha = 0.65f)
+                        if (isWl) wlThemeDim.copy(alpha = 0.85f) else borderColor.copy(alpha = 0.65f)
                     }
                     val badgeBg = if (node.isSelected) {
-                        if (isWl) Color(0x33FFA000) else accentColor.copy(alpha = 0.35f)
+                        if (isWl) wlThemeDim.copy(alpha = 0.85f) else accentColor.copy(alpha = 0.35f)
                     } else {
-                        cardColor.copy(alpha = 0.88f)
+                        if (isWl) wlThemeDim.copy(alpha = 0.30f) else cardColor.copy(alpha = 0.88f)
                     }
 
                     // Smart directional offset for each country so labels NEVER overlap
@@ -1473,7 +1478,7 @@ fun NexusGlobe3D(
                                 text = node.countryName,
                                 fontSize = 11.sp,
                                 fontWeight = if (node.isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isWl) wlGoldLight else if (node.isSelected) Color.White else NX.text
+                                color = if (node.isSelected || isWl) accentLight else NX.text
                             )
                             if (node.bestPing > 0) {
                                 Spacer(Modifier.width(4.dp))

@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -92,12 +93,47 @@ import kotlin.math.ceil
 
 // ---------------------------------------------------------------- small pieces
 
+fun countryCodeFor(name: String): String {
+    val n = name.lowercase()
+    return when {
+        n.contains("wl") || n.contains("bypass") -> "WL"
+        n.contains("\u0433\u0435\u0440\u043C\u0430\u043D") || n.contains("germany") || name.contains("\uD83C\uDDE9\uD83C\uDDEA") || Regex("""\\bde\\b""").containsMatchIn(n) -> "DE"
+        n.contains("\u0444\u0438\u043D\u043B\u044F\u043D\u0434") || n.contains("finland") || name.contains("\uD83C\uDDEB\uD83C\uDDEE") || Regex("""\\bfi\\b""").containsMatchIn(n) -> "FI"
+        n.contains("\u043D\u0438\u0434\u0435\u0440\u043B\u0430\u043D\u0434") || n.contains("netherlands") || n.contains("amsterdam") || name.contains("\uD83C\uDDF3\uD83C\uDDF1") || Regex("""\\bnl\\b""").containsMatchIn(n) -> "NL"
+        n.contains("\u0448\u0432\u0435\u0446") || n.contains("sweden") || n.contains("stockholm") || name.contains("\uD83C\uDDF8\uD83C\uDDEA") || Regex("""\\bse\\b""").containsMatchIn(n) -> "SE"
+        n.contains("\u043F\u043E\u043B\u044C\u0448") || n.contains("poland") || n.contains("warsaw") || name.contains("\uD83C\uDDF5\uD83C\uDDF1") || Regex("""\\bpl\\b""").containsMatchIn(n) -> "PL"
+        n.contains("\u0440\u043E\u0441\u0441\u0438\u044F") || n.contains("russia") || name.contains("\uD83C\uDDF7\uD83C\uDDFA") || Regex("""\\bru\\b""").containsMatchIn(n) -> "RU"
+        n.contains("usa") || n.contains("united") || name.contains("\uD83C\uDDFA\uD83C\uDDF8") || Regex("""\\bus\\b""").containsMatchIn(n) -> "US"
+        else -> ""
+    }
+}
+
 @Composable
 fun FlagBox(name: String, size: Dp = 48.dp) {
+    val code = countryCodeFor(name)
+    val isWl = code == "WL"
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(NX.iconBtn),
+        Modifier
+            .size(size)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (isWl) NX.accentDim.copy(alpha = 0.5f) else NX.iconBtn)
+            .border(1.dp, if (isWl) NX.accentLight.copy(alpha = 0.6f) else NX.cardBorder, RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center,
-    ) { Text(flagFor(name), fontSize = (size.value * 0.5f).sp) }
+    ) {
+        if (isWl) {
+            Icon(Icons.Filled.Shield, contentDescription = null, tint = NX.accentLight, modifier = Modifier.size(size * 0.52f))
+        } else if (code.isNotEmpty()) {
+            Text(
+                code,
+                fontWeight = FontWeight.Bold,
+                fontSize = (size.value * 0.36f).sp,
+                color = NX.accentLight,
+                fontFamily = FontFamily.Monospace
+            )
+        } else {
+            Icon(Icons.Filled.Dns, contentDescription = null, tint = NX.muted2, modifier = Modifier.size(size * 0.5f))
+        }
+    }
 }
 
 private fun AnnotatedString.Builder.part(text: String, color: Color) =
@@ -108,12 +144,12 @@ private fun AnnotatedString.Builder.part(text: String, color: Color) =
 fun TagLine(s: Server) {
     val text = buildAnnotatedString {
         part(protoLabel(s.protocol), if (s.protocol == "shadowsocks") NX.green else NX.accent)
-        part(" · ", NX.muted)
+        part(" - ", NX.muted)
         part(s.network.uppercase(), NX.muted2)
         if (s.security != "none") {
-            part(" · ", NX.muted); part(s.security.uppercase(), NX.accent)
+            part(" - ", NX.muted); part(s.security.uppercase(), NX.accent)
         }
-        part(" · ", NX.muted)
+        part(" - ", NX.muted)
         part(s.source, if (s.source == "JSON") NX.yellow else NX.purple)
     }
     Text(text, fontFamily = FontFamily.Monospace, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -1,14 +1,18 @@
 package net.nexus.app.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -26,21 +30,19 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
@@ -65,13 +67,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -153,11 +151,26 @@ fun ServersScreen(vm: MainViewModel) {
             }
             if (providers.isNotEmpty()) {
                 item {
-                    AutoServerCard(
-                        selected = settings.selectedServerId == Store.AUTO_SERVER_ID,
-                        bestServer = bestServer,
-                        onClick = { vm.select(Store.AUTO_SERVER_ID) }
-                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AutoServerButton(
+                            modifier = Modifier.weight(1f),
+                            selected = settings.selectedServerId == Store.AUTO_SERVER_ID,
+                            bestServer = bestServer,
+                            onClick = { vm.select(Store.AUTO_SERVER_ID) }
+                        )
+                        PingTestButton(
+                            modifier = Modifier.weight(1f),
+                            isPinging = pinging.isNotEmpty(),
+                            onClick = {
+                                HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                                vm.pingServers(allServers)
+                            }
+                        )
+                    }
                 }
             }
             if (providers.isEmpty()) {
@@ -205,26 +218,42 @@ fun ServersScreen(vm: MainViewModel) {
                 }
             }
 
-            // 1. ??????????? card above globe
+            // 1. «Автовыбор» card (left 50%) and «Проверка пинга» (right 50%)
             item {
-                AutoServerCard(
-                    selected = settings.selectedServerId == Store.AUTO_SERVER_ID,
-                    bestServer = bestServer,
-                    onClick = {
-                        vm.select(Store.AUTO_SERVER_ID)
-                        bestServer?.let { bs ->
-                            targetLocation = getLocationForServer(bs)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AutoServerButton(
+                        modifier = Modifier.weight(1f),
+                        selected = settings.selectedServerId == Store.AUTO_SERVER_ID,
+                        bestServer = bestServer,
+                        onClick = {
+                            vm.select(Store.AUTO_SERVER_ID)
+                            bestServer?.let { bs ->
+                                targetLocation = getLocationForServer(bs)
+                            }
                         }
-                    }
-                )
+                    )
+
+                    PingTestButton(
+                        modifier = Modifier.weight(1f),
+                        isPinging = pinging.isNotEmpty(),
+                        onClick = {
+                            HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                            vm.pingServers(allServers)
+                        }
+                    )
+                }
             }
 
-            // 2. Interactive 3D Globe with fluid touch and server location nodes
+            // 2. Interactive 3D Globe with fluid touch, zoom and server location nodes
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(340.dp)
+                        .height(350.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(NX.card.copy(alpha = 0.35f))
                         .border(1.dp, NX.cardBorder.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
@@ -235,7 +264,12 @@ fun ServersScreen(vm: MainViewModel) {
                         nodes = globeNodes,
                         targetLocation = targetLocation,
                         onNodeClick = { node ->
-                            val s = node.bestServer ?: node.servers.firstOrNull()
+                            val s = if (node.isWlBypass) {
+                                // Auto-select lowest ping WL Bypass server
+                                node.servers.filter { it.pingMs > 0 }.minByOrNull { it.pingMs } ?: node.servers.firstOrNull()
+                            } else {
+                                node.bestServer ?: node.servers.firstOrNull()
+                            }
                             if (s != null) {
                                 vm.select(s.id)
                             }
@@ -257,7 +291,7 @@ fun ServersScreen(vm: MainViewModel) {
         }
     }
 
-    // Modal Bottom Sheet showing full list of servers with search & protocol filters
+    // Modal Bottom Sheet showing full list of servers with search
     if (showBottomSheet) {
         AllServersBottomSheet(
             servers = allServers,
@@ -306,6 +340,154 @@ private fun getLocationForServer(server: Server): Pair<Float, Float> {
 }
 
 @Composable
+private fun AutoServerButton(
+    modifier: Modifier = Modifier,
+    selected: Boolean,
+    bestServer: Server?,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(18.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        if (isPressed) 0.98f else 1f,
+        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "autoBtnPress"
+    )
+    val bgColor by animateColorAsState(
+        if (selected) NX.accentDim else NX.card,
+        tween(250),
+        label = "autoBtnBg"
+    )
+    val borderColor by animateColorAsState(
+        if (selected) NX.accent.copy(alpha = 0.6f) else NX.cardBorder,
+        tween(250),
+        label = "autoBtnBorder"
+    )
+
+    Row(
+        modifier
+            .height(68.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .background(bgColor)
+            .border(1.dp, borderColor, shape)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (selected) NX.accent.copy(alpha = 0.25f) else NX.iconBtn),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.Bolt, null, tint = if (selected) Color.White else NX.accent, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.globe_auto_select),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = NX.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val sub = if (bestServer != null) cleanServerName(bestServer.name) else "AUTO"
+            Text(
+                sub,
+                fontSize = 11.sp,
+                color = NX.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun PingTestButton(
+    modifier: Modifier = Modifier,
+    isPinging: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(18.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        if (isPressed) 0.98f else 1f,
+        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "pingBtnPress"
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pingRotate")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pingSpin"
+    )
+
+    Row(
+        modifier
+            .height(68.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .background(NX.card)
+            .border(1.dp, NX.cardBorder, shape)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(NX.iconBtn),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Filled.Refresh,
+                null,
+                tint = NX.accent,
+                modifier = Modifier
+                    .size(22.dp)
+                    .graphicsLayer { if (isPinging) rotationZ = rotation }
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.globe_ping_test),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = NX.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                if (isPinging) stringResource(R.string.globe_pinging) else stringResource(R.string.globe_all_servers_short),
+                fontSize = 11.sp,
+                color = NX.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun SelectedServerCard(
     selected: Server?,
     isAutoMode: Boolean,
@@ -322,7 +504,8 @@ private fun SelectedServerCard(
     )
 
     val isWl = selected != null && Store.isWlBypass(selected)
-    val borderCol = if (isWl) Color(0x66FFA000) else NX.cardBorder
+    val borderCol = if (isWl) NX.accentLight.copy(alpha = 0.85f) else NX.cardBorder
+    val borderWidth = if (isWl) 1.5.dp else 1.dp
 
     Column(
         Modifier
@@ -333,7 +516,7 @@ private fun SelectedServerCard(
             }
             .clip(shape)
             .background(NX.card)
-            .border(1.dp, borderCol, shape)
+            .border(borderWidth, borderCol, shape)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onOpenAll)
             .padding(18.dp)
     ) {
@@ -347,10 +530,10 @@ private fun SelectedServerCard(
                 stringResource(R.string.globe_selected_server),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isWl) Color(0xFFFFB300) else NX.muted,
+                color = if (isWl) NX.accentLight else NX.muted,
                 letterSpacing = 1.sp
             )
-            PingBadge(selected?.pingMs?.toInt() ?: -1, loading = false)
+            PingBadge(selected?.pingMs ?: -1, loading = false)
         }
 
         Spacer(Modifier.height(12.dp))
@@ -365,11 +548,11 @@ private fun SelectedServerCard(
                     Modifier
                         .size(52.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0x33FFA000))
-                        .border(1.dp, Color(0x66FFA000), RoundedCornerShape(14.dp)),
+                        .background(NX.accentDim.copy(alpha = 0.6f))
+                        .border(1.dp, NX.accentLight.copy(alpha = 0.8f), RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Shield, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.size(28.dp))
+                    Icon(Icons.Filled.Shield, contentDescription = null, tint = NX.accentLight, modifier = Modifier.size(28.dp))
                 }
             } else if (selected != null) {
                 FlagBox(selected.name, size = 52.dp)
@@ -407,7 +590,7 @@ private fun SelectedServerCard(
                         stringResource(R.string.globe_wl_badge),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFFFB300)
+                        color = NX.accentLight
                     )
                 } else if (selected != null) {
                     TagLine(selected)
@@ -421,21 +604,21 @@ private fun SelectedServerCard(
             }
         }
 
-        // Whitelist Bypass special explanation note
+        // Whitelist Bypass special explanation note (Theme matched, no yellow)
         if (isWl) {
             Spacer(Modifier.height(12.dp))
             Box(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0x1AFFA000))
-                    .border(1.dp, Color(0x33FFA000), RoundedCornerShape(12.dp))
+                    .background(NX.accentDim.copy(alpha = 0.35f))
+                    .border(1.dp, NX.accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Text(
                     stringResource(R.string.globe_wl_desc),
                     fontSize = 11.sp,
-                    color = Color(0xFFFFE082),
+                    color = NX.text,
                     lineHeight = 15.sp
                 )
             }
@@ -463,7 +646,7 @@ private fun SelectedServerCard(
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    "()",
+                    "($allServersCount)",
                     fontSize = 13.sp,
                     color = NX.muted
                 )
@@ -492,23 +675,15 @@ private fun AllServersBottomSheet(
     val scope = rememberCoroutineScope()
 
     var searchQuery by remember { mutableStateOf("") }
-    var filterType by remember { mutableStateOf("ALL") }
 
-    val filteredServers = remember(servers, searchQuery, filterType) {
+    val filteredServers = remember(servers, searchQuery) {
         servers.filter { s ->
-            val matchQuery = if (searchQuery.isBlank()) true else {
+            if (searchQuery.isBlank()) true else {
                 s.name.contains(searchQuery, ignoreCase = true) ||
                 s.protocol.contains(searchQuery, ignoreCase = true) ||
                 s.network.contains(searchQuery, ignoreCase = true) ||
                 s.security.contains(searchQuery, ignoreCase = true)
             }
-            val matchType = when (filterType) {
-                "WL" -> Store.isWlBypass(s)
-                "REALITY" -> s.security.equals("reality", ignoreCase = true)
-                "STANDARD" -> !Store.isWlBypass(s)
-                else -> true
-            }
-            matchQuery && matchType
         }
     }
 
@@ -537,7 +712,7 @@ private fun AllServersBottomSheet(
                     color = Color.White
                 )
                 Text(
-                    " / ",
+                    "${filteredServers.size} / ${servers.size}",
                     fontSize = 13.sp,
                     color = NX.muted
                 )
@@ -545,7 +720,7 @@ private fun AllServersBottomSheet(
 
             Spacer(Modifier.height(12.dp))
 
-            // Search Bar
+            // Search Bar (Direct search without category tabs)
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -577,60 +752,13 @@ private fun AllServersBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(10.dp))
-
-            // Filter Chips
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = filterType == "ALL",
-                    onClick = { filterType = "ALL" },
-                    label = { Text(stringResource(R.string.globe_filter_all)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = NX.accent,
-                        selectedLabelColor = Color.White
-                    )
-                )
-                FilterChip(
-                    selected = filterType == "WL",
-                    onClick = { filterType = "WL" },
-                    label = { Text(stringResource(R.string.globe_filter_wl)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFFFFB300),
-                        selectedLabelColor = Color.Black
-                    )
-                )
-                FilterChip(
-                    selected = filterType == "REALITY",
-                    onClick = { filterType = "REALITY" },
-                    label = { Text("Reality") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = NX.accent,
-                        selectedLabelColor = Color.White
-                    )
-                )
-                FilterChip(
-                    selected = filterType == "STANDARD",
-                    onClick = { filterType = "STANDARD" },
-                    label = { Text(stringResource(R.string.globe_filter_standard)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = NX.accent,
-                        selectedLabelColor = Color.White
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
             // Server Rows List
             LazyColumn(
                 Modifier
                     .fillMaxWidth()
-                    .height(380.dp),
+                    .height(390.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (filteredServers.isEmpty()) {
@@ -660,84 +788,6 @@ private fun AllServersBottomSheet(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun AutoServerCard(
-    selected: Boolean,
-    bestServer: Server?,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(18.dp)
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        if (isPressed) 0.98f else 1f,
-        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
-        label = "autoCardPress"
-    )
-    val bgColor by animateColorAsState(
-        if (selected) NX.accentDim else NX.card,
-        tween(250),
-        label = "autoCardBg"
-    )
-    val borderColor by animateColorAsState(
-        if (selected) NX.accent.copy(alpha = 0.45f) else NX.cardBorder,
-        tween(250),
-        label = "autoCardBorder"
-    )
-
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .clip(shape)
-            .background(bgColor)
-            .border(1.dp, borderColor, shape)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            )
-            .padding(horizontal = 12.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (selected) NX.accent.copy(alpha = 0.25f) else NX.iconBtn),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Filled.Bolt, contentDescription = null, tint = if (selected) Color.White else NX.accent, modifier = Modifier.size(28.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.auto_server_title),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            val subText = if (bestServer != null) {
-                cleanServerName(bestServer.name)
-            } else {
-                stringResource(R.string.auto_server_desc)
-            }
-            val tagText = buildAnnotatedString {
-                withStyle(SpanStyle(color = NX.accent)) { append("AUTO") }
-                withStyle(SpanStyle(color = NX.muted)) { append(" - ") }
-                withStyle(SpanStyle(color = NX.muted2)) { append(subText) }
-            }
-            Text(tagText, fontFamily = FontFamily.Monospace, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Spacer(Modifier.width(8.dp))
-        PingBadge(bestServer?.pingMs?.toInt() ?: -1, loading = false)
     }
 }
 

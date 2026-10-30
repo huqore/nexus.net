@@ -191,7 +191,7 @@
     <string name="appearance_icon_title">APP ICON</string>
     <string name="appearance_icon_applied">App icon updated</string>
     <string name="trial_already_used">The free trial has already been used on this device. Please purchase a subscription.</string>
-    <string name="trial_activated_success">🎉 24-hour free trial (15 GB) successfully activated!</string>
+    <string name="trial_activated_success">24-hour free trial (15 GB) successfully activated!</string>
     <!-- 3D Globe Mode -->
     <string name="settings_server_display_title">Server Display Mode</string>
     <string name="settings_use_3d_globe">Interactive 3D Globe</string>
@@ -202,8 +202,11 @@
     <string name="globe_all_servers_btn">All Servers</string>
     <string name="globe_search_hint">Search location, city, protocol&#8230;</string>
     <string name="globe_filter_all">All</string>
-    <string name="globe_filter_wl">WL Bypass &#x1F6E1;</string>
+    <string name="globe_filter_wl">WL Bypass</string>
     <string name="globe_filter_standard">Standard</string>
-    <string name="globe_wl_badge">WL Bypass &#183; Direct RU bypass &#x1F6E1;</string>
+    <string name="globe_wl_badge">WL Bypass - Direct RU bypass</string>
     <string name="globe_wl_desc">Local route for unblocking and accessing Russian services without disabling protection</string>
+    <string name="globe_ping_test">Ping test</string>
+    <string name="globe_pinging">Checking&#8230;</string>
+    <string name="globe_all_servers_short">All servers</string>
 </resources>

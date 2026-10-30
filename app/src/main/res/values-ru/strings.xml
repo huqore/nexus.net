@@ -190,7 +190,7 @@
     <string name="appearance_icon_title">ИКОНКА ПРИЛОЖЕНИЯ</string>
     <string name="appearance_icon_applied">Иконка приложения обновлена</string>
     <string name="trial_already_used">Пробный период на этом устройстве уже был использован ранее. Пожалуйста, оформите подписку.</string>
-    <string name="trial_activated_success">🎉 Пробный период на 24 часа (15 ГБ) успешно активирован!</string>
+    <string name="trial_activated_success">Пробный период на 24 часа (15 ГБ) успешно активирован!</string>
     <!-- 3D Globe Mode -->
     <string name="settings_server_display_title">Отображение серверов</string>
     <string name="settings_use_3d_globe">Интерактивный 3D-глобус</string>
@@ -201,8 +201,11 @@
     <string name="globe_all_servers_btn">Все серверы</string>
     <string name="globe_search_hint">Поиск локации, города, протокола&#8230;</string>
     <string name="globe_filter_all">Все</string>
-    <string name="globe_filter_wl">WL Bypass &#x1F6E1;</string>
+    <string name="globe_filter_wl">WL Bypass</string>
     <string name="globe_filter_standard">Стандартные</string>
-    <string name="globe_wl_badge">WL Bypass &#183; Прямой обход РФ &#x1F6E1;</string>
+    <string name="globe_wl_badge">WL Bypass - Прямой обход РФ</string>
     <string name="globe_wl_desc">Локальный маршрут для обхода блокировок и работы с российскими сервисами без отключения защиты</string>
+    <string name="globe_ping_test">Тест пинга</string>
+    <string name="globe_pinging">Проверка&#8230;</string>
+    <string name="globe_all_servers_short">Все серверы</string>
 </resources>
