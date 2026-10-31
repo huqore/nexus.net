@@ -13,6 +13,7 @@ import android.os.ParcelFileDescriptor
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import hev.htproxy.TProxyService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,12 +28,12 @@ import net.nexus.app.core.XrayCore
 import net.nexus.app.data.SplitMode
 import net.nexus.app.data.AppIcon
 import net.nexus.app.data.Store
+import java.io.File
 
 class NexusVpnService : VpnService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var tun: ParcelFileDescriptor? = null
-    private var currentGoFd: Int = -1
 
     private var watchdogJob: kotlinx.coroutines.Job? = null
     private var activeServerId: String? = null
@@ -71,7 +72,6 @@ class NexusVpnService : VpnService() {
         updateTileState()
         NexusAppWidgetProvider.updateAllWidgets(this)
 
-        var goFd = -1
         try {
             XrayCore.init(this)
             val socksPort = java.net.ServerSocket(0).use { it.localPort }
@@ -80,11 +80,39 @@ class NexusVpnService : VpnService() {
 
             val pfd = buildTun(store) ?: error("VPN permission was revoked")
             tun = pfd
-            // The core gets its own dup'd descriptor; we retain currentGoFd so we can close both descriptors on teardown.
-            goFd = pfd.dup().detachFd()
-            currentGoFd = goFd
 
-            XrayCore.start(config, goFd) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
+            val yamlFile = File(filesDir, "hev-tunnel.yaml")
+            val yamlContent = """
+                tunnel:
+                  name: tun0
+                  mtu: 1500
+                  ipv4: $TUN_IPV4
+                  ipv6: '$TUN_IPV6'
+
+                socks5:
+                  port: $socksPort
+                  address: 127.0.0.1
+                  udp: 'udp'
+
+                misc:
+                  task-stack-size: 86016
+                  connect-timeout: 5000
+                  tcp-read-write-timeout: 300000
+                  udp-read-write-timeout: 60000
+                  log-file: /dev/null
+                  log-level: error
+                  limit-nofile: 65535
+            """.trimIndent()
+            yamlFile.writeText(yamlContent)
+
+            // Start Xray in SOCKS mode (tunFd = 0)
+            XrayCore.start(config, 0) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
+
+            // Bridge Android TUN to Xray SOCKS5 via high-performance lwIP native stack (same engine as INCY and Happ)
+            val started = TProxyService.TProxyStartService(yamlFile.absolutePath, pfd.fd)
+            if (!started) {
+                error("hev-socks5-tunnel failed to start")
+            }
 
             VpnState.connected(server.id, isAuto = isAuto, serverName = server.name)
             val notifText = if (isAuto) {
@@ -101,10 +129,7 @@ class NexusVpnService : VpnService() {
                 startWatchdog(socksPort)
             }
         } catch (t: Throwable) {
-            val fd = currentGoFd
-            currentGoFd = -1
-            if (fd >= 0) runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
-            if (goFd >= 0 && goFd != fd) runCatching { ParcelFileDescriptor.adoptFd(goFd).close() }
+            runCatching { TProxyService.TProxyStopService() }
             XrayCore.stopQuietly()
             runCatching { tun?.close() }; tun = null
             fail(t.message ?: t.javaClass.simpleName)
@@ -156,22 +181,15 @@ class NexusVpnService : VpnService() {
 
         try {
             val newConfig = ConfigBuilder.forTunnel(nextServer, socksPort)
-            val currentFd = currentGoFd
-            if (currentFd >= 0 && tun != null) {
-                // Dup fd for the restarted core
-                val newGoFd = tun!!.dup().detachFd()
-                XrayCore.stopQuietly()
-                runCatching { ParcelFileDescriptor.adoptFd(currentFd).close() }
-                currentGoFd = newGoFd
-                XrayCore.start(newConfig, newGoFd) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
+            XrayCore.stopQuietly()
+            XrayCore.start(newConfig, 0) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
 
-                activeServerId = nextServer.id
-                VpnState.connected(nextServer.id, isAuto = true, serverName = nextServer.name)
-                showNotification(getString(R.string.notif_connected_auto, nextServer.name))
-                startSpeedTicker(nextServer.name)
-                updateTileState()
-                NexusAppWidgetProvider.updateAllWidgets(this)
-            }
+            activeServerId = nextServer.id
+            VpnState.connected(nextServer.id, isAuto = true, serverName = nextServer.name)
+            showNotification(getString(R.string.notif_connected_auto, nextServer.name))
+            startSpeedTicker(nextServer.name)
+            updateTileState()
+            NexusAppWidgetProvider.updateAllWidgets(this)
         } catch (_: Throwable) {
             // If failover failed, let watchdog retry on next cycle
         }
@@ -182,11 +200,18 @@ class NexusVpnService : VpnService() {
         val b = Builder()
             .setSession("nexus.net")
             .setMtu(1500)
-            .addAddress(TUN_IP, 30)
+            .addAddress(TUN_IPV4, 30)
             .addRoute("0.0.0.0", 0)
             .addDnsServer("1.1.1.1")
             .addDnsServer("8.8.8.8")
             .addDnsServer("77.88.8.8")
+
+        // Add IPv6 route to prevent leaks on LTE / dual-stack networks
+        runCatching {
+            b.addAddress(TUN_IPV6, 128)
+            b.addRoute("::", 0)
+        }
+
         if (Build.VERSION.SDK_INT >= 29) b.setMetered(false)
         if (settings.killSwitch) {
             b.setBlocking(true)
@@ -214,11 +239,9 @@ class NexusVpnService : VpnService() {
         speedTickerJob = null
         watchdogJob?.cancel()
         watchdogJob = null
-        runCatching { tun?.close() }; tun = null
-        val fd = currentGoFd
-        currentGoFd = -1
-        if (fd >= 0) runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
+        runCatching { TProxyService.TProxyStopService() }
         XrayCore.stopQuietly()
+        runCatching { tun?.close() }; tun = null
         VpnState.failed(message)
         updateTileState()
         NexusAppWidgetProvider.updateAllWidgets(this)
@@ -233,11 +256,9 @@ class NexusVpnService : VpnService() {
         speedTickerJob = null
         watchdogJob?.cancel()
         watchdogJob = null
-        runCatching { tun?.close() }; tun = null
-        val fd = currentGoFd
-        currentGoFd = -1
-        if (fd >= 0) runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
+        runCatching { TProxyService.TProxyStopService() }
         XrayCore.stopQuietly()
+        runCatching { tun?.close() }; tun = null
         VpnState.disconnected()
         updateTileState()
         NexusAppWidgetProvider.updateAllWidgets(this)
@@ -256,11 +277,9 @@ class NexusVpnService : VpnService() {
         speedTickerJob?.cancel()
         speedTickerJob = null
         if (instance === this) instance = null
-        runCatching { tun?.close() }; tun = null
-        val fd = currentGoFd
-        currentGoFd = -1
-        if (fd >= 0) runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
+        runCatching { TProxyService.TProxyStopService() }
         XrayCore.stopQuietly()
+        runCatching { tun?.close() }; tun = null
         if (VpnState.status.value != VpnStatus.ERROR) VpnState.disconnected()
         updateTileState()
         stopForegroundCompat()
@@ -348,15 +367,13 @@ class NexusVpnService : VpnService() {
     private fun startSpeedTicker(serverName: String) {
         speedTickerJob?.cancel()
         speedTickerJob = scope.launch {
-            var lastRx = getRxBytes()
-            var lastTx = getTxBytes()
+            var (lastRx, lastTx) = getTrafficBytes()
             var lastTime = System.currentTimeMillis()
 
             while (isActive && isConnected) {
                 delay(3000)
                 val now = System.currentTimeMillis()
-                val curRx = getRxBytes()
-                val curTx = getTxBytes()
+                val (curRx, curTx) = getTrafficBytes()
                 val dtSec = ((now - lastTime) / 1000f).coerceAtLeast(0.5f)
 
                 val rxDiff = (curRx - lastRx).coerceAtLeast(0)
@@ -375,16 +392,19 @@ class NexusVpnService : VpnService() {
         }
     }
 
-    private fun getRxBytes(): Long {
-        val total = android.net.TrafficStats.getTotalRxBytes()
-        return if (total != android.net.TrafficStats.UNSUPPORTED.toLong()) total
-        else android.net.TrafficStats.getUidRxBytes(android.os.Process.myUid()).coerceAtLeast(0)
-    }
-
-    private fun getTxBytes(): Long {
-        val total = android.net.TrafficStats.getTotalTxBytes()
-        return if (total != android.net.TrafficStats.UNSUPPORTED.toLong()) total
-        else android.net.TrafficStats.getUidTxBytes(android.os.Process.myUid()).coerceAtLeast(0)
+    private fun getTrafficBytes(): Pair<Long, Long> {
+        val stats = runCatching { TProxyService.TProxyGetStats() }.getOrNull()
+        if (stats != null && stats.size >= 4 && (stats[1] > 0 || stats[3] > 0)) {
+            // Native hev-socks5-tunnel stats: [txPackets, txBytes, rxPackets, rxBytes]
+            return Pair(stats[3], stats[1])
+        }
+        val rx = android.net.TrafficStats.getTotalRxBytes()
+        val tx = android.net.TrafficStats.getTotalTxBytes()
+        val r = if (rx != android.net.TrafficStats.UNSUPPORTED.toLong()) rx
+                else android.net.TrafficStats.getUidRxBytes(android.os.Process.myUid()).coerceAtLeast(0)
+        val t = if (tx != android.net.TrafficStats.UNSUPPORTED.toLong()) tx
+                else android.net.TrafficStats.getUidTxBytes(android.os.Process.myUid()).coerceAtLeast(0)
+        return Pair(r, t)
     }
 
     private fun formatSpeed(bytesPerSec: Long): String {
@@ -447,7 +467,8 @@ class NexusVpnService : VpnService() {
         private const val CHANNEL = "vpn_status"
         private const val NOTIF_ID = 1
 
-        private const val TUN_IP = "172.19.0.1"
+        private const val TUN_IPV4 = "26.26.26.1"
+        private const val TUN_IPV6 = "da26:2626::1"
 
         @Volatile
         var instance: NexusVpnService? = null

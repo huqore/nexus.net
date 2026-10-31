@@ -9,21 +9,10 @@ import java.net.InetAddress
 /** Turns a [Server] into the JSON config the Xray core runs. */
 object ConfigBuilder {
 
-    private fun tunInbound() = JSONObject()
-        .put("tag", "tun-in")
-        .put("protocol", "tun")
-        .put("settings", JSONObject()
-            .put("name", "tun0")
-            .put("mtu", 1500)
-            .put("userLevel", 0))
-        .put("sniffing", JSONObject()
-            .put("enabled", true)
-            .put("destOverride", JSONArray().put("http").put("tls"))
-            .put("routeOnly", true))
-
     /**
-     * Loopback-only SOCKS inbound on a random port. The app itself is excluded from the TUN, so this is how
-     * the speed test sends traffic *through* the VPN outbound.
+     * Loopback-only SOCKS inbound on a random port.
+     * Bridged to Android's VpnService Layer-3 TUN via native libhev-socks5-tunnel (lwIP in C).
+     * Also used by the latency/speed test.
      */
     private fun socksInbound(port: Int) = JSONObject()
         .put("tag", "socks-in")
@@ -31,8 +20,12 @@ object ConfigBuilder {
         .put("port", port)
         .put("protocol", "socks")
         .put("settings", JSONObject().put("auth", "noauth").put("udp", true))
+        .put("sniffing", JSONObject()
+            .put("enabled", true)
+            .put("destOverride", JSONArray().put("http").put("tls"))
+            .put("routeOnly", true))
 
-    private fun inbounds(socksPort: Int) = JSONArray().put(tunInbound()).put(socksInbound(socksPort))
+    private fun inbounds(socksPort: Int) = JSONArray().put(socksInbound(socksPort))
 
     private fun hasTag(outs: JSONArray, tag: String) =
         (0 until outs.length()).any { outs.getJSONObject(it).optString("tag") == tag }

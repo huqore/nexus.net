@@ -49,17 +49,17 @@ class ConfigBuilderTest {
     }
 
     @Test
-    fun `tun inbound has routeOnly true and no quic in destOverride`() {
+    fun `socks inbound has routeOnly true and no quic in destOverride`() {
         val server = sampleVlessServer()
         val configStr = ConfigBuilder.forTunnel(server, socksPort = 10808)
         val cfg = JSONObject(configStr)
 
         val inbounds = cfg.getJSONArray("inbounds")
-        val tun = (0 until inbounds.length())
+        val socks = (0 until inbounds.length())
             .map { inbounds.getJSONObject(it) }
-            .first { it.getString("protocol") == "tun" }
+            .first { it.getString("protocol") == "socks" }
 
-        val sniffing = tun.getJSONObject("sniffing")
+        val sniffing = socks.getJSONObject("sniffing")
         assertTrue("sniffing must be enabled", sniffing.getBoolean("enabled"))
         assertTrue("routeOnly must be true to avoid rewriting destination IPs", sniffing.getBoolean("routeOnly"))
 
@@ -67,7 +67,7 @@ class ConfigBuilderTest {
         val overrides = (0 until destOverride.length()).map { destOverride.getString(it) }
         assertTrue("destOverride should include http", overrides.contains("http"))
         assertTrue("destOverride should include tls", overrides.contains("tls"))
-        assertFalse("destOverride MUST NOT include quic to avoid gVisor UDP DomainAddress panic", overrides.contains("quic"))
+        assertFalse("destOverride MUST NOT include quic", overrides.contains("quic"))
     }
 
     @Test
@@ -134,3 +134,4 @@ class ConfigBuilderTest {
         assertEquals("direct", serverIpRule!!.getString("outboundTag"))
     }
 }
+
