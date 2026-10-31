@@ -63,7 +63,7 @@ object TelegramAuthManager {
                     tgUsername = uObj.optString("username", "").removePrefix("@").removePrefix("nexus_").trim(),
                     siteName = uObj.optString("username", ""),
                     telegramId = uObj.optLong("telegramId", 0L),
-                    subscriptionUrl = "",
+                    subscriptionUrl = uObj.optString("subscriptionUrl", "").ifBlank { "https://nexus-net.xyz" },
                     expireAt = uObj.optString("expireAt", ""),
                     status = uObj.optString("status", "none"),
                     devicesCount = uObj.optInt("deviceLimit", 3),

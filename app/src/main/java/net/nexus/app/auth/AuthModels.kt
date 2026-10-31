@@ -19,7 +19,7 @@ data class TelegramUser(
         get() = if (cleanUsername.isNotBlank()) "@$cleanUsername" else siteName.ifBlank { "User" }
 
     val isSubscribed: Boolean
-        get() = status.equals("active", ignoreCase = true) && subscriptionUrl.isNotBlank()
+        get() = status.equals("active", ignoreCase = true)
 
     fun toJson(): JSONObject = JSONObject()
         .put("tgUsername", cleanUsername)

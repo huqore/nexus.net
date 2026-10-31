@@ -174,13 +174,6 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
                     ctx.startActivity(intent)
                 }
             }
-            SubscriptionExpiringBanner(
-                user = tgUser,
-                onRenew = {
-                    HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
-                    openUrl(ctx.getString(R.string.tg_auth_bot_url))
-                }
-            )
             TelegramSyncBar(
                 user = tgUser,
                 isSyncing = isSyncingTg,
@@ -658,7 +651,17 @@ private fun TelegramSyncBar(
                 val statusText = when {
                     isExpired -> stringResource(R.string.sub_expired)
                     isExpiringSoon && daysLeft != null -> stringResource(R.string.sub_expiring_soon, daysLeft)
-                    user.isSubscribed -> stringResource(R.string.tg_auth_status_active)
+                    user.isSubscribed -> {
+                        if (daysLeft != null) {
+                            if (daysLeft < 3650) {
+                                "${stringResource(R.string.tg_auth_status_active)} · $daysLeft дн."
+                            } else {
+                                "${stringResource(R.string.tg_auth_status_active)} · Безлимит"
+                            }
+                        } else {
+                            stringResource(R.string.tg_auth_status_active)
+                        }
+                    }
                     else -> stringResource(R.string.tg_auth_status_inactive)
                 }
                 val statusColor = when {
