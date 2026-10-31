@@ -102,6 +102,10 @@ import android.widget.Toast
 import net.nexus.app.data.AppIcon
 import net.nexus.app.data.AppTheme
 import net.nexus.app.data.Settings
+import net.nexus.app.auth.SubscriptionNotifier
+import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
 
 
 
@@ -160,6 +164,8 @@ fun SettingsScreen(vm: MainViewModel) {
                 item {
                     val tgUser by vm.telegramUser.collectAsState()
                     val isSyncing by vm.isSyncingTelegram.collectAsState()
+                    val providersList by vm.providers.collectAsState()
+                    val nexusProvider = providersList.firstOrNull { !it.isLocal } ?: providersList.firstOrNull()
 
                     Section(stringResource(R.string.tg_auth_account_title)) {
                         if (tgUser == null) {
@@ -225,13 +231,44 @@ fun SettingsScreen(vm: MainViewModel) {
                                     }
                                 }
 
-                                if (user.expireAt.isNotBlank()) {
+                                val daysLeft: Long? = if (user.expireAt.isNotBlank()) {
+                                    SubscriptionNotifier.getDaysLeft(user.expireAt)
+                                } else if (nexusProvider != null && nexusProvider.expireAt > 0) {
+                                    java.lang.Math.ceil((nexusProvider.expireAt * 1000 - System.currentTimeMillis()) / 86_400_000.0).toLong()
+                                } else null
+
+                                val dateStr = if (user.expireAt.isNotBlank()) {
+                                    user.expireAt.take(10)
+                                } else if (nexusProvider != null && nexusProvider.expireAt > 0) {
+                                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(nexusProvider.expireAt * 1000))
+                                } else null
+
+                                val daysText = when {
+                                    daysLeft == null -> null
+                                    daysLeft > 0 -> "Осталось дней: $daysLeft" + (if (dateStr != null) " (до $dateStr)" else "")
+                                    daysLeft == 0L -> "Осталось дней: истекает сегодня" + (if (dateStr != null) " (до $dateStr)" else "")
+                                    else -> "Подписка истекла"
+                                }
+
+                                val usedBytes = nexusProvider?.used ?: 0L
+                                val usedGb = usedBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
+                                val trafficText = String.format(Locale.US, "ГБ использовано: %.2f из ∞", usedGb)
+
+                                if (daysText != null) {
                                     Text(
-                                        text = "Истекает: ${user.expireAt.take(10)}",
-                                        fontSize = 12.sp,
-                                        color = NX.muted2
+                                        text = daysText,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (daysLeft != null && daysLeft <= 0) NX.red else NX.text
                                     )
                                 }
+                                Text(
+                                    text = trafficText,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = NX.muted2,
+                                    fontFamily = FontFamily.Monospace
+                                )
 
                                 Button(
                                     onClick = { openUrl(ctx.getString(R.string.tg_auth_bot_url)) },
@@ -833,6 +870,9 @@ private fun AppearanceScreen(
                             AppIcon.DEFAULT -> R.drawable.ic_avatar_base
                             AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
                             AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+                            AppIcon.INVERSION_MINIMAL -> R.drawable.ic_avatar_inversion
+                            AppIcon.WHITE_VIOLET -> R.drawable.ic_avatar_violet
+                            AppIcon.NYA_VPN -> R.drawable.ic_avatar_nya
                         }
                         IconOptionRow(
                             icon = icon,

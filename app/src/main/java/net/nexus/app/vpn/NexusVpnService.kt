@@ -161,6 +161,7 @@ class NexusVpnService : VpnService() {
                 // Dup fd for the restarted core
                 val newGoFd = tun!!.dup().detachFd()
                 XrayCore.stopQuietly()
+                runCatching { ParcelFileDescriptor.adoptFd(currentFd).close() }
                 currentGoFd = newGoFd
                 XrayCore.start(newConfig, newGoFd) { }
 
@@ -306,6 +307,9 @@ class NexusVpnService : VpnService() {
         val avatarRes = when (store.loadSettings().appIcon) {
             AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
             AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+            AppIcon.INVERSION_MINIMAL -> R.drawable.ic_avatar_inversion
+            AppIcon.WHITE_VIOLET -> R.drawable.ic_avatar_violet
+            AppIcon.NYA_VPN -> R.drawable.ic_avatar_nya
             else -> R.drawable.ic_avatar_base
         }
 
@@ -350,7 +354,7 @@ class NexusVpnService : VpnService() {
             var lastTime = System.currentTimeMillis()
 
             while (isActive && isConnected) {
-                delay(1500)
+                delay(3000)
                 val now = System.currentTimeMillis()
                 val curRx = getRxBytes()
                 val curTx = getTxBytes()
@@ -399,6 +403,9 @@ class NexusVpnService : VpnService() {
         val avatarRes = when (store.loadSettings().appIcon) {
             AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
             AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+            AppIcon.INVERSION_MINIMAL -> R.drawable.ic_avatar_inversion
+            AppIcon.WHITE_VIOLET -> R.drawable.ic_avatar_violet
+            AppIcon.NYA_VPN -> R.drawable.ic_avatar_nya
             else -> R.drawable.ic_avatar_base
         }
 

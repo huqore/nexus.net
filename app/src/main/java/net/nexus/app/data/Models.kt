@@ -107,7 +107,10 @@ enum class AppTheme(val id: String, val title: String) {
 enum class AppIcon(val id: String, val title: String, val aliasName: String) {
     DEFAULT("default", "base", "net.nexus.app.LauncherDefault"),
     MINIMAL_GREY("minimal_grey", "minimal grey", "net.nexus.app.LauncherMinimalGrey"),
-    TOTAL_BLACK("total_black", "total black minimal", "net.nexus.app.LauncherTotalBlack");
+    TOTAL_BLACK("total_black", "total black minimal", "net.nexus.app.LauncherTotalBlack"),
+    INVERSION_MINIMAL("inversion_minimal", "inversion minimal", "net.nexus.app.LauncherInversionMinimal"),
+    WHITE_VIOLET("white_violet", "white violet", "net.nexus.app.LauncherWhiteViolet"),
+    NYA_VPN("nya_vpn", "nya-vpn?", "net.nexus.app.LauncherNyaVpn");
 
     companion object {
         fun fromId(id: String?): AppIcon = entries.firstOrNull { it.id == id } ?: DEFAULT

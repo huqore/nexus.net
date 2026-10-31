@@ -183,7 +183,7 @@ object SubscriptionFetcher {
         } else if (root is JSONObject) {
             val outs = root.optJSONArray("outbounds")
             if (outs != null) {
-                val proxyOuts = (0 until outs.length()).map { outs.getJSONObject(it) }
+                val proxyOuts = (0 until outs.length()).mapNotNull { outs.optJSONObject(it) }
                     .filter { it.optString("tag") == "proxy" || it.optString("protocol") in proxyProtocols }
                 if (proxyOuts.size > 1) {
                     return proxyOuts.mapIndexed { idx, pOut ->
@@ -208,7 +208,7 @@ object SubscriptionFetcher {
 
     private fun parseSingleXrayConfig(cfg: JSONObject, index: Int): Server? {
         val outs = cfg.optJSONArray("outbounds") ?: return null
-        val first = (0 until outs.length()).map { outs.getJSONObject(it) }
+        val first = (0 until outs.length()).mapNotNull { outs.optJSONObject(it) }
             .firstOrNull { it.optString("tag") == "proxy" || it.optString("protocol") in proxyProtocols }
             ?: return null
         val stream = first.optJSONObject("streamSettings")

@@ -269,13 +269,11 @@ fun PingBadge(ms: Int, loading: Boolean) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ServerRow(
     server: Server, selected: Boolean, pinging: Boolean,
     onClick: () -> Unit, onDelete: () -> Unit,
 ) {
-    var menu by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(18.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -295,48 +293,39 @@ fun ServerRow(
         label = "rowBorder"
     )
 
-    Box {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    scaleX = rowScale
-                    scaleY = rowScale
-                }
-                .clip(shape)
-                .background(bgColor)
-                .border(1.dp, borderColor, shape)
-                .combinedClickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onClick,
-                    onLongClick = { menu = true }
-                )
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FlagBox(server.name, size = 42.dp)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    cleanServerName(server.name),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis
-                )
-                TagLine(server)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = rowScale
+                scaleY = rowScale
             }
-            Spacer(Modifier.width(6.dp))
-            PingBadge(server.pingMs, pinging)
-        }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.delete_server)) },
-                onClick = { menu = false; onDelete() },
+            .clip(shape)
+            .background(bgColor)
+            .border(1.dp, borderColor, shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
             )
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FlagBox(server.name, size = 42.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                cleanServerName(server.name),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+            TagLine(server)
         }
+        Spacer(Modifier.width(6.dp))
+        PingBadge(server.pingMs, pinging)
     }
 }
 
@@ -411,17 +400,7 @@ fun ProviderCard(
     onToggle: () -> Unit, onRefresh: () -> Unit, onPingAll: () -> Unit, onDeleteProvider: () -> Unit,
     onSelect: (Server) -> Unit, onDeleteServer: (Server) -> Unit,
 ) {
-    val clip = LocalClipboardManager.current
-    val locale = LocalConfiguration.current.locales[0]
-    val ru = locale.language == "ru"
-    var menu by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(28.dp)
-
-    val arrowAngle by animateFloatAsState(
-        targetValue = if (p.expanded) 0f else -90f,
-        animationSpec = tween(280, easing = FastOutSlowInEasing),
-        label = "providerArrowAngle"
-    )
 
     Column(
         Modifier
@@ -429,136 +408,17 @@ fun ProviderCard(
             .clip(shape)
             .background(NX.card)
             .border(1.dp, NX.cardBorder, shape)
-            .padding(16.dp),
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        // header
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.KeyboardArrowDown, null, tint = NX.muted2,
-                    modifier = Modifier.size(28.dp).rotate(arrowAngle),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(p.name, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = NX.muted2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            IconCircleButton(Icons.Filled.FlashOn, onPingAll)
-            Spacer(Modifier.width(8.dp))
-            Box {
-                IconCircleButton(Icons.Filled.MoreHoriz, { menu = true })
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    if (p.url != null) DropdownMenuItem(
-                        text = { Text(stringResource(R.string.menu_copy_url)) },
-                        onClick = { menu = false; clip.setText(AnnotatedString(p.url)) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.menu_delete), color = NX.red) },
-                        onClick = { menu = false; onDeleteProvider() },
-                    )
-                }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = p.expanded,
-            enter = expandVertically(
-                animationSpec = tween(320, easing = FastOutSlowInEasing)
-            ) + fadeIn(animationSpec = tween(280)),
-            exit = shrinkVertically(
-                animationSpec = tween(260, easing = FastOutSlowInEasing)
-            ) + fadeOut(animationSpec = tween(200)),
-        ) {
-            Column {
-                // traffic / expiry arranged in a column (столбиком, одно под другим)
-                if (p.total > 0 || p.expireAt > 0 || p.used > 0) {
-                    Spacer(Modifier.height(12.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(NX.chip)
-                            .border(1.dp, NX.cardBorder, RoundedCornerShape(16.dp))
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // 1. Дата окончания подписки
-                        if (p.expireAt > 0) {
-                            val d = ceil((p.expireAt * 1000 - System.currentTimeMillis()) / 86_400_000.0).toInt().coerceAtLeast(0)
-                            val expireDateStr = SimpleDateFormat("dd.MM.yyyy", locale).format(Date(p.expireAt * 1000))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    stringResource(R.string.days_left, d),
-                                    color = NX.accentLight,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    expireDateStr,
-                                    color = NX.muted2,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-
-                        // Прогресс бар (если задан лимит общего трафика)
-                        if (p.total > 0) {
-                            val frac = (p.used.toFloat() / p.total).coerceIn(0f, 1f)
-                            val animatedFrac by animateFloatAsState(
-                                targetValue = frac,
-                                animationSpec = tween(650, easing = FastOutSlowInEasing),
-                                label = "trafficFrac"
-                            )
-                            Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(CircleShape)
-                                    .background(NX.cardBorder)
-                            ) {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth(animatedFrac.coerceAtLeast(0.03f))
-                                        .fillMaxHeight()
-                                        .background(NX.accent)
-                                )
-                            }
-                        }
-
-                        // 2. Использовано трафика
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                if (ru) "Использовано" else "Traffic used",
-                                color = NX.muted,
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                if (p.total > 0) stringResource(R.string.traffic_used, fmtBytes(p.used, ru, locale), fmtBytes(p.total, ru, locale))
-                                else stringResource(R.string.traffic_used_unlimited, fmtBytes(p.used, ru, locale)),
-                                color = NX.text,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    p.servers.forEach { s ->
-                        ServerRow(s, selected = s.id == selectedId, pinging = s.id in pinging,
-                            onClick = { onSelect(s) }, onDelete = { onDeleteServer(s) })
-                    }
-                }
-            }
+        p.servers.forEach { s ->
+            ServerRow(
+                server = s,
+                selected = s.id == selectedId,
+                pinging = s.id in pinging,
+                onClick = { onSelect(s) },
+                onDelete = { }
+            )
         }
     }
 }

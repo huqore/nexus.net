@@ -52,7 +52,7 @@ object SubscriptionNotifier {
             )
 
             val text = when {
-                daysLeft <= 0 -> context.getString(R.string.sub_expired)
+                daysLeft < 0 -> context.getString(R.string.sub_expired)
                 daysLeft == 0L -> context.getString(R.string.sub_notif_expiring_today)
                 else -> context.getString(R.string.sub_notif_expiring_days, daysLeft)
             }
@@ -60,6 +60,9 @@ object SubscriptionNotifier {
             val avatarRes = when (store.loadSettings().appIcon) {
                 AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
                 AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
+                AppIcon.INVERSION_MINIMAL -> R.drawable.ic_avatar_inversion
+                AppIcon.WHITE_VIOLET -> R.drawable.ic_avatar_violet
+                AppIcon.NYA_VPN -> R.drawable.ic_avatar_nya
                 else -> R.drawable.ic_avatar_base
             }
 

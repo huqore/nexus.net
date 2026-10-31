@@ -127,7 +127,7 @@
     <string name="tg_auth_btn_open_bot">Open Telegram Bot</string>
     <string name="tg_auth_success">Welcome, %1$s!</string>
     <string name="tg_auth_no_subscription">No active subscription in bot. You can get one in @NEXUSnet_robot</string>
-    <string name="tg_auth_account_title">Telegram Account</string>
+    <string name="tg_auth_account_title">User and Subscription Data</string>
     <string name="tg_auth_status_active">Subscription: Active</string>
     <string name="tg_auth_status_inactive">Subscription: Inactive / Expired</string>
     <string name="tg_auth_btn_sync">Refresh Subscription</string>

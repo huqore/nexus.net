@@ -319,12 +319,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     pingGate.withPermit {
                         val ms = runCatching { XrayCore.measure(ConfigBuilder.forPing(s), url).toInt() }
                             .getOrNull()?.takeIf { it > 0 } ?: -2
-                        mutate { l -> l.map { p -> p.copy(servers = p.servers.map { if (it.id == s.id) it.copy(pingMs = ms) else it }) } }
+                        providers.update { l -> l.map { p -> p.copy(servers = p.servers.map { if (it.id == s.id) it.copy(pingMs = ms) else it }) } }
                         pinging.update { it - s.id }
                         s.id to ms
                     }
                 }
             }.awaitAll()
+            store.saveProviders(providers.value)
             pinging.update { it - ids }
         }
     }
