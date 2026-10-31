@@ -184,8 +184,6 @@ class NexusVpnService : VpnService() {
             .setMtu(1500)
             .addAddress("172.19.0.1", 30)
             .addRoute("0.0.0.0", 0)
-            .addAddress("fdfe:dcba:9876::1", 126)
-            .addRoute("::", 0)
             .addDnsServer("1.1.1.1")
             .addDnsServer("8.8.8.8")
         if (Build.VERSION.SDK_INT >= 29) b.setMetered(false)

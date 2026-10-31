@@ -6,7 +6,7 @@ plugins {
 
 // Xray core (gomobile AAR, built by 2dust/AndroidLibXrayLite). Pinned on purpose:
 // the Kotlin wrapper in core/XrayCore.kt was written against this exact API.
-val xrayCoreVersion = "v26.10.10"
+val xrayCoreVersion = "v26.10.29"
 val xrayAar = layout.projectDirectory.file("libs/libv2ray.aar").asFile
 
 // Downloaded once at configuration time so that IDE sync and CLI builds both find it.
@@ -27,8 +27,8 @@ android {
         applicationId = "net.nexus.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "2.5.0-test"
+        versionCode = 29
+        versionName = "2.5.0"
     }
 
     splits {
