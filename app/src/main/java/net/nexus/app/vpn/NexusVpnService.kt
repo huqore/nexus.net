@@ -182,10 +182,11 @@ class NexusVpnService : VpnService() {
         val b = Builder()
             .setSession("nexus.net")
             .setMtu(1500)
-            .addAddress(PRIVATE_VLAN4_CLIENT, 30)
+            .addAddress(TUN_IP, 30)
             .addRoute("0.0.0.0", 0)
-            .addDnsServer(PRIVATE_VLAN4_ROUTER)
             .addDnsServer("1.1.1.1")
+            .addDnsServer("8.8.8.8")
+            .addDnsServer("77.88.8.8")
         if (Build.VERSION.SDK_INT >= 29) b.setMetered(false)
         if (settings.killSwitch) {
             b.setBlocking(true)
@@ -446,8 +447,7 @@ class NexusVpnService : VpnService() {
         private const val CHANNEL = "vpn_status"
         private const val NOTIF_ID = 1
 
-        private const val PRIVATE_VLAN4_CLIENT = "26.26.26.1"
-        private const val PRIVATE_VLAN4_ROUTER = "26.26.26.2"
+        private const val TUN_IP = "172.19.0.1"
 
         @Volatile
         var instance: NexusVpnService? = null

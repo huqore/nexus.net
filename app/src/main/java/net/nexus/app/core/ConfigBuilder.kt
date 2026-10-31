@@ -18,8 +18,8 @@ object ConfigBuilder {
             .put("userLevel", 0))
         .put("sniffing", JSONObject()
             .put("enabled", true)
-            .put("destOverride", JSONArray().put("http").put("tls").put("quic"))
-            .put("routeOnly", false))
+            .put("destOverride", JSONArray().put("http").put("tls"))
+            .put("routeOnly", true))
 
     /**
      * Loopback-only SOCKS inbound on a random port. The app itself is excluded from the TUN, so this is how
@@ -45,8 +45,6 @@ object ConfigBuilder {
                 .put("settings", JSONObject().put("domainStrategy", "UseIP")))
         if (!hasTag(outs, "block"))
             outs.put(JSONObject().put("tag", "block").put("protocol", "blackhole"))
-        if (!hasTag(outs, "dns-out"))
-            outs.put(JSONObject().put("tag", "dns-out").put("protocol", "dns"))
     }
 
     private fun resolveHostToIpv4(host: String): String? {
@@ -128,9 +126,9 @@ object ConfigBuilder {
             }
         })
         .put("servers", JSONArray()
-            .put("https://1.1.1.1/dns-query")
             .put("1.1.1.1")
-            .put("8.8.8.8"))
+            .put("8.8.8.8")
+            .put("77.88.8.8"))
         .put("queryStrategy", "UseIPv4")
 
     private fun defaultRoutingRules(serverIps: List<String>): JSONArray {
@@ -154,13 +152,7 @@ object ConfigBuilder {
             .put("network", "udp")
             .put("outboundTag", "block"))
 
-        // 3. Intercept all DNS traffic (port 53) and route to internal DNS module
-        rules.put(JSONObject()
-            .put("type", "field")
-            .put("port", "53")
-            .put("outboundTag", "dns-out"))
-
-        // 4. Bypass private LAN IPs
+        // 3. Bypass private LAN IPs
         rules.put(JSONObject()
             .put("type", "field")
             .put("ip", JSONArray()
@@ -220,11 +212,6 @@ object ConfigBuilder {
                 .put("port", "443")
                 .put("network", "udp")
                 .put("outboundTag", "block"))
-
-            newRules.put(JSONObject()
-                .put("type", "field")
-                .put("port", "53")
-                .put("outboundTag", "dns-out"))
 
             for (i in 0 until existingRules.length()) {
                 newRules.put(existingRules.getJSONObject(i))
