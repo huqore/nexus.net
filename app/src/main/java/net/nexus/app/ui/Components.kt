@@ -245,7 +245,7 @@ fun TagLine(s: Server) {
         part(" - ", NX.muted)
         part(s.source, if (s.source == "JSON") NX.yellow else NX.purple)
     }
-    Text(text, fontFamily = FontFamily.Monospace, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(text, fontFamily = FontFamily.Monospace, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
@@ -263,7 +263,7 @@ fun PingBadge(ms: Int, loading: Boolean) {
                 val animatedColor by animateColorAsState(c, tween(300), label = "pingColor")
                 Box(Modifier.size(8.dp).clip(CircleShape).background(animatedColor))
                 Spacer(Modifier.width(8.dp))
-                Text("${ms}ms", color = NX.muted2, fontFamily = FontFamily.Monospace, fontSize = 16.sp)
+                Text("${ms}ms", color = NX.muted2, fontFamily = FontFamily.Monospace, fontSize = 16.sp, maxLines = 1, softWrap = false)
             }
         }
     }
@@ -388,7 +388,7 @@ private fun LinkChip(icon: ImageVector, label: String, color: Color, url: String
     ) {
         Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(8.dp))
-        Text(label, color = color, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = color, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -525,7 +525,7 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
         Text(
             stringResource(label), fontSize = 12.sp,
             fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
-            color = textColor, maxLines = 1,
+            color = textColor, maxLines = 1, softWrap = false,
         )
     }
 }

@@ -279,13 +279,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (isVpnActive) {
             switchJob?.cancel()
             switchJob = viewModelScope.launch(Dispatchers.Main) {
-                // 1. Отключаем текущее соединение
-                NexusVpnService.stop(getApplication())
-
-                // 2. Ждем 2 секунды
-                delay(2000L)
-
-                // 3. Подключаемся к выбранному серверу
                 NexusVpnService.start(getApplication(), serverId)
             }
         }
@@ -352,6 +345,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleSplitApp(pkg: String) =
         updateSettings { it.copy(splitApps = if (pkg in it.splitApps) it.splitApps - pkg else it.splitApps + pkg) }
     fun setSplitApps(apps: Set<String>) = updateSettings { it.copy(splitApps = apps) }
+    fun setBypassRu(enabled: Boolean) = updateSettings { it.copy(bypassRu = enabled) }
     fun setTestUrl(url: String) = updateSettings { it.copy(testUrl = url.trim().ifEmpty { Settings().testUrl }) }
     fun setFontScale(scale: Float) = updateSettings { it.copy(fontScale = scale) }
     fun setAutoCheckUpdates(enabled: Boolean) = updateSettings { it.copy(autoCheckUpdates = enabled) }

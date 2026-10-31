@@ -84,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.nexus.app.MainViewModel
 import net.nexus.app.R
+import net.nexus.app.data.Provider
 import net.nexus.app.data.Server
 import net.nexus.app.vpn.VpnState
 import net.nexus.app.vpn.VpnStatus
@@ -176,6 +177,7 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             }
             TelegramSyncBar(
                 user = tgUser,
+                providers = providers,
                 isSyncing = isSyncingTg,
                 onLogin = { vm.startTelegramAuth() },
                 onSync = { vm.syncTelegramSubscription() },
@@ -568,14 +570,22 @@ private fun InfoTile(
 @Composable
 private fun TelegramSyncBar(
     user: TelegramUser?,
+    providers: List<Provider>,
     isSyncing: Boolean,
     onLogin: () -> Unit,
     onSync: () -> Unit,
     onRenew: () -> Unit,
 ) {
-    val daysLeft = user?.let { SubscriptionNotifier.getDaysLeft(it.expireAt) }
-    val isExpiringSoon = user != null && user.isSubscribed && daysLeft != null && daysLeft in 0..3
-    val isExpired = user != null && (!user.isSubscribed || (daysLeft != null && daysLeft <= 0))
+    val nexusProvider = providers.firstOrNull { !it.isLocal } ?: providers.firstOrNull()
+    val daysLeft: Long? = if (user != null && user.expireAt.isNotBlank()) {
+        SubscriptionNotifier.getDaysLeft(user.expireAt)
+    } else if (nexusProvider != null && nexusProvider.expireAt > 0) {
+        java.lang.Math.ceil((nexusProvider.expireAt * 1000 - System.currentTimeMillis()) / 86_400_000.0).toLong()
+    } else null
+
+    val isUserActive = (user != null && user.isSubscribed) || (nexusProvider != null && (nexusProvider.expireAt * 1000 > System.currentTimeMillis() || nexusProvider.expireAt == 0L))
+    val isExpiringSoon = user != null && isUserActive && daysLeft != null && daysLeft in 0..3
+    val isExpired = user != null && (!isUserActive || (daysLeft != null && daysLeft <= 0))
 
     Row(
         modifier = Modifier
@@ -619,12 +629,18 @@ private fun TelegramSyncBar(
                     text = stringResource(R.string.tg_auth_banner_title),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = NX.text
+                    color = NX.text,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = stringResource(R.string.tg_auth_banner_subtitle),
                     fontSize = 11.sp,
-                    color = NX.muted
+                    color = NX.muted,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -632,7 +648,10 @@ private fun TelegramSyncBar(
                         text = user.formattedUsername,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = NX.text
+                        color = NX.text,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.width(6.dp))
                     Box(
@@ -650,8 +669,8 @@ private fun TelegramSyncBar(
                 }
                 val statusText = when {
                     isExpired -> stringResource(R.string.sub_expired)
-                    isExpiringSoon && daysLeft != null -> stringResource(R.string.sub_expiring_soon, daysLeft)
-                    user.isSubscribed -> {
+                    isExpiringSoon -> stringResource(R.string.sub_expiring_soon, daysLeft ?: 0)
+                    isUserActive -> {
                         if (daysLeft != null) {
                             if (daysLeft < 3650) {
                                 "${stringResource(R.string.tg_auth_status_active)} · $daysLeft дн."
@@ -667,22 +686,29 @@ private fun TelegramSyncBar(
                 val statusColor = when {
                     isExpired -> NX.red
                     isExpiringSoon -> NX.yellow
-                    user.isSubscribed -> NX.green
+                    isUserActive -> NX.green
                     else -> NX.yellow
                 }
                 Text(
                     text = statusText,
                     fontSize = 11.sp,
-                    color = statusColor
+                    color = statusColor,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
 
         if (user != null && (isExpired || isExpiringSoon)) {
+            val bgCol = if (isExpired) NX.red.copy(alpha = 0.18f) else NX.yellow.copy(alpha = 0.18f)
+            val borderCol = if (isExpired) NX.red.copy(alpha = 0.5f) else NX.yellow.copy(alpha = 0.5f)
+            val txtCol = if (isExpired) NX.red else NX.yellow
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isExpired) NX.accent else NX.yellow.copy(alpha = 0.2f))
+                    .background(bgCol)
+                    .border(1.dp, borderCol, RoundedCornerShape(10.dp))
                     .clickable(onClick = onRenew)
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
@@ -690,7 +716,9 @@ private fun TelegramSyncBar(
                     text = stringResource(R.string.sub_renew_btn),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isExpired) Color.White else NX.yellow
+                    color = txtCol,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
             Spacer(Modifier.width(8.dp))

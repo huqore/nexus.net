@@ -35,6 +35,7 @@ class Store(context: Context) {
             appTheme = AppTheme.fromId(o.optString("appTheme", "base")),
             appIcon = AppIcon.fromId(o.optString("appIcon", "default")),
             use3dGlobe = o.optBoolean("use3dGlobe", true),
+            bypassRu = o.optBoolean("bypassRu", true),
         )
     }.getOrDefault(Settings())
 
@@ -52,6 +53,7 @@ class Store(context: Context) {
             .put("appTheme", s.appTheme.id)
             .put("appIcon", s.appIcon.id)
             .put("use3dGlobe", s.use3dGlobe)
+            .put("bypassRu", s.bypassRu)
         prefs.edit().putString("settings", o.toString()).apply()
     }
 

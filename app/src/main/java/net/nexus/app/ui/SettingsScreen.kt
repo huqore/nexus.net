@@ -82,6 +82,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
@@ -161,7 +162,7 @@ fun SettingsScreen(vm: MainViewModel) {
                         val providersList by vm.providers.collectAsState()
                         val nexusProvider = providersList.firstOrNull { !it.isLocal } ?: providersList.firstOrNull()
 
-                        Section(stringResource(R.string.tg_auth_account_title)) {
+                        Section("Данные пользователя и подписка") {
                             if (tgUser == null) {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text(
@@ -173,7 +174,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                     Button(
                                         onClick = { vm.startTelegramAuth() },
                                         colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
-                                        shape = RoundedCornerShape(16.dp),
+                                        shape = RoundedCornerShape(14.dp),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Icon(
@@ -182,7 +183,12 @@ fun SettingsScreen(vm: MainViewModel) {
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.tg_auth_btn_login), fontWeight = FontWeight.Bold)
+                                        Text(
+                                            stringResource(R.string.tg_auth_btn_login),
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
                                     }
                                 }
                             } else {
@@ -193,19 +199,22 @@ fun SettingsScreen(vm: MainViewModel) {
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                     ) {
-                                        Column {
+                                        Column(Modifier.weight(1f)) {
                                             Text(
-                                                user.formattedUsername,
+                                                text = user.formattedUsername,
                                                 fontSize = 17.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = NX.text
+                                                color = NX.text,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                             if (user.telegramId > 0) {
                                                 Text(
                                                     "ID: ${user.telegramId}",
                                                     fontSize = 12.sp,
                                                     color = NX.muted,
-                                                    fontFamily = FontFamily.Monospace
+                                                    fontFamily = FontFamily.Monospace,
+                                                    maxLines = 1
                                                 )
                                             }
                                         }
@@ -220,7 +229,9 @@ fun SettingsScreen(vm: MainViewModel) {
                                                 text = if (user.isSubscribed) "Активна" else "Истекла",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = if (user.isSubscribed) NX.green else NX.red
+                                                color = if (user.isSubscribed) NX.green else NX.red,
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                         }
                                     }
@@ -240,7 +251,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                     val daysText = when {
                                         daysLeft == null -> null
                                         daysLeft > 3650 -> "Срок: Безлимит"
-                                        daysLeft > 0 -> "Осталось дней: $daysLeft" + (if (dateStr != null) " (до $dateStr)" else "")
+                                        daysLeft > 0 -> "Осталось: $daysLeft дн." + (if (dateStr != null) " (до $dateStr)" else "")
                                         daysLeft == 0L -> "Истекает сегодня" + (if (dateStr != null) " (до $dateStr)" else "")
                                         else -> "Подписка истекла"
                                     }
@@ -262,52 +273,64 @@ fun SettingsScreen(vm: MainViewModel) {
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(NX.cardBorder.copy(alpha = 0.25f))
-                                            .padding(12.dp),
+                                            .padding(horizontal = 14.dp, vertical = 10.dp),
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         if (daysText != null) {
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text("Подписка", fontSize = 13.sp, color = NX.muted2)
-                                                Text(daysText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text)
+                                                Text("Подписка", fontSize = 13.sp, color = NX.muted2, maxLines = 1)
+                                                Text(daysText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
                                             }
                                         }
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Трафик", fontSize = 13.sp, color = NX.muted2)
-                                            Text(trafficText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text)
+                                            Text("Трафик", fontSize = 13.sp, color = NX.muted2, maxLines = 1)
+                                            Text(trafficText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
                                         }
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Устройств", fontSize = 13.sp, color = NX.muted2)
-                                            Text(devicesText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text)
+                                            Text("Устройств", fontSize = 13.sp, color = NX.muted2, maxLines = 1)
+                                            Text(devicesText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
                                         }
                                     }
 
-                                    Row(
+                                    Column(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Button(
                                             onClick = { vm.syncTelegramSubscription() },
                                             colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
-                                            shape = RoundedCornerShape(12.dp),
-                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(14.dp),
+                                            modifier = Modifier.fillMaxWidth(),
                                             enabled = !isSyncing
                                         ) {
                                             if (isSyncing) {
-                                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NX.text, strokeWidth = 2.dp)
+                                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                                                 Spacer(Modifier.width(8.dp))
                                             } else {
                                                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                                 Spacer(Modifier.width(8.dp))
                                             }
-                                            Text(stringResource(R.string.tg_auth_btn_sync), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                text = "Обновить подписку",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
                                         }
 
                                         TextButton(
                                             onClick = { vm.logoutTelegram() },
+                                            modifier = Modifier.fillMaxWidth(),
                                             shape = RoundedCornerShape(12.dp)
                                         ) {
-                                            Text(stringResource(R.string.tg_auth_btn_logout), color = NX.red, fontSize = 13.sp)
+                                            Text(
+                                                text = stringResource(R.string.tg_auth_btn_logout),
+                                                color = NX.red,
+                                                fontSize = 13.sp,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
                                         }
                                     }
                                 }
@@ -321,25 +344,27 @@ fun SettingsScreen(vm: MainViewModel) {
                             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(
-                                        "Настройки раздельного туннелирования",
+                                        text = "Раздельное туннелирование",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = NX.text
+                                        color = NX.text,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                     Text(
-                                        stringResource(R.string.split_note),
+                                        text = stringResource(R.string.split_note),
                                         fontSize = 12.sp,
                                         color = NX.muted,
                                         lineHeight = 16.sp
                                     )
                                     Spacer(Modifier.height(4.dp))
-                                    RadioRow(s.splitMode == SplitMode.OFF, stringResource(R.string.split_off)) {
+                                    RadioRow(s.splitMode == SplitMode.OFF, "Все приложения (весь трафик)") {
                                         vm.setSplitMode(SplitMode.OFF)
                                     }
-                                    RadioRow(s.splitMode == SplitMode.BYPASS, stringResource(R.string.split_bypass)) {
+                                    RadioRow(s.splitMode == SplitMode.BYPASS, "Обходить выбранные (без VPN)") {
                                         vm.setSplitMode(SplitMode.BYPASS)
                                     }
-                                    RadioRow(s.splitMode == SplitMode.ONLY, stringResource(R.string.split_only)) {
+                                    RadioRow(s.splitMode == SplitMode.ONLY, "Только выбранные (через VPN)") {
                                         vm.setSplitMode(SplitMode.ONLY)
                                     }
 
@@ -356,8 +381,15 @@ fun SettingsScreen(vm: MainViewModel) {
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Column {
-                                                Text(stringResource(R.string.split_pick_apps), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NX.text)
-                                                Text("Выбрано приложений: ${s.splitApps.size}", fontSize = 12.sp, color = NX.muted)
+                                                Text(
+                                                    stringResource(R.string.split_pick_apps),
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = NX.text,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                                Text("Выбрано: ${s.splitApps.size}", fontSize = 12.sp, color = NX.muted)
                                             }
                                             Icon(
                                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -372,12 +404,15 @@ fun SettingsScreen(vm: MainViewModel) {
 
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text(
-                                        "Подключение",
+                                        text = "Параметры соединения",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = NX.text
+                                        color = NX.text,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
 
+                                    // Обход сайтов РФ (Direct RU)
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
@@ -385,13 +420,48 @@ fun SettingsScreen(vm: MainViewModel) {
                                     ) {
                                         Column(Modifier.weight(1f).padding(end = 12.dp)) {
                                             Text(
-                                                stringResource(R.string.settings_auto_connect_boot),
+                                                text = "Обход сайтов РФ",
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                color = NX.text
+                                                color = NX.text,
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                             Text(
-                                                stringResource(R.string.settings_auto_connect_boot_desc),
+                                                text = "Банки, Госуслуги и .ru работают напрямую",
+                                                fontSize = 12.sp,
+                                                color = NX.muted
+                                            )
+                                        }
+                                        Switch(
+                                            checked = s.bypassRu,
+                                            onCheckedChange = { vm.setBypassRu(it) },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = Color.White,
+                                                checkedTrackColor = NX.accent,
+                                                uncheckedThumbColor = NX.muted,
+                                                uncheckedTrackColor = NX.cardBorder
+                                            )
+                                        )
+                                    }
+
+                                    // Автоподключение при старте
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                            Text(
+                                                text = "Автоподключение при старте",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = NX.text,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                            Text(
+                                                text = "Запускать VPN при включении устройства",
                                                 fontSize = 12.sp,
                                                 color = NX.muted
                                             )
@@ -408,6 +478,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                         )
                                     }
 
+                                    // Kill Switch
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
@@ -415,13 +486,15 @@ fun SettingsScreen(vm: MainViewModel) {
                                     ) {
                                         Column(Modifier.weight(1f).padding(end = 12.dp)) {
                                             Text(
-                                                stringResource(R.string.settings_kill_switch),
+                                                text = "Kill Switch",
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                color = NX.text
+                                                color = NX.text,
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                             Text(
-                                                stringResource(R.string.settings_kill_switch_desc),
+                                                text = "Блокировать трафик при обрыве VPN",
                                                 fontSize = 12.sp,
                                                 color = NX.muted
                                             )
@@ -448,7 +521,7 @@ fun SettingsScreen(vm: MainViewModel) {
                             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 // Пункт 1: Язык
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("Язык", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text)
+                                    Text("Язык", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
                                     RadioRow(currentLang == "ru" || currentLang.isEmpty(), "Русский") {
                                         AppCompatDelegate.setApplicationLocales(
                                             LocaleListCompat.forLanguageTags("ru")
@@ -465,7 +538,7 @@ fun SettingsScreen(vm: MainViewModel) {
 
                                 // Пункт 2: Вибрация
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text(stringResource(R.string.settings_haptics_title), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text)
+                                    Text("Вибрация", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
                                     RadioRow(s.hapticIntensity == HapticIntensity.OFF, stringResource(R.string.haptic_off)) {
                                         vm.setHapticIntensity(HapticIntensity.OFF)
                                     }
@@ -500,8 +573,8 @@ fun SettingsScreen(vm: MainViewModel) {
                                             Icon(Icons.Filled.Palette, null, tint = NX.accent, modifier = Modifier.size(20.dp))
                                             Spacer(Modifier.width(10.dp))
                                             Column {
-                                                Text("Цветовая схема", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text)
-                                                Text(s.appTheme.title, fontSize = 12.sp, color = NX.muted)
+                                                Text("Цветовая схема", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
+                                                Text(s.appTheme.title, fontSize = 12.sp, color = NX.muted, maxLines = 1)
                                             }
                                         }
                                         Icon(
@@ -564,8 +637,8 @@ fun SettingsScreen(vm: MainViewModel) {
                                             )
                                             Spacer(Modifier.width(10.dp))
                                             Column {
-                                                Text("Иконка приложения", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text)
-                                                Text(s.appIcon.title, fontSize = 12.sp, color = NX.muted)
+                                                Text("Иконка приложения", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
+                                                Text(s.appIcon.title, fontSize = 12.sp, color = NX.muted, maxLines = 1)
                                             }
                                         }
                                         Icon(
@@ -653,14 +726,17 @@ fun SettingsScreen(vm: MainViewModel) {
                                     Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                                         Text(
                                             stringResource(R.string.settings_auto_check),
-                                            fontSize = 15.sp,
-                                            color = NX.text
+                                            fontSize = 14.sp,
+                                            color = NX.text,
+                                            maxLines = 1,
+                                            softWrap = false
                                         )
                                         Text(
                                             stringResource(R.string.update_repo_label, UpdateConfig.GITHUB_REPO),
                                             fontSize = 12.sp,
                                             color = NX.muted,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1
                                         )
                                     }
                                     Switch(
@@ -699,20 +775,22 @@ fun SettingsScreen(vm: MainViewModel) {
                                                 color = NX.text
                                             )
                                             Spacer(Modifier.width(8.dp))
-                                            Text(stringResource(R.string.update_checking))
+                                            Text(stringResource(R.string.update_checking), maxLines = 1, softWrap = false)
                                         }
                                         is UpdateState.Available -> {
                                             Icon(Icons.Filled.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(Modifier.width(8.dp))
                                             Text(
                                                 stringResource(R.string.update_new_version, "v${st.release.versionName}"),
-                                                fontWeight = FontWeight.Bold
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                         }
                                         else -> {
                                             Icon(Icons.Filled.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(Modifier.width(8.dp))
-                                            Text(stringResource(R.string.settings_check_updates))
+                                            Text(stringResource(R.string.settings_check_updates), maxLines = 1, softWrap = false)
                                         }
                                     }
                                 }
@@ -722,7 +800,8 @@ fun SettingsScreen(vm: MainViewModel) {
                                         stringResource(R.string.update_already_latest, BuildConfig.VERSION_NAME),
                                         fontSize = 12.sp,
                                         color = NX.green,
-                                        modifier = Modifier.padding(start = 4.dp)
+                                        modifier = Modifier.padding(start = 4.dp),
+                                        maxLines = 1
                                     )
                                 } else if (updateState is UpdateState.Error) {
                                     Text(
@@ -741,16 +820,16 @@ fun SettingsScreen(vm: MainViewModel) {
                         Section(stringResource(R.string.settings_about)) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Версия", color = NX.muted2, fontSize = 14.sp)
-                                    Text("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", fontWeight = FontWeight.SemiBold, color = NX.text, fontSize = 14.sp)
+                                    Text("Версия", color = NX.muted2, fontSize = 14.sp, maxLines = 1)
+                                    Text("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", fontWeight = FontWeight.SemiBold, color = NX.text, fontSize = 14.sp, maxLines = 1)
                                 }
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Ядро Xray", color = NX.muted2, fontSize = 14.sp)
-                                    Text(coreVersion, fontFamily = FontFamily.Monospace, color = NX.text, fontSize = 13.sp)
+                                    Text("Ядро Xray", color = NX.muted2, fontSize = 14.sp, maxLines = 1)
+                                    Text(coreVersion, fontFamily = FontFamily.Monospace, color = NX.text, fontSize = 13.sp, maxLines = 1)
                                 }
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Архитектура", color = NX.muted2, fontSize = 14.sp)
-                                    Text("RemnaWave BFF / Xray-core", color = NX.text, fontSize = 13.sp)
+                                    Text("Архитектура", color = NX.muted2, fontSize = 14.sp, maxLines = 1)
+                                    Text("RemnaWave BFF / Xray-core", color = NX.text, fontSize = 13.sp, maxLines = 1)
                                 }
                             }
                         }
@@ -765,7 +844,9 @@ fun SettingsScreen(vm: MainViewModel) {
                             textAlign = TextAlign.Center,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Normal,
-                            color = NX.muted.copy(alpha = 0.40f)
+                            color = NX.muted.copy(alpha = 0.40f),
+                            maxLines = 1,
+                            softWrap = false
                         )
                         Spacer(Modifier.height(16.dp))
                     }
@@ -788,7 +869,15 @@ private fun Section(title: String, content: @Composable () -> Unit) {
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = NX.text)
+        Text(
+            text = title,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = NX.text,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
+        )
         content()
     }
 }
@@ -829,7 +918,14 @@ private fun RadioRow(selected: Boolean, label: String, onClick: () -> Unit) {
             )
         )
         Spacer(Modifier.width(8.dp))
-        Text(label, fontSize = 15.sp, color = if (selected) NX.text else NX.muted2)
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = if (selected) NX.text else NX.muted2,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -888,11 +984,15 @@ private fun LinkRow(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = NX.text,
+                maxLines = 1,
+                softWrap = false
             )
             Text(
                 text = subtitle,
                 fontSize = 12.sp,
                 color = NX.muted,
+                maxLines = 1,
+                softWrap = false
             )
         }
 
@@ -957,7 +1057,7 @@ private fun AppPicker(selected: Set<String>, onToggle: (String) -> Unit, onBack:
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
             }
-            Text(stringResource(R.string.settings_split), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.settings_split), fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
         }
         OutlinedTextField(
             value = query, onValueChange = { query = it }, singleLine = true,
@@ -982,8 +1082,8 @@ private fun AppPicker(selected: Set<String>, onToggle: (String) -> Unit, onBack:
                         else Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(NX.iconBtn))
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(app.label, fontSize = 17.sp, maxLines = 1)
-                            Text(app.pkg, fontSize = 12.sp, color = NX.muted, maxLines = 1, fontFamily = FontFamily.Monospace)
+                            Text(app.label, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(app.pkg, fontSize = 12.sp, color = NX.muted, maxLines = 1, fontFamily = FontFamily.Monospace, overflow = TextOverflow.Ellipsis)
                         }
                         Checkbox(checked = app.pkg in selected, onCheckedChange = null)
                     }
@@ -1036,10 +1136,12 @@ private fun ThemeOptionRow(
         Spacer(Modifier.width(10.dp))
         Text(
             text = theme.title,
-            fontSize = 16.sp,
+            fontSize = 15.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             color = if (selected) NX.text else NX.muted2,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            softWrap = false
         )
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1116,14 +1218,18 @@ private fun IconOptionRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = icon.title,
-                fontSize = 17.sp,
+                fontSize = 16.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-                color = if (selected) NX.text else NX.muted2
+                color = if (selected) NX.text else NX.muted2,
+                maxLines = 1,
+                softWrap = false
             )
             Text(
                 text = if (icon == AppIcon.DEFAULT) "Оригинальная иконка NEXUS" else "Кастомный стиль иконки",
                 fontSize = 12.sp,
-                color = NX.muted
+                color = NX.muted,
+                maxLines = 1,
+                softWrap = false
             )
         }
         RadioButton(

@@ -66,11 +66,14 @@ fun ServersScreen(vm: MainViewModel) {
     val pinging by vm.pinging.collectAsState()
 
     val ctx = LocalContext.current
-    LaunchedEffect(Unit) {
-        vm.refreshStale(force = false)
-    }
     val bestServer = remember(providers) { Store(ctx).findBestServer() }
     val allServers = remember(providers) { providers.flatMap { it.servers } }
+    LaunchedEffect(providers) {
+        vm.refreshStale(force = false)
+        if (allServers.isNotEmpty() && pinging.isEmpty() && allServers.any { it.pingMs <= 0 }) {
+            vm.pingServers(allServers)
+        }
+    }
 
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding(),

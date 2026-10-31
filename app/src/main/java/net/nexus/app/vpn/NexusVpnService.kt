@@ -81,7 +81,7 @@ class NexusVpnService : VpnService() {
             XrayCore.init(this)
             val socksPort = java.net.ServerSocket(0).use { it.localPort }
             VpnState.socksPort = socksPort
-            val config = ConfigBuilder.forTunnel(server, socksPort)
+            val config = ConfigBuilder.forTunnel(server, socksPort, store.loadSettings().bypassRu)
 
             val pfd = buildTun(store) ?: error("VPN permission was revoked")
             tun = pfd
@@ -228,8 +228,11 @@ class NexusVpnService : VpnService() {
         when (settings.splitMode) {
             SplitMode.ONLY -> {
                 val apps = settings.splitApps - packageName
-                if (apps.isEmpty()) error("Split tunneling: no apps selected")
-                apps.forEach { runCatching { b.addAllowedApplication(it) } }
+                if (apps.isEmpty()) {
+                    android.util.Log.w("NexusVPN", "SplitMode.ONLY selected with 0 apps, routing all traffic")
+                } else {
+                    apps.forEach { runCatching { b.addAllowedApplication(it) } }
+                }
             }
             SplitMode.BYPASS -> {
                 settings.splitApps.forEach { runCatching { b.addDisallowedApplication(it) } }
