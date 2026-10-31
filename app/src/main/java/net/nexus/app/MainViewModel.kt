@@ -591,38 +591,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         var serverCount = 0
         var finalUser = confirmedUser
 
-        try {
-            finalUser = TelegramAuthManager.refreshFromRemnaWave(confirmedUser)
-        } catch (_: Exception) {}
-
         telegramUser.value = finalUser
         store.saveTelegramUser(finalUser)
 
         val hwid = store.getOrCreateHwid()
-        if (finalUser.subscriptionUrl.isNotBlank()) {
-            try {
-                val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl, hwid)
-                upsertSubscription(finalUser.subscriptionUrl, r)
-                serverCount = r.servers.size
-            } catch (_: Exception) {}
-        }
-
-        // Register active device session in RemnaWave and handle trial status
-        val regResult = TelegramAuthManager.registerDevice(finalUser, hwid)
-        if (regResult.trialStatus == "hwid_already_used") {
-            emit(R.string.trial_already_used)
-        } else if (regResult.trialStatus == "activated") {
-            emit(R.string.trial_activated_success)
-            try {
-                finalUser = TelegramAuthManager.refreshFromRemnaWave(finalUser)
+        val hs = TelegramAuthManager.handshake(hwid, finalUser.tgUsername, finalUser.telegramId)
+        if (hs.success) {
+            if (hs.user != null) {
+                finalUser = hs.user
                 telegramUser.value = finalUser
                 store.saveTelegramUser(finalUser)
-                if (finalUser.subscriptionUrl.isNotBlank()) {
-                    val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl, hwid)
-                    upsertSubscription(finalUser.subscriptionUrl, r)
-                    serverCount = r.servers.size
-                }
-            } catch (_: Exception) {}
+            }
+            if (hs.servers.isNotEmpty()) {
+                val provider = Provider(
+                    id = "nexus_provider",
+                    name = "NEXUS",
+                    servers = hs.servers,
+                    expireAt = 0,
+                    updatedAt = System.currentTimeMillis()
+                )
+                store.saveProviders(listOf(provider))
+                providers.value = listOf(provider)
+                serverCount = hs.servers.size
+                ensureSelection()
+            }
         }
 
         telegramAuthState.value = TelegramAuthState.Success(finalUser, serverCount)
@@ -641,27 +633,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             isSyncingTelegram.value = true
             try {
-                val updatedUser = TelegramAuthManager.refreshFromRemnaWave(user)
-                telegramUser.value = updatedUser
-                store.saveTelegramUser(updatedUser)
-                net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), updatedUser)
-
                 val hwid = store.getOrCreateHwid()
-                if (updatedUser.subscriptionUrl.isNotBlank()) {
-                    val r = SubscriptionFetcher.fetch(updatedUser.subscriptionUrl, hwid)
-                    upsertSubscription(updatedUser.subscriptionUrl, r)
-                    if (!quiet) {
-                        emit(R.string.tg_sync_success, r.servers.size)
+                val hs = TelegramAuthManager.handshake(hwid, user.tgUsername, user.telegramId)
+                if (hs.success) {
+                    if (hs.user != null) {
+                        telegramUser.value = hs.user
+                        store.saveTelegramUser(hs.user)
+                        net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), hs.user)
+                    }
+                    if (hs.servers.isNotEmpty()) {
+                        val provider = Provider(
+                            id = "nexus_provider",
+                            name = "NEXUS",
+                            servers = hs.servers,
+                            expireAt = 0,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        store.saveProviders(listOf(provider))
+                        providers.value = listOf(provider)
+                        ensureSelection()
+                        if (!quiet) {
+                            emit(R.string.tg_sync_success, hs.servers.size)
+                        }
+                    } else if (hs.user?.status != "active" && !quiet) {
+                        emit(R.string.tg_no_active_sub)
                     }
                 } else if (!quiet) {
-                    emit(R.string.tg_no_active_sub)
-                }
-
-                val regRes = TelegramAuthManager.registerDevice(updatedUser, hwid)
-                if (regRes.trialStatus == "hwid_already_used" && !quiet) {
-                    emit(R.string.trial_already_used)
-                } else if (regRes.trialStatus == "activated") {
-                    emit(R.string.trial_activated_success)
+                    emit(R.string.tg_sync_failed, "Ошибка соединения с сервером")
                 }
             } catch (e: Exception) {
                 if (!quiet) {

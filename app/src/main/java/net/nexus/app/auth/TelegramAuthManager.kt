@@ -3,12 +3,22 @@ package net.nexus.app.auth
 import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
+import net.nexus.app.data.Server
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+
+data class HandshakeResult(
+    val success: Boolean,
+    val authenticated: Boolean,
+    val user: TelegramUser?,
+    val servers: List<Server>,
+    val motd: String? = null,
+)
 
 data class DeviceRegisterResult(
     val success: Boolean,
@@ -20,6 +30,83 @@ data class DeviceRegisterResult(
 object TelegramAuthManager {
 
     private const val AUTH_BASE_URL = "https://nexus-net.xyz/api/auth/telegram"
+
+    /**
+     * Single BFF call to sync user status and obtain clean server outbounds.
+     */
+    suspend fun handshake(
+        hwid: String,
+        username: String? = null,
+        telegramId: Long? = null,
+        sessionToken: String? = null
+    ): HandshakeResult = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("hwid", hwid)
+                if (!username.isNullOrBlank()) put("username", username)
+                if (telegramId != null && telegramId > 0) put("telegramId", telegramId)
+                if (!sessionToken.isNullOrBlank()) put("sessionToken", sessionToken)
+                put("clientVersion", net.nexus.app.BuildConfig.VERSION_NAME)
+                put("platform", "android")
+                put("deviceModel", "${Build.MANUFACTURER} ${Build.MODEL}")
+            }
+            val resp = httpPost("https://nexus-net.xyz/api/v1/client/handshake", payload.toString())
+                ?: return@withContext HandshakeResult(success = false, authenticated = false, user = null, servers = emptyList())
+            val json = JSONObject(resp)
+            if (!json.optBoolean("success", false)) {
+                return@withContext HandshakeResult(success = false, authenticated = false, user = null, servers = emptyList())
+            }
+            val auth = json.optBoolean("authenticated", false)
+            val uObj = json.optJSONObject("user")
+            val user = if (uObj != null) {
+                TelegramUser(
+                    tgUsername = uObj.optString("username", "").removePrefix("@").removePrefix("nexus_").trim(),
+                    siteName = uObj.optString("username", ""),
+                    telegramId = uObj.optLong("telegramId", 0L),
+                    subscriptionUrl = "",
+                    expireAt = uObj.optString("expireAt", ""),
+                    status = uObj.optString("status", "none"),
+                    devicesCount = uObj.optInt("deviceLimit", 3),
+                )
+            } else null
+
+            val serversArr = json.optJSONArray("servers") ?: JSONArray()
+            val servers = mutableListOf<Server>()
+            for (i in 0 until serversArr.length()) {
+                val s = serversArr.getJSONObject(i)
+                val outboundObj = s.optJSONObject("outboundConfig")
+                val streamSettings = outboundObj?.optJSONObject("streamSettings")
+                val net = streamSettings?.optString("network", "tcp") ?: "tcp"
+                val sec = streamSettings?.optString("security", "reality") ?: "reality"
+                servers.add(
+                    Server(
+                        id = s.getString("id"),
+                        name = s.getString("name"),
+                        protocol = s.optString("protocol", "vless"),
+                        network = net,
+                        security = sec,
+                        source = "BFF",
+                        outbounds = if (outboundObj != null) JSONArray().put(outboundObj).toString() else null,
+                        fullConfig = null,
+                        pingMs = -1
+                    )
+                )
+            }
+            val appConfig = json.optJSONObject("appConfig")
+            val motd = if (appConfig?.isNull("motd") == false) appConfig.optString("motd") else null
+
+            HandshakeResult(
+                success = true,
+                authenticated = auth,
+                user = user,
+                servers = servers,
+                motd = motd
+            )
+        } catch (e: Exception) {
+            HandshakeResult(success = false, authenticated = false, user = null, servers = emptyList())
+        }
+    }
+
 
     /**
      * Creates a login session with @NEXUSnet_robot.
