@@ -190,6 +190,7 @@ object LinkParser {
             .apply { q["flow"]?.takeIf { it.isNotEmpty() }?.let { put("flow", it) } }
         val settings = JSONObject().put("vnext", JSONArray().put(JSONObject()
             .put("address", host).put("port", port).put("users", JSONArray().put(user))))
+            .put("packetEncoding", q["packetEncoding"] ?: "xudp")
         val finalName = p.name.ifBlank { "$host:$port" }
         return wrap(finalName, "vless", stream.getString("network"), security,
             outbound("vless", settings, stream))

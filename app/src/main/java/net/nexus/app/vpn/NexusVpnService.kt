@@ -84,7 +84,7 @@ class NexusVpnService : VpnService() {
             goFd = pfd.dup().detachFd()
             currentGoFd = goFd
 
-            XrayCore.start(config, goFd) { /* core log line; ignored in release */ }
+            XrayCore.start(config, goFd) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
 
             VpnState.connected(server.id, isAuto = isAuto, serverName = server.name)
             val notifText = if (isAuto) {
@@ -163,7 +163,7 @@ class NexusVpnService : VpnService() {
                 XrayCore.stopQuietly()
                 runCatching { ParcelFileDescriptor.adoptFd(currentFd).close() }
                 currentGoFd = newGoFd
-                XrayCore.start(newConfig, newGoFd) { }
+                XrayCore.start(newConfig, newGoFd) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
 
                 activeServerId = nextServer.id
                 VpnState.connected(nextServer.id, isAuto = true, serverName = nextServer.name)
@@ -182,10 +182,10 @@ class NexusVpnService : VpnService() {
         val b = Builder()
             .setSession("nexus.net")
             .setMtu(1500)
-            .addAddress("172.19.0.1", 30)
+            .addAddress(PRIVATE_VLAN4_CLIENT, 30)
             .addRoute("0.0.0.0", 0)
+            .addDnsServer(PRIVATE_VLAN4_ROUTER)
             .addDnsServer("1.1.1.1")
-            .addDnsServer("8.8.8.8")
         if (Build.VERSION.SDK_INT >= 29) b.setMetered(false)
         if (settings.killSwitch) {
             b.setBlocking(true)
@@ -445,6 +445,9 @@ class NexusVpnService : VpnService() {
         const val EXTRA_SERVER_ID = "server_id"
         private const val CHANNEL = "vpn_status"
         private const val NOTIF_ID = 1
+
+        private const val PRIVATE_VLAN4_CLIENT = "26.26.26.1"
+        private const val PRIVATE_VLAN4_ROUTER = "26.26.26.2"
 
         @Volatile
         var instance: NexusVpnService? = null
