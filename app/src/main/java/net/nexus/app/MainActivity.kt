@@ -156,6 +156,18 @@ class MainActivity : AppCompatActivity() {
     private fun handleDeepLink(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme.equals("nexus", ignoreCase = true)) {
+            // Direct auth payload from Telegram bot or web login
+            val userBase64 = uri.getQueryParameter("user")
+                ?: uri.getQueryParameter("tg_auth")
+            val sessionParam = uri.getQueryParameter("session")
+
+            if (!userBase64.isNullOrBlank()) {
+                vm.applyTelegramAuthBase64(userBase64)
+            } else if (!sessionParam.isNullOrBlank()) {
+                vm.checkAndApplyTelegramSession(sessionParam)
+            }
+
+            // Direct subscription import URL
             val subUrl = uri.getQueryParameter("url")
                 ?: uri.getQueryParameter("sub")
                 ?: uri.getQueryParameter("link")

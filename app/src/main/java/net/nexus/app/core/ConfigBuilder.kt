@@ -76,6 +76,15 @@ object ConfigBuilder {
             if (vnext != null) {
                 for (j in 0 until vnext.length()) {
                     val srv = vnext.optJSONObject(j) ?: continue
+                    val users = srv.optJSONArray("users")
+                    if (users != null) {
+                        for (k in 0 until users.length()) {
+                            val u = users.optJSONObject(k) ?: continue
+                            if (!u.has("packetEncoding")) {
+                                u.put("packetEncoding", "xudp")
+                            }
+                        }
+                    }
                     val rawAddress = srv.optString("address")
                     if (rawAddress.isNotBlank()) {
                         val ip = resolveHostToIpv4(rawAddress)

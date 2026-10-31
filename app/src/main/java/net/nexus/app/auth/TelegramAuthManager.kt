@@ -63,7 +63,7 @@ object TelegramAuthManager {
         TelegramUser(
             tgUsername = rawUsername.removePrefix("@").trim(),
             siteName = uObj.optString("siteName", ""),
-            telegramId = uObj.optLong("telegramChatId", 0L),
+            telegramId = uObj.optLong("telegramChatId", 0L).let { if (it > 0) it else uObj.optLong("telegramId", 0L) },
             subscriptionUrl = subUrl,
             expireAt = expireAt,
             status = status,

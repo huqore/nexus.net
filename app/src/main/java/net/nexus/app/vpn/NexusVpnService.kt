@@ -93,6 +93,7 @@ class NexusVpnService : VpnService() {
                   port: $socksPort
                   address: 127.0.0.1
                   udp: 'udp'
+                  udp-address: 127.0.0.1
 
                 misc:
                   task-stack-size: 86016
@@ -200,7 +201,7 @@ class NexusVpnService : VpnService() {
         val b = Builder()
             .setSession("nexus.net")
             .setMtu(1500)
-            .addAddress(TUN_IPV4, 30)
+            .addAddress(TUN_IPV4, 16)
             .addRoute("0.0.0.0", 0)
             .addDnsServer("1.1.1.1")
             .addDnsServer("8.8.8.8")
@@ -467,8 +468,8 @@ class NexusVpnService : VpnService() {
         private const val CHANNEL = "vpn_status"
         private const val NOTIF_ID = 1
 
-        private const val TUN_IPV4 = "26.26.26.1"
-        private const val TUN_IPV6 = "da26:2626::1"
+        private const val TUN_IPV4 = "198.18.0.1"
+        private const val TUN_IPV6 = "fdfe:dcba:9876::1"
 
         @Volatile
         var instance: NexusVpnService? = null

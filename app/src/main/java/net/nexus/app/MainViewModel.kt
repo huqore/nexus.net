@@ -536,51 +536,97 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
 
-                var serverCount = 0
-                var finalUser = confirmedUser
-
-                try {
-                    finalUser = TelegramAuthManager.refreshFromRemnaWave(confirmedUser)
-                } catch (_: Exception) {}
-
-                telegramUser.value = finalUser
-                store.saveTelegramUser(finalUser)
-
-                val hwid = store.getOrCreateHwid()
-                if (finalUser.subscriptionUrl.isNotBlank()) {
-                    try {
-                        val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl, hwid)
-                        upsertSubscription(finalUser.subscriptionUrl, r)
-                        serverCount = r.servers.size
-                    } catch (_: Exception) {}
-                }
-
-                // Register active device session in RemnaWave and handle trial status
-                val regResult = TelegramAuthManager.registerDevice(finalUser, hwid)
-                if (regResult.trialStatus == "hwid_already_used") {
-                    emit(R.string.trial_already_used)
-                } else if (regResult.trialStatus == "activated") {
-                    emit(R.string.trial_activated_success)
-                    try {
-                        finalUser = TelegramAuthManager.refreshFromRemnaWave(finalUser)
-                        telegramUser.value = finalUser
-                        store.saveTelegramUser(finalUser)
-                        if (finalUser.subscriptionUrl.isNotBlank()) {
-                            val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl, hwid)
-                            upsertSubscription(finalUser.subscriptionUrl, r)
-                            serverCount = r.servers.size
-                        }
-                    } catch (_: Exception) {}
-                }
-
-                telegramAuthState.value = TelegramAuthState.Success(finalUser, serverCount)
-                emit(R.string.tg_auth_success, finalUser.formattedUsername)
+                applyConfirmedTelegramUser(confirmedUser)
             } catch (e: CancellationException) {
                 // User cancelled or dismissed
             } catch (e: Exception) {
                 telegramAuthState.value = TelegramAuthState.Error(e.message ?: "Ошибка авторизации")
             }
         }
+    }
+
+    fun applyTelegramAuthBase64(base64Str: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val jsonStr = String(android.util.Base64.decode(base64Str, android.util.Base64.DEFAULT), Charsets.UTF_8)
+                val json = org.json.JSONObject(jsonStr)
+                val cleanUsername = json.optString("cleanUsername", "").ifBlank {
+                    json.optString("tgUsername", "").removePrefix("@").trim()
+                }
+                val tgId = json.optLong("telegramId", 0L).let { if (it > 0) it else json.optLong("telegramChatId", 0L) }
+                val subObj = json.optJSONObject("subscription")
+                val subUrl = subObj?.optString("subscriptionUrl", "") ?: ""
+                val status = subObj?.optString("status", "none") ?: "none"
+                val expireAt = subObj?.optString("expireAt", "") ?: ""
+                val devicesCount = subObj?.optInt("devicesCount", 3) ?: 3
+
+                val u = TelegramUser(
+                    tgUsername = cleanUsername,
+                    siteName = json.optString("siteName", ""),
+                    telegramId = tgId,
+                    subscriptionUrl = subUrl,
+                    expireAt = expireAt,
+                    status = status,
+                    devicesCount = devicesCount,
+                )
+                applyConfirmedTelegramUser(u)
+            } catch (e: Exception) {
+                emit(R.string.status_error)
+            }
+        }
+    }
+
+    fun checkAndApplyTelegramSession(sessionId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val u = TelegramAuthManager.checkLoginSession(sessionId)
+                if (u != null) {
+                    applyConfirmedTelegramUser(u)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private suspend fun applyConfirmedTelegramUser(confirmedUser: TelegramUser) {
+        var serverCount = 0
+        var finalUser = confirmedUser
+
+        try {
+            finalUser = TelegramAuthManager.refreshFromRemnaWave(confirmedUser)
+        } catch (_: Exception) {}
+
+        telegramUser.value = finalUser
+        store.saveTelegramUser(finalUser)
+
+        val hwid = store.getOrCreateHwid()
+        if (finalUser.subscriptionUrl.isNotBlank()) {
+            try {
+                val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl, hwid)
+                upsertSubscription(finalUser.subscriptionUrl, r)
+                serverCount = r.servers.size
+            } catch (_: Exception) {}
+        }
+
+        // Register active device session in RemnaWave and handle trial status
+        val regResult = TelegramAuthManager.registerDevice(finalUser, hwid)
+        if (regResult.trialStatus == "hwid_already_used") {
+            emit(R.string.trial_already_used)
+        } else if (regResult.trialStatus == "activated") {
+            emit(R.string.trial_activated_success)
+            try {
+                finalUser = TelegramAuthManager.refreshFromRemnaWave(finalUser)
+                telegramUser.value = finalUser
+                store.saveTelegramUser(finalUser)
+                if (finalUser.subscriptionUrl.isNotBlank()) {
+                    val r = SubscriptionFetcher.fetch(finalUser.subscriptionUrl, hwid)
+                    upsertSubscription(finalUser.subscriptionUrl, r)
+                    serverCount = r.servers.size
+                }
+            } catch (_: Exception) {}
+        }
+
+        telegramAuthState.value = TelegramAuthState.Success(finalUser, serverCount)
+        emit(R.string.tg_auth_success, finalUser.formattedUsername)
     }
 
     fun dismissTelegramAuthDialog() {

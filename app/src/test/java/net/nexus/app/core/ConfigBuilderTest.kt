@@ -83,6 +83,10 @@ class ConfigBuilderTest {
 
         val settings = proxy.getJSONObject("settings")
         assertEquals("packetEncoding must be xudp", "xudp", settings.getString("packetEncoding"))
+
+        val vnext = settings.getJSONArray("vnext")
+        val user = vnext.getJSONObject(0).getJSONArray("users").getJSONObject(0)
+        assertEquals("user packetEncoding must be xudp", "xudp", user.getString("packetEncoding"))
     }
 
     @Test
