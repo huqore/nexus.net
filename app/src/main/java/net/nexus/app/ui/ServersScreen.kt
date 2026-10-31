@@ -89,6 +89,9 @@ fun ServersScreen(vm: MainViewModel) {
     )
 
     val ctx = LocalContext.current
+    LaunchedEffect(Unit) {
+        vm.refreshStale(force = false)
+    }
     val bestServer = remember(providers) { Store(ctx).findBestServer() }
     val allServers = remember(providers) { providers.flatMap { it.servers } }
 

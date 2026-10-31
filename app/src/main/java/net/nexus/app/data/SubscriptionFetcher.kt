@@ -34,6 +34,10 @@ object SubscriptionFetcher {
             connectTimeout = 15_000
             readTimeout = 20_000
             instanceFollowRedirects = true
+            useCaches = false
+            defaultUseCaches = false
+            setRequestProperty("Cache-Control", "no-cache, no-store, must-revalidate")
+            setRequestProperty("Pragma", "no-cache")
             val model = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
             setRequestProperty("User-Agent", "NEXUS.net/2.0 (v2ray; Xray; Android $model)")
             setRequestProperty("Accept", "*/*")

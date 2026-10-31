@@ -256,9 +256,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun refreshStale() {
-        val limit = 3600_000L
-        providers.value.filter { it.url != null && System.currentTimeMillis() - it.updatedAt > limit }
+    fun refreshStale(force: Boolean = false) {
+        val limit = if (force) 0L else 30_000L // 30 sec cache freshness
+        providers.value.filter { it.url != null && (force || System.currentTimeMillis() - it.updatedAt > limit) }
             .forEach { refresh(it.id, quiet = true) }
     }
 
