@@ -34,7 +34,7 @@ class NexusVpnService : VpnService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var tun: ParcelFileDescriptor? = null
-
+    private var vpnJob: kotlinx.coroutines.Job? = null
     private var watchdogJob: kotlinx.coroutines.Job? = null
     private var activeServerId: String? = null
     private var isAutoMode: Boolean = false
@@ -53,13 +53,18 @@ class NexusVpnService : VpnService() {
             else -> {
                 val serverId = intent?.getStringExtra(EXTRA_SERVER_ID)
                 showNotification(getString(R.string.notif_connecting))
-                scope.launch { startVpn(serverId) }
+                vpnJob?.cancel()
+                vpnJob = scope.launch { startVpn(serverId) }
             }
         }
         return START_NOT_STICKY
     }
 
     private fun startVpn(serverId: String?) {
+        runCatching { TProxyService.TProxyStopService() }
+        XrayCore.stopQuietly()
+        runCatching { tun?.close() }; tun = null
+
         val store = Store(this)
         val isAuto = (serverId == Store.AUTO_SERVER_ID || serverId == null)
         isAutoMode = isAuto
@@ -253,6 +258,8 @@ class NexusVpnService : VpnService() {
     }
 
     fun stopVpn() {
+        vpnJob?.cancel()
+        vpnJob = null
         speedTickerJob?.cancel()
         speedTickerJob = null
         watchdogJob?.cancel()
@@ -275,6 +282,8 @@ class NexusVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        vpnJob?.cancel()
+        vpnJob = null
         speedTickerJob?.cancel()
         speedTickerJob = null
         if (instance === this) instance = null
