@@ -62,7 +62,7 @@ val BaseThemeColors = NexusColorPalette(
     purple = Color(0xFFA78BFA),
     btnGradTop = Color(0xFF1B1733),
     btnGradBottom = Color(0xFF120F22),
-    sheetBg = Color(0xF2110F22),
+    sheetBg = Color(0xFD110F22),
 )
 
 val HomeScreenFallbackColors = NexusColorPalette(
@@ -83,7 +83,7 @@ val HomeScreenFallbackColors = NexusColorPalette(
     purple = Color(0xFF38BDF8),
     btnGradTop = Color(0xFF252D37),
     btnGradBottom = Color(0xFF181C22),
-    sheetBg = Color(0xF2181C22),
+    sheetBg = Color(0xFD181C22),
 )
 
 @Composable
@@ -138,7 +138,7 @@ val WhiteScreenThemeColors = NexusColorPalette(
     purple = Color(0xFFE5E7EB),
     btnGradTop = Color(0xFF282A36),
     btnGradBottom = Color(0xFF17181F),
-    sheetBg = Color(0xF215161C),
+    sheetBg = Color(0xFD15161C),
 )
 
 val AmoledBlackThemeColors = NexusColorPalette(
@@ -159,7 +159,7 @@ val AmoledBlackThemeColors = NexusColorPalette(
     purple = Color(0xFFA78BFA),
     btnGradTop = Color(0xFF151026),
     btnGradBottom = Color(0xFF07050E),
-    sheetBg = Color(0xF207050E),
+    sheetBg = Color(0xFD07050E),
 )
 
 val GreenScreenThemeColors = NexusColorPalette(
@@ -180,7 +180,7 @@ val GreenScreenThemeColors = NexusColorPalette(
     purple = Color(0xFF34D399),
     btnGradTop = Color(0xFF163826),
     btnGradBottom = Color(0xFF0B1F15),
-    sheetBg = Color(0xF20C1C13),
+    sheetBg = Color(0xFD0C1C13),
 )
 
 val BlueScreenThemeColors = NexusColorPalette(
@@ -201,7 +201,7 @@ val BlueScreenThemeColors = NexusColorPalette(
     purple = Color(0xFF38BDF8),
     btnGradTop = Color(0xFF132E59),
     btnGradBottom = Color(0xFF091B33),
-    sheetBg = Color(0xF20A1930),
+    sheetBg = Color(0xFD0A1930),
 )
 
 val RedScreenThemeColors = NexusColorPalette(
@@ -222,7 +222,7 @@ val RedScreenThemeColors = NexusColorPalette(
     purple = Color(0xFFF43F5E),
     btnGradTop = Color(0xFF2E111A),
     btnGradBottom = Color(0xFF14070B),
-    sheetBg = Color(0xF216090E),
+    sheetBg = Color(0xFD16090E),
 )
 
 fun AppTheme.palette(): NexusColorPalette = when (this) {

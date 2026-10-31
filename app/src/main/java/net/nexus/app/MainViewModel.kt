@@ -351,6 +351,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setSplitMode(m: SplitMode) = updateSettings { it.copy(splitMode = m) }
     fun toggleSplitApp(pkg: String) =
         updateSettings { it.copy(splitApps = if (pkg in it.splitApps) it.splitApps - pkg else it.splitApps + pkg) }
+    fun setSplitApps(apps: Set<String>) = updateSettings { it.copy(splitApps = apps) }
     fun setTestUrl(url: String) = updateSettings { it.copy(testUrl = url.trim().ifEmpty { Settings().testUrl }) }
     fun setFontScale(scale: Float) = updateSettings { it.copy(fontScale = scale) }
     fun setAutoCheckUpdates(enabled: Boolean) = updateSettings { it.copy(autoCheckUpdates = enabled) }

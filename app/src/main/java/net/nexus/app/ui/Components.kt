@@ -442,14 +442,26 @@ fun BoundProviderCard(vm: MainViewModel, p: Provider, selectedId: String?, refre
 @Composable
 fun FloatingNavBar(selected: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-    Row(
-        modifier.fillMaxWidth().clip(shape).background(NX.sheetBg).border(1.dp, NX.cardBorder, shape)
-            .navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceAround,
-    ) {
-        NavItem(Tab.CONNECT, Icons.Filled.Home, R.string.tab_connect, selected, onSelect)
-        NavItem(Tab.SERVERS, Icons.Filled.Dns, R.string.tab_servers, selected, onSelect)
-        NavItem(Tab.SETTINGS, Icons.Filled.Settings, R.string.tab_settings, selected, onSelect)
+    Box(modifier = modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(shape)
+                .background(NX.bg)
+                .background(NX.sheetBg)
+                .border(1.dp, NX.cardBorder.copy(alpha = 0.85f), shape)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+        ) {
+            NavItem(Tab.CONNECT, Icons.Filled.Home, R.string.tab_connect, selected, onSelect)
+            NavItem(Tab.SERVERS, Icons.Filled.Dns, R.string.tab_servers, selected, onSelect)
+            NavItem(Tab.SETTINGS, Icons.Filled.Settings, R.string.tab_settings, selected, onSelect)
+        }
     }
 }
 
