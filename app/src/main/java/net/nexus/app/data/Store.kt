@@ -35,6 +35,7 @@ class Store(context: Context) {
             blockAds = o.optBoolean("blockAds", false),
             appTheme = AppTheme.fromId(o.optString("appTheme", "base")),
             appIcon = AppIcon.fromId(o.optString("appIcon", "default")),
+            appFont = AppFont.fromId(o.optString("appFont", "russo_one")),
             use3dGlobe = o.optBoolean("use3dGlobe", true),
         )
     }.getOrDefault(Settings())
@@ -53,6 +54,7 @@ class Store(context: Context) {
             .put("blockAds", s.blockAds)
             .put("appTheme", s.appTheme.id)
             .put("appIcon", s.appIcon.id)
+            .put("appFont", s.appFont.id)
             .put("use3dGlobe", s.use3dGlobe)
         prefs.edit().putString("settings", o.toString()).apply()
     }

@@ -27,8 +27,8 @@ android {
         applicationId = "net.nexus.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 40
-        versionName = "3.4.1-beta"
+        versionCode = 41
+        versionName = "3.5.0-beta"
     }
 
     splits {

@@ -96,6 +96,7 @@ import net.nexus.app.MainViewModel
 import net.nexus.app.R
 import net.nexus.app.auth.SubscriptionNotifier
 import net.nexus.app.core.XrayCore
+import net.nexus.app.data.AppFont
 import net.nexus.app.data.AppIcon
 import net.nexus.app.data.AppTheme
 import net.nexus.app.data.HapticIntensity
@@ -825,19 +826,22 @@ private fun ConnectionSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
                             Text(
                                 text = stringResource(R.string.settings_adblock),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = NX.text,
-                                maxLines = 1,
-                                softWrap = false
+                                maxLines = 2,
+                                softWrap = true,
+                                lineHeight = 18.sp
                             )
+                            Spacer(Modifier.height(2.dp))
                             Text(
                                 text = stringResource(R.string.settings_adblock_desc),
                                 fontSize = 12.sp,
-                                color = NX.muted
+                                color = NX.muted,
+                                lineHeight = 16.sp
                             )
                         }
                         Switch(
@@ -896,6 +900,22 @@ private fun AppearanceSettingsScreen(
                     RadioRow(currentLang == "en", stringResource(R.string.lang_en)) {
                         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en"))
                         (ctx as? android.app.Activity)?.recreate()
+                    }
+                }
+            }
+        }
+
+        // 2: Шрифт приложения
+        item {
+            Section(stringResource(R.string.appearance_font_title)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    RadioRow(settings.appFont == AppFont.RUSSO_ONE, stringResource(R.string.font_russo_one)) {
+                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                        vm.setAppFont(AppFont.RUSSO_ONE)
+                    }
+                    RadioRow(settings.appFont == AppFont.SYSTEM, stringResource(R.string.font_system)) {
+                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                        vm.setAppFont(AppFont.SYSTEM)
                     }
                 }
             }

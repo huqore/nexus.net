@@ -363,6 +363,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setKillSwitch(enabled: Boolean) = updateSettings { it.copy(killSwitch = enabled) }
     fun setBlockAds(enabled: Boolean) = updateSettings { it.copy(blockAds = enabled) }
     fun setAppTheme(theme: net.nexus.app.data.AppTheme) = updateSettings { it.copy(appTheme = theme) }
+    fun setAppFont(font: net.nexus.app.data.AppFont) = updateSettings { it.copy(appFont = font) }
     fun setAppIcon(icon: net.nexus.app.data.AppIcon) {
         updateSettings { it.copy(appIcon = icon) }
         net.nexus.app.ui.AppIconManager.applyIcon(getApplication(), icon)

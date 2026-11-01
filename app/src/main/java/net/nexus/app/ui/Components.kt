@@ -93,6 +93,7 @@ import net.nexus.app.MainViewModel
 import net.nexus.app.R
 import net.nexus.app.data.Provider
 import net.nexus.app.data.Server
+import net.nexus.app.data.Store
 import kotlin.math.ceil
 
 // ---------------------------------------------------------------- small pieces
@@ -400,23 +401,83 @@ fun ProviderCard(
 ) {
     val shape = RoundedCornerShape(28.dp)
 
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(NX.card)
-            .border(1.dp, NX.cardBorder, shape)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        p.servers.forEach { s ->
-            ServerRow(
-                server = s,
-                selected = s.id == selectedId,
-                pinging = s.id in pinging,
-                onClick = { onSelect(s) },
-                onDelete = { }
-            )
+    val (wlServers, regularServers) = remember(p.servers) {
+        p.servers.partition { Store.isWlBypass(it) }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (regularServers.isNotEmpty()) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(NX.card)
+                    .border(1.dp, NX.cardBorder, shape)
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                regularServers.forEach { s ->
+                    ServerRow(
+                        server = s,
+                        selected = s.id == selectedId,
+                        pinging = s.id in pinging,
+                        onClick = { onSelect(s) },
+                        onDelete = { }
+                    )
+                }
+            }
+        }
+
+        if (wlServers.isNotEmpty()) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(NX.card)
+                    .border(1.dp, NX.cardBorder, shape)
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                // Заголовок отдельного "домика" для WL Bypass
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Shield,
+                        contentDescription = null,
+                        tint = NX.accent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.wl_bypass_category),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NX.muted2,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .height(1.dp)
+                        .background(NX.cardBorder.copy(alpha = 0.6f))
+                )
+
+                wlServers.forEach { s ->
+                    ServerRow(
+                        server = s,
+                        selected = s.id == selectedId,
+                        pinging = s.id in pinging,
+                        onClick = { onSelect(s) },
+                        onDelete = { }
+                    )
+                }
+            }
         }
     }
 }

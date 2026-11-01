@@ -27,6 +27,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.remember
 
 import androidx.compose.ui.unit.Density
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import net.nexus.app.R
+import net.nexus.app.data.AppFont
 import net.nexus.app.data.AppTheme
 
 enum class Tab { CONNECT, SERVERS, SETTINGS }
@@ -508,10 +515,39 @@ object NX {
     val sheetBg: Color get() = palette.sheetBg
 }
 
+val RussoOneFamily = FontFamily(
+    Font(R.font.russo_one, FontWeight.Normal),
+    Font(R.font.russo_one, FontWeight.Medium),
+    Font(R.font.russo_one, FontWeight.SemiBold),
+    Font(R.font.russo_one, FontWeight.Bold)
+)
+
+private fun createTypography(fontFamily: FontFamily): Typography {
+    val d = Typography()
+    return Typography(
+        displayLarge = d.displayLarge.copy(fontFamily = fontFamily),
+        displayMedium = d.displayMedium.copy(fontFamily = fontFamily),
+        displaySmall = d.displaySmall.copy(fontFamily = fontFamily),
+        headlineLarge = d.headlineLarge.copy(fontFamily = fontFamily),
+        headlineMedium = d.headlineMedium.copy(fontFamily = fontFamily),
+        headlineSmall = d.headlineSmall.copy(fontFamily = fontFamily),
+        titleLarge = d.titleLarge.copy(fontFamily = fontFamily),
+        titleMedium = d.titleMedium.copy(fontFamily = fontFamily),
+        titleSmall = d.titleSmall.copy(fontFamily = fontFamily),
+        bodyLarge = d.bodyLarge.copy(fontFamily = fontFamily),
+        bodyMedium = d.bodyMedium.copy(fontFamily = fontFamily),
+        bodySmall = d.bodySmall.copy(fontFamily = fontFamily),
+        labelLarge = d.labelLarge.copy(fontFamily = fontFamily),
+        labelMedium = d.labelMedium.copy(fontFamily = fontFamily),
+        labelSmall = d.labelSmall.copy(fontFamily = fontFamily),
+    )
+}
+
 @Composable
 fun NexusTheme(
     fontScale: Float = 0.85f,
     appTheme: AppTheme = AppTheme.BASE,
+    appFont: AppFont = AppFont.RUSSO_ONE,
     content: @Composable () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -521,7 +557,20 @@ fun NexusTheme(
         density = density.density,
         fontScale = density.fontScale * fontScale
     )
-    CompositionLocalProvider(LocalDensity provides customDensity) {
+    val activeFontFamily = remember(appFont) {
+        when (appFont) {
+            AppFont.RUSSO_ONE -> RussoOneFamily
+            AppFont.SYSTEM -> FontFamily.Default
+        }
+    }
+    val typography = remember(activeFontFamily) {
+        createTypography(activeFontFamily)
+    }
+
+    CompositionLocalProvider(
+        LocalDensity provides customDensity,
+        LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = activeFontFamily)
+    ) {
         MaterialTheme(
             colorScheme = darkColorScheme(
                 primary = NX.accent,
@@ -533,9 +582,14 @@ fun NexusTheme(
                 surfaceVariant = NX.iconBtn,
                 onSurfaceVariant = NX.muted,
                 outline = NX.cardBorder,
-            )
+            ),
+            typography = typography
         ) {
-            Surface(color = NX.bg, modifier = Modifier.fillMaxSize()) { content() }
+            CompositionLocalProvider(
+                LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = activeFontFamily)
+            ) {
+                Surface(color = NX.bg, modifier = Modifier.fillMaxSize()) { content() }
+            }
         }
     }
 }

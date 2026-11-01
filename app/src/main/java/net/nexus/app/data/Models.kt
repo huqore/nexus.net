@@ -122,6 +122,15 @@ enum class AppIcon(val id: String, val title: String, val aliasName: String) {
     }
 }
 
+enum class AppFont(val id: String, val titleRes: Int) {
+    RUSSO_ONE("russo_one", net.nexus.app.R.string.font_russo_one),
+    SYSTEM("system", net.nexus.app.R.string.font_system);
+
+    companion object {
+        fun fromId(id: String?): AppFont = entries.firstOrNull { it.id == id } ?: RUSSO_ONE
+    }
+}
+
 data class Settings(
     val splitMode: SplitMode = SplitMode.OFF,
     val splitApps: Set<String> = emptySet(),
@@ -135,5 +144,6 @@ data class Settings(
     val blockAds: Boolean = false,
     val appTheme: AppTheme = AppTheme.BASE,
     val appIcon: AppIcon = AppIcon.DEFAULT,
+    val appFont: AppFont = AppFont.RUSSO_ONE,
     val use3dGlobe: Boolean = true,
 )

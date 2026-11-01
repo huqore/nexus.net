@@ -243,4 +243,8 @@
     <string name="settings_adblock_desc">Block ads, trackers and phishing domains via DNS</string>
     <string name="session_duration">Session duration</string>
     <string name="session_traffic">Session traffic</string>
+    <string name="font_russo_one">Russo One (Brand)</string>
+    <string name="font_system">System default</string>
+    <string name="appearance_font_title">APP FONT</string>
+    <string name="wl_bypass_category">WL Bypass (Mobile Networks)</string>
 </resources>

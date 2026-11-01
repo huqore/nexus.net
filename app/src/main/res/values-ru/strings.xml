@@ -242,4 +242,8 @@
     <string name="settings_adblock_desc">Блокирует баннеры, трекеры и фишинг на уровне DNS</string>
     <string name="session_duration">Длительность сессии</string>
     <string name="session_traffic">Трафик сессии</string>
+    <string name="font_russo_one">Russo One (Фирменный)</string>
+    <string name="font_system">Системный шрифт</string>
+    <string name="appearance_font_title">ШРИФТ ПРИЛОЖЕНИЯ</string>
+    <string name="wl_bypass_category">WL Bypass (мобильные сети)</string>
 </resources>
