@@ -130,5 +130,4 @@ data class Settings(
     val appTheme: AppTheme = AppTheme.BASE,
     val appIcon: AppIcon = AppIcon.DEFAULT,
     val use3dGlobe: Boolean = true,
-    val bypassRu: Boolean = true,
 )

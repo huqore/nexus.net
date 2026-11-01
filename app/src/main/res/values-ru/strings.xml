@@ -64,7 +64,7 @@
     <string name="split_off">Все приложения идут через VPN</string>
     <string name="split_bypass">Выбранные приложения идут мимо VPN</string>
     <string name="split_only">Через VPN идут только выбранные приложения</string>
-    <string name="split_pick_apps">Выбрать приложения (%1$d)</string>
+    <string name="split_pick_apps">Выбрать приложения</string>
     <string name="split_search">Поиск приложений</string>
     <string name="split_note">Изменения применятся при следующем подключении.</string>
     <string name="settings_test_url">Адрес для проверки задержки</string>

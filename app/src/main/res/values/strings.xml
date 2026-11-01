@@ -65,7 +65,7 @@
     <string name="split_off">All apps use the VPN</string>
     <string name="split_bypass">Selected apps bypass the VPN</string>
     <string name="split_only">Only selected apps use the VPN</string>
-    <string name="split_pick_apps">Choose apps (%1$d)</string>
+    <string name="split_pick_apps">Choose apps</string>
     <string name="split_search">Search apps</string>
     <string name="split_note">Changes apply on the next connection.</string>
     <string name="settings_test_url">Latency test URL</string>

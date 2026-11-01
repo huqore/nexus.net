@@ -81,7 +81,7 @@ class NexusVpnService : VpnService() {
             XrayCore.init(this)
             val socksPort = java.net.ServerSocket(0).use { it.localPort }
             VpnState.socksPort = socksPort
-            val config = ConfigBuilder.forTunnel(server, socksPort, store.loadSettings().bypassRu)
+            val config = ConfigBuilder.forTunnel(server, socksPort)
 
             val pfd = buildTun(store) ?: error("VPN permission was revoked")
             tun = pfd

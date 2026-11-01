@@ -133,7 +133,7 @@ object ConfigBuilder {
             .put("9.9.9.9"))
         .put("queryStrategy", "UseIPv4")
 
-    private fun defaultRoutingRules(serverIps: List<String>, bypassRu: Boolean = true): JSONArray {
+    private fun defaultRoutingRules(serverIps: List<String>): JSONArray {
         val rules = JSONArray()
 
         // 1. Direct route for the proxy server's own IP address(es) to completely prevent routing loops
@@ -172,48 +172,11 @@ object ConfigBuilder {
                 .put("127.0.0.0/8"))
             .put("outboundTag", "direct"))
 
-        // 5. Smart Direct RU Routing (when enabled by user)
-        if (bypassRu) {
-            rules.put(JSONObject()
-                .put("type", "field")
-                .put("domain", JSONArray()
-                    .put("geosite:category-gov-ru")
-                    .put("geosite:ru")
-                    .put("domain:ru")
-                    .put("domain:su")
-                    .put("domain:xn--p1ai")
-                    .put("domain:gosuslugi.ru")
-                    .put("domain:sberbank.ru")
-                    .put("domain:tinkoff.ru")
-                    .put("domain:t-bank.ru")
-                    .put("domain:vtb.ru")
-                    .put("domain:alfabank.ru")
-                    .put("domain:ozon.ru")
-                    .put("domain:wildberries.ru")
-                    .put("domain:yandex.ru")
-                    .put("domain:ya.ru")
-                    .put("domain:vk.com")
-                    .put("domain:vkvideo.ru")
-                    .put("domain:kinopoisk.ru")
-                    .put("domain:dzen.ru")
-                    .put("domain:mail.ru")
-                    .put("domain:avito.ru")
-                    .put("domain:2gis.ru")
-                    .put("domain:hh.ru")
-                    .put("domain:rutube.ru"))
-                .put("outboundTag", "direct"))
-
-            rules.put(JSONObject()
-                .put("type", "field")
-                .put("ip", JSONArray().put("geoip:ru"))
-                .put("outboundTag", "direct"))
-        }
-
         return rules
     }
 
     /** Full config used to run the VPN (TUN inbound + local SOCKS inbound for the speed test). */
-    fun forTunnel(server: Server, socksPort: Int, bypassRu: Boolean = true): String {
+    fun forTunnel(server: Server, socksPort: Int): String {
         server.fullConfig?.let { raw ->
             // Server-supplied config: keep its outbounds / routing / dns, but we own the inbounds.
             val cfg = JSONObject(raw)
@@ -265,42 +228,6 @@ object ConfigBuilder {
                 .put("network", "udp")
                 .put("outboundTag", "block"))
 
-            if (bypassRu) {
-                newRules.put(JSONObject()
-                    .put("type", "field")
-                    .put("domain", JSONArray()
-                        .put("geosite:category-gov-ru")
-                        .put("geosite:ru")
-                        .put("domain:ru")
-                        .put("domain:su")
-                        .put("domain:xn--p1ai")
-                        .put("domain:gosuslugi.ru")
-                        .put("domain:sberbank.ru")
-                        .put("domain:tinkoff.ru")
-                        .put("domain:t-bank.ru")
-                        .put("domain:vtb.ru")
-                        .put("domain:alfabank.ru")
-                        .put("domain:ozon.ru")
-                        .put("domain:wildberries.ru")
-                        .put("domain:yandex.ru")
-                        .put("domain:ya.ru")
-                        .put("domain:vk.com")
-                        .put("domain:vkvideo.ru")
-                        .put("domain:kinopoisk.ru")
-                        .put("domain:dzen.ru")
-                        .put("domain:mail.ru")
-                        .put("domain:avito.ru")
-                        .put("domain:2gis.ru")
-                        .put("domain:hh.ru")
-                        .put("domain:rutube.ru"))
-                    .put("outboundTag", "direct"))
-
-                newRules.put(JSONObject()
-                    .put("type", "field")
-                    .put("ip", JSONArray().put("geoip:ru"))
-                    .put("outboundTag", "direct"))
-            }
-
             for (i in 0 until existingRules.length()) {
                 newRules.put(existingRules.getJSONObject(i))
             }
@@ -319,7 +246,7 @@ object ConfigBuilder {
             .put("outbounds", outs)
             .put("routing", JSONObject()
                 .put("domainStrategy", "IPIfNonMatch")
-                .put("rules", defaultRoutingRules(serverIps, bypassRu)))
+                .put("rules", defaultRoutingRules(serverIps)))
         return cfg.toString()
     }
 

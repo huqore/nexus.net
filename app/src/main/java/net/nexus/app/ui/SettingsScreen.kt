@@ -251,8 +251,8 @@ fun SettingsScreen(vm: MainViewModel) {
                                     val daysText = when {
                                         daysLeft == null -> null
                                         daysLeft > 3650 -> "Срок: Безлимит"
-                                        daysLeft > 0 -> "Осталось: $daysLeft дн." + (if (dateStr != null) " (до $dateStr)" else "")
-                                        daysLeft == 0L -> "Истекает сегодня" + (if (dateStr != null) " (до $dateStr)" else "")
+                                        daysLeft > 0 -> "Осталось: $daysLeft дн."
+                                        daysLeft == 0L -> "Истекает сегодня"
                                         else -> "Подписка истекла"
                                     }
 
@@ -358,13 +358,13 @@ fun SettingsScreen(vm: MainViewModel) {
                                         lineHeight = 16.sp
                                     )
                                     Spacer(Modifier.height(4.dp))
-                                    RadioRow(s.splitMode == SplitMode.OFF, "Все приложения (весь трафик)") {
+                                    RadioRow(s.splitMode == SplitMode.OFF, "Все приложения") {
                                         vm.setSplitMode(SplitMode.OFF)
                                     }
-                                    RadioRow(s.splitMode == SplitMode.BYPASS, "Обходить выбранные (без VPN)") {
+                                    RadioRow(s.splitMode == SplitMode.BYPASS, "Обходить выбранные") {
                                         vm.setSplitMode(SplitMode.BYPASS)
                                     }
-                                    RadioRow(s.splitMode == SplitMode.ONLY, "Только выбранные (через VPN)") {
+                                    RadioRow(s.splitMode == SplitMode.ONLY, "Только выбранные") {
                                         vm.setSplitMode(SplitMode.ONLY)
                                     }
 
@@ -411,39 +411,6 @@ fun SettingsScreen(vm: MainViewModel) {
                                         maxLines = 1,
                                         softWrap = false
                                     )
-
-                                    // Обход сайтов РФ (Direct RU)
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                                            Text(
-                                                text = "Обход сайтов РФ",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = NX.text,
-                                                maxLines = 1,
-                                                softWrap = false
-                                            )
-                                            Text(
-                                                text = "Банки, Госуслуги и .ru работают напрямую",
-                                                fontSize = 12.sp,
-                                                color = NX.muted
-                                            )
-                                        }
-                                        Switch(
-                                            checked = s.bypassRu,
-                                            onCheckedChange = { vm.setBypassRu(it) },
-                                            colors = SwitchDefaults.colors(
-                                                checkedThumbColor = Color.White,
-                                                checkedTrackColor = NX.accent,
-                                                uncheckedThumbColor = NX.muted,
-                                                uncheckedTrackColor = NX.cardBorder
-                                            )
-                                        )
-                                    }
 
                                     // Автоподключение при старте
                                     Row(
