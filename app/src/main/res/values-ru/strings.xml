@@ -245,5 +245,6 @@
     <string name="font_russo_one">Russo One (Фирменный)</string>
     <string name="font_system">Системный шрифт</string>
     <string name="appearance_font_title">ШРИФТ ПРИЛОЖЕНИЯ</string>
-    <string name="wl_bypass_category">WL Bypass (мобильные сети)</string>
+    <string name="wifi_category">WI-FI (домашняя сеть)</string>
+    <string name="wl_bypass_category">WL Bypass (мобильная сеть)</string>
 </resources>

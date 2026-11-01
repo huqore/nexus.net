@@ -59,7 +59,26 @@ fun cleanServerName(name: String): String {
     }
 
     val result = trimmed.substring(i).trimStart()
-    return if (result.isNotEmpty()) result else trimmed
+    val base = if (result.isNotEmpty()) result else trimmed
+    val lower = base.lowercase()
+
+    // 1. LTE / WL Bypass servers mapping directly to country names as requested
+    if (Regex("""lte\s*#?1\b""", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
+        val isEn = runCatching {
+            androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en", ignoreCase = true)
+        }.getOrDefault(false)
+        return if (isEn) "Germany" else "Германия"
+    }
+    if (Regex("""lte\s*#?2\b""", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
+        val isEn = runCatching {
+            androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en", ignoreCase = true)
+        }.getOrDefault(false)
+        return if (isEn) "Poland" else "Польша"
+    }
+
+    // 2. Strip redundant "WI-FI", "Wi-Fi", "wifi" suffix/prefix and separators
+    val strippedWifi = base.replace(Regex("""(?i)\s*[|\-–—]?\s*wi-?fi\b"""), "").trim()
+    return if (strippedWifi.isNotEmpty()) strippedWifi else base
 }
 
 fun fmtBytes(bytes: Long, ru: Boolean, locale: Locale): String {

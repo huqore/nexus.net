@@ -246,5 +246,6 @@
     <string name="font_russo_one">Russo One (Brand)</string>
     <string name="font_system">System default</string>
     <string name="appearance_font_title">APP FONT</string>
-    <string name="wl_bypass_category">WL Bypass (Mobile Networks)</string>
+    <string name="wifi_category">Wi-Fi (Home Network)</string>
+    <string name="wl_bypass_category">WL Bypass (Mobile Network)</string>
 </resources>

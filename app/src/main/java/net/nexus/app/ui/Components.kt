@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -100,6 +101,8 @@ import kotlin.math.ceil
 
 fun countryCodeFor(name: String): String {
     val n = name.lowercase()
+    if (Regex("""lte\s*#?1\b""", RegexOption.IGNORE_CASE).containsMatchIn(n)) return "DE"
+    if (Regex("""lte\s*#?2\b""", RegexOption.IGNORE_CASE).containsMatchIn(n)) return "PL"
     return when {
         n.contains("wl") || n.contains("bypass") -> "WL"
         n.contains("\u0433\u0435\u0440\u043C\u0430\u043D") || n.contains("germany") || name.contains("\uD83C\uDDE9\uD83C\uDDEA") || Regex("""\\bde\\b""").containsMatchIn(n) -> "DE"
@@ -416,6 +419,36 @@ fun ProviderCard(
                     .padding(horizontal = 8.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                // Заголовок карточки WI-FI (домашняя сеть)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Wifi,
+                        contentDescription = null,
+                        tint = NX.accent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.wifi_category),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NX.muted2,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .height(1.dp)
+                        .background(NX.cardBorder.copy(alpha = 0.6f))
+                )
+
                 regularServers.forEach { s ->
                     ServerRow(
                         server = s,
