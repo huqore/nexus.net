@@ -467,6 +467,38 @@ fun rememberRgbPalette(): NexusColorPalette {
     )
 }
 
+@Composable
+fun rememberSecretRgbPalette(): NexusColorPalette {
+    val transition = rememberInfiniteTransition(label = "secretRgbWave")
+    val hue by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "secretRgbHue"
+    )
+
+    val accent = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 1.0f, 1.0f)))
+    val accentLight = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 45f) % 360f, 0.85f, 1.0f)))
+    val accentDim = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 1.0f, 0.45f)))
+    val cardBorder = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 180f) % 360f, 0.95f, 0.85f))).copy(alpha = 0.75f)
+
+    return RgbBaseThemeColors.copy(
+        bg = Color(0xFF07070C),
+        card = Color(0xFF0F0F18),
+        accent = accent,
+        accentLight = accentLight,
+        accentDim = accentDim,
+        cardBorder = cardBorder,
+        purple = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 60f) % 360f, 1f, 1f))),
+        green = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 120f) % 360f, 1f, 1f))),
+        yellow = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 180f) % 360f, 1f, 1f))),
+        red = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 240f) % 360f, 1f, 1f)))
+    )
+}
+
 fun AppTheme.palette(): NexusColorPalette = when (this) {
     AppTheme.BASE -> BaseThemeColors
     AppTheme.AMOLED_BLACK -> AmoledBlackThemeColors
@@ -480,6 +512,7 @@ fun AppTheme.palette(): NexusColorPalette = when (this) {
     AppTheme.SAKURA -> SakuraBaseThemeColors
     AppTheme.WINTER -> WinterBaseThemeColors
     AppTheme.RGB -> RgbBaseThemeColors
+    AppTheme.SECRET_RGB -> RgbBaseThemeColors
 }
 
 @Composable
@@ -487,6 +520,7 @@ fun rememberThemePalette(theme: AppTheme, context: Context): NexusColorPalette {
     return when (theme) {
         AppTheme.HOME_SCREEN -> rememberDynamicPalette(context)
         AppTheme.RGB -> rememberRgbPalette()
+        AppTheme.SECRET_RGB -> rememberSecretRgbPalette()
         else -> theme.palette()
     }
 }

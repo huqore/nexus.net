@@ -21,6 +21,16 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import net.nexus.app.R
 import kotlin.math.absoluteValue
 import kotlin.math.cos
 import kotlin.math.sin
@@ -243,3 +253,134 @@ private fun generateWinterParticles(count: Int): List<EffectParticle> {
     return list
 }
 
+
+
+private data class BunnyParticle(
+    val xRatio: Float,
+    val yRatio: Float,
+    val speedY: Float,
+    val driftSpeedX: Float,
+    val swayAmplitude: Float,
+    val swayFrequency: Float,
+    val phase: Float,
+    val sizeDp: Float,
+    val rotationSpeed: Float,
+    val shape: Int, // 0=Triangle, 1=Star, 2=Square, 3=Circle
+    val alpha: Float
+)
+
+private fun generateBunnyParticles(count: Int = 20): List<BunnyParticle> {
+    val list = ArrayList<BunnyParticle>(count)
+    val rng = java.util.Random(777)
+    for (i in 0 until count) {
+        list.add(
+            BunnyParticle(
+                xRatio = rng.nextFloat(),
+                yRatio = rng.nextFloat(),
+                speedY = 55f + rng.nextFloat() * 60f,
+                driftSpeedX = -15f + rng.nextFloat() * 30f,
+                swayAmplitude = 10f + rng.nextFloat() * 18f,
+                swayFrequency = 0.8f + rng.nextFloat() * 1.4f,
+                phase = rng.nextFloat() * 6.28f,
+                sizeDp = 34f + rng.nextFloat() * 14f,
+                rotationSpeed = (20f + rng.nextFloat() * 45f) * if (rng.nextBoolean()) 1f else -1f,
+                shape = i % 4,
+                alpha = 0.82f + rng.nextFloat() * 0.18f
+            )
+        )
+    }
+    return list
+}
+
+private fun buildShapePath(shape: Int, size: Float, path: Path) {
+    path.rewind()
+    val r = size / 2f
+    when (shape) {
+        0 -> { // Triangle
+            path.moveTo(0f, -r)
+            path.lineTo(r * 0.866f, r * 0.5f)
+            path.lineTo(-r * 0.866f, r * 0.5f)
+            path.close()
+        }
+        1 -> { // 5-pointed Star
+            val innerR = r * 0.42f
+            for (i in 0 until 10) {
+                val angle = (i * Math.PI / 5.0 - Math.PI / 2.0)
+                val currR = if (i % 2 == 0) r else innerR
+                val px = (currR * cos(angle)).toFloat()
+                val py = (currR * sin(angle)).toFloat()
+                if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+            }
+            path.close()
+        }
+        2 -> { // Square
+            path.addRoundRect(
+                RoundRect(
+                    left = -r, top = -r, right = r, bottom = r,
+                    cornerRadius = CornerRadius(r * 0.22f)
+                )
+            )
+        }
+        else -> { // Circle
+            path.addOval(Rect(left = -r, top = -r, right = r, bottom = r))
+        }
+    }
+}
+
+/**
+ * Falling bunny-cat particles in triangle, star, square, and circle shapes.
+ * Secret Easter egg effect for the Crazy RGB theme.
+ */
+@Composable
+fun SecretBunnyCatOverlay(modifier: Modifier = Modifier) {
+    val density = LocalDensity.current.density
+    val bunnyBitmap = ImageBitmap.imageResource(id = R.drawable.img_bunnycat)
+    val particles = remember { generateBunnyParticles(count = 20) }
+    val reusablePath = remember { Path() }
+
+    val transition = rememberInfiniteTransition(label = "bunnyAnimation")
+    val timeMs by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 60_000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 60_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "bunnyTime"
+    )
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val t = timeMs / 1000f
+        val w = size.width
+        val h = size.height
+        val totalH = h + 140f * density
+
+        for (p in particles) {
+            val rawY = (p.yRatio * totalH + p.speedY * density * t) % totalH
+            val y = rawY - 70f * density
+
+            val wave = sin(t * p.swayFrequency + p.phase) * (p.swayAmplitude * density)
+            val rawX = (p.xRatio * w + p.driftSpeedX * density * t + wave) % w
+            val x = if (rawX < 0) rawX + w else rawX
+
+            val rotation = (p.rotationSpeed * t + p.phase * 57.3f) % 360f
+            val particleSize = p.sizeDp * density
+            val halfSize = particleSize / 2f
+
+            buildShapePath(p.shape, particleSize, reusablePath)
+
+            rotate(degrees = rotation, pivot = Offset(x, y)) {
+                translate(left = x, top = y) {
+                    clipPath(reusablePath) {
+                        drawImage(
+                            image = bunnyBitmap,
+                            dstOffset = IntOffset((-halfSize).toInt(), (-halfSize).toInt()),
+                            dstSize = IntSize(particleSize.toInt(), particleSize.toInt()),
+                            alpha = p.alpha
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

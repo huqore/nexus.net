@@ -102,7 +102,8 @@ enum class AppTheme(val id: String, val title: String) {
     YELLOW_SCREEN("yellow_screen", "yellow screen"),
     SAKURA("sakura", "sakura"),
     WINTER("winter", "winter"),
-    RGB("rgb", "RGB");
+    RGB("rgb", "RGB"),
+    SECRET_RGB("secret_rgb", "Crazy RGB");
 
     companion object {
         fun fromId(id: String?): AppTheme = entries.firstOrNull { it.id == id } ?: BASE

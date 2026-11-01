@@ -26,6 +26,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -176,6 +177,7 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
         when (settings.appTheme) {
             AppTheme.SAKURA -> SakuraPetalsOverlay()
             AppTheme.WINTER -> WinterSnowOverlay()
+            AppTheme.SECRET_RGB -> SecretBunnyCatOverlay()
             else -> Unit
         }
 
@@ -186,7 +188,7 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             Spacer(Modifier.height(32.dp))
             Header()
             Spacer(Modifier.weight(1f))
-            PowerButton(status) {
+            PowerButton(status = status, isSecretRgb = settings.appTheme == AppTheme.SECRET_RGB) {
                 HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
                 onToggle()
             }
@@ -243,7 +245,7 @@ private fun Header() {
 }
 
 @Composable
-private fun PowerButton(status: VpnStatus, onClick: () -> Unit) {
+private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, onClick: () -> Unit) {
     val connected = status == VpnStatus.CONNECTED
     val connecting = status == VpnStatus.CONNECTING
     val interactionSource = remember { MutableInteractionSource() }
@@ -395,13 +397,25 @@ private fun PowerButton(status: VpnStatus, onClick: () -> Unit) {
                 )
             }
         }
-        Icon(
-            Icons.Filled.PowerSettingsNew, null,
-            tint = iconTint,
-            modifier = Modifier
-                .size(86.dp)
-                .scale(iconScale),
-        )
+        if (isSecretRgb) {
+            Image(
+                painter = painterResource(R.drawable.img_cat_power),
+                contentDescription = "Secret Cat Button",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(178.dp)
+                    .clip(CircleShape)
+                    .scale(iconScale)
+            )
+        } else {
+            Icon(
+                Icons.Filled.PowerSettingsNew, null,
+                tint = iconTint,
+                modifier = Modifier
+                    .size(86.dp)
+                    .scale(iconScale),
+            )
+        }
     }
 }
 

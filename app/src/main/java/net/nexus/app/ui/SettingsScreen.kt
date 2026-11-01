@@ -1,6 +1,14 @@
 package net.nexus.app.ui
 
 import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.appcompat.app.AppCompatDelegate
@@ -206,6 +214,8 @@ private fun MainSettingsList(
     var showScreamer by remember { mutableStateOf(false) }
     val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags().substringBefore('-')
     val coreVersion = remember { XrayCore.version() }
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
     val ctx = LocalContext.current
     val openUrl: (String) -> Unit = { link ->
         runCatching {
@@ -689,11 +699,27 @@ private fun MainSettingsList(
                 text = stringResource(R.string.about_author),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        showScreamer = true
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val startTime = System.currentTimeMillis()
+                            var longPressed = false
+                            val holdJob = coroutineScope.launch {
+                                delay(3000L)
+                                longPressed = true
+                                HapticManager.trigger(context, HapticIntensity.STRONG, HapticType.CLICK)
+                                vm.setAppTheme(AppTheme.SECRET_RGB)
+                                Toast.makeText(context, "🌈 Secret RGB Theme Activated!", Toast.LENGTH_SHORT).show()
+                            }
+                            val up = waitForUpOrCancellation()
+                            holdJob.cancel()
+                            if (up != null && !longPressed) {
+                                val duration = System.currentTimeMillis() - startTime
+                                if (duration < 600L) {
+                                    showScreamer = true
+                                }
+                            }
+                        }
                     },
                 textAlign = TextAlign.Center,
                 fontSize = 12.sp,
@@ -1124,8 +1150,8 @@ private fun AppearanceSettingsScreen(
                 }
             ) {
                 if (settings.themeGridMode) {
-                    val themes = AppTheme.entries
-                    val rows = themes.chunked(3)
+                    val themes = remember { AppTheme.entries.filter { it != AppTheme.SECRET_RGB } }
+                    val rows = remember(themes) { themes.chunked(3) }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         rows.forEach { rowThemes ->
                             Row(
@@ -1151,8 +1177,9 @@ private fun AppearanceSettingsScreen(
                         }
                     }
                 } else {
+                    val listThemes = remember { AppTheme.entries.filter { it != AppTheme.SECRET_RGB } }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        AppTheme.entries.forEach { theme ->
+                        listThemes.forEach { theme ->
                             ThemeOptionRow(
                                 theme = theme,
                                 palette = theme.palette(),
