@@ -162,7 +162,7 @@ fun SettingsScreen(vm: MainViewModel) {
                         val providersList by vm.providers.collectAsState()
                         val nexusProvider = providersList.firstOrNull { !it.isLocal } ?: providersList.firstOrNull()
 
-                        Section("Данные пользователя и подписка") {
+                        Section(stringResource(R.string.settings_section_user)) {
                             if (tgUser == null) {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text(
@@ -242,31 +242,50 @@ fun SettingsScreen(vm: MainViewModel) {
                                         java.lang.Math.ceil((nexusProvider.expireAt * 1000 - System.currentTimeMillis()) / 86_400_000.0).toLong()
                                     } else null
 
-                                    val dateStr = if (user.expireAt.isNotBlank()) {
-                                        user.expireAt.take(10)
-                                    } else if (nexusProvider != null && nexusProvider.expireAt > 0) {
-                                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(nexusProvider.expireAt * 1000))
-                                    } else null
+                                    val formattedDate: String? = runCatching {
+                                        if (user.expireAt.isNotBlank()) {
+                                            try {
+                                                val instant = java.time.Instant.parse(user.expireAt)
+                                                val zdt = instant.atZone(java.time.ZoneId.systemDefault())
+                                                java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy").format(zdt)
+                                            } catch (_: Exception) {
+                                                val parts = user.expireAt.take(10).split("-")
+                                                if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else user.expireAt.take(10)
+                                            }
+                                        } else if (nexusProvider != null && nexusProvider.expireAt > 0) {
+                                            SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(nexusProvider.expireAt * 1000))
+                                        } else null
+                                    }.getOrNull()
 
                                     val daysText = when {
-                                        daysLeft == null -> null
-                                        daysLeft > 3650 -> "Срок: Безлимит"
-                                        daysLeft > 0 -> "Осталось: $daysLeft дн."
-                                        daysLeft == 0L -> "Истекает сегодня"
-                                        else -> "Подписка истекла"
+                                        formattedDate != null && daysLeft != null && daysLeft > 0 -> stringResource(R.string.sub_until_date, formattedDate, daysLeft)
+                                        formattedDate != null && daysLeft == 0L -> stringResource(R.string.sub_until_today, formattedDate)
+                                        formattedDate != null && daysLeft != null && daysLeft < 0 -> stringResource(R.string.sub_expired_on, formattedDate)
+                                        formattedDate != null -> "до $formattedDate"
+                                        daysLeft != null && daysLeft > 0 -> "Осталось: $daysLeft дн."
+                                        else -> stringResource(R.string.sub_unlimited)
                                     }
 
-                                    val usedBytes = nexusProvider?.used ?: 0L
-                                    val usedGb = usedBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
-                                    val totalBytes = nexusProvider?.total ?: 0L
-                                    val totalGb = totalBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
-                                    val trafficText = if (totalBytes > 0) {
-                                        "%.1f ГБ / %.1f ГБ".format(Locale.US, usedGb, totalGb)
-                                    } else {
-                                        "%.1f ГБ / ∞".format(Locale.US, usedGb)
+                                    val usedBytes = if (user.usedTrafficBytes > 0) user.usedTrafficBytes else (nexusProvider?.used ?: 0L)
+                                    val totalBytes = if (user.trafficLimitBytes > 0) user.trafficLimitBytes else (nexusProvider?.total ?: 0L)
+
+                                    val trafficText = run {
+                                        val usedGb = usedBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
+                                        val totalGb = totalBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
+                                        val usedStr = when {
+                                            usedBytes == 0L -> "0.0 ГБ"
+                                            usedBytes < 1024L * 1024L -> "%.0f КБ".format(Locale.US, usedBytes.toDouble() / 1024.0)
+                                            usedBytes < 1024L * 1024L * 1024L -> "%.1f МБ".format(Locale.US, usedBytes.toDouble() / (1024.0 * 1024.0))
+                                            else -> "%.1f ГБ".format(Locale.US, usedGb)
+                                        }
+                                        if (totalBytes > 0) {
+                                            "$usedStr / %.1f ГБ".format(Locale.US, totalGb)
+                                        } else {
+                                            "$usedStr / ∞"
+                                        }
                                     }
 
-                                    val devicesText = "${user.devicesCount} макс."
+                                    val devicesText = stringResource(R.string.settings_devices_max, user.devicesCount)
 
                                     Column(
                                         modifier = Modifier
@@ -276,18 +295,16 @@ fun SettingsScreen(vm: MainViewModel) {
                                             .padding(horizontal = 14.dp, vertical = 10.dp),
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        if (daysText != null) {
-                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text("Подписка", fontSize = 13.sp, color = NX.muted2, maxLines = 1)
-                                                Text(daysText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
-                                            }
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(stringResource(R.string.settings_sub_label), fontSize = 13.sp, color = NX.muted2, maxLines = 1)
+                                            Text(daysText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
                                         }
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Трафик", fontSize = 13.sp, color = NX.muted2, maxLines = 1)
+                                            Text(stringResource(R.string.settings_traffic_label), fontSize = 13.sp, color = NX.muted2, maxLines = 1)
                                             Text(trafficText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
                                         }
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Устройств", fontSize = 13.sp, color = NX.muted2, maxLines = 1)
+                                            Text(stringResource(R.string.settings_devices_label), fontSize = 13.sp, color = NX.muted2, maxLines = 1)
                                             Text(devicesText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
                                         }
                                     }
@@ -311,7 +328,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                                 Spacer(Modifier.width(8.dp))
                                             }
                                             Text(
-                                                text = "Обновить подписку",
+                                                text = stringResource(R.string.tg_auth_btn_sync),
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 maxLines = 1,
@@ -340,11 +357,11 @@ fun SettingsScreen(vm: MainViewModel) {
 
                     // 2) НАСТРОЙКИ ПОДКЛЮЧЕНИЯ
                     item {
-                        Section("Настройки подключения") {
+                        Section(stringResource(R.string.settings_section_conn)) {
                             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(
-                                        text = "Раздельное туннелирование",
+                                        text = stringResource(R.string.settings_split),
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = NX.text,
@@ -358,13 +375,13 @@ fun SettingsScreen(vm: MainViewModel) {
                                         lineHeight = 16.sp
                                     )
                                     Spacer(Modifier.height(4.dp))
-                                    RadioRow(s.splitMode == SplitMode.OFF, "Все приложения") {
+                                    RadioRow(s.splitMode == SplitMode.OFF, stringResource(R.string.split_all_apps)) {
                                         vm.setSplitMode(SplitMode.OFF)
                                     }
-                                    RadioRow(s.splitMode == SplitMode.BYPASS, "Обходить выбранные") {
+                                    RadioRow(s.splitMode == SplitMode.BYPASS, stringResource(R.string.split_bypass_selected)) {
                                         vm.setSplitMode(SplitMode.BYPASS)
                                     }
-                                    RadioRow(s.splitMode == SplitMode.ONLY, "Только выбранные") {
+                                    RadioRow(s.splitMode == SplitMode.ONLY, stringResource(R.string.split_only_selected)) {
                                         vm.setSplitMode(SplitMode.ONLY)
                                     }
 
@@ -389,7 +406,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                                     maxLines = 1,
                                                     softWrap = false
                                                 )
-                                                Text("Выбрано: ${s.splitApps.size}", fontSize = 12.sp, color = NX.muted)
+                                                Text(stringResource(R.string.split_selected_count, s.splitApps.size), fontSize = 12.sp, color = NX.muted)
                                             }
                                             Icon(
                                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -404,7 +421,7 @@ fun SettingsScreen(vm: MainViewModel) {
 
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Text(
-                                        text = "Параметры соединения",
+                                        text = stringResource(R.string.settings_conn_params),
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = NX.text,
@@ -418,17 +435,18 @@ fun SettingsScreen(vm: MainViewModel) {
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
                                             Text(
-                                                text = "Автоподключение при старте",
-                                                fontSize = 14.sp,
+                                                text = stringResource(R.string.settings_auto_connect_boot),
+                                                fontSize = 13.5.sp,
                                                 fontWeight = FontWeight.Medium,
                                                 color = NX.text,
-                                                maxLines = 1,
-                                                softWrap = false
+                                                maxLines = 2,
+                                                softWrap = true,
+                                                lineHeight = 17.sp
                                             )
                                             Text(
-                                                text = "Запускать VPN при включении устройства",
+                                                text = stringResource(R.string.settings_auto_connect_boot_desc),
                                                 fontSize = 12.sp,
                                                 color = NX.muted
                                             )
@@ -461,7 +479,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                                 softWrap = false
                                             )
                                             Text(
-                                                text = "Блокировать трафик при обрыве VPN",
+                                                text = stringResource(R.string.kill_switch_desc_short),
                                                 fontSize = 12.sp,
                                                 color = NX.muted
                                             )
@@ -484,20 +502,22 @@ fun SettingsScreen(vm: MainViewModel) {
 
                     // 3) ЯЗЫК, ВНЕШНИЙ ВИД И ОТКЛИК
                     item {
-                        Section("Язык, внешний вид и отклик") {
+                        Section(stringResource(R.string.settings_section_appearance)) {
                             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 // Пункт 1: Язык
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("Язык", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
-                                    RadioRow(currentLang == "ru" || currentLang.isEmpty(), "Русский") {
-                                        AppCompatDelegate.setApplicationLocales(
-                                            LocaleListCompat.forLanguageTags("ru")
-                                        )
+                                    Text(stringResource(R.string.settings_language), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
+                                    RadioRow(currentLang.isEmpty(), stringResource(R.string.lang_system)) {
+                                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
+                                        (ctx as? android.app.Activity)?.recreate()
                                     }
-                                    RadioRow(currentLang == "en", "English") {
-                                        AppCompatDelegate.setApplicationLocales(
-                                            LocaleListCompat.forLanguageTags("en")
-                                        )
+                                    RadioRow(currentLang == "ru", stringResource(R.string.lang_ru)) {
+                                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("ru"))
+                                        (ctx as? android.app.Activity)?.recreate()
+                                    }
+                                    RadioRow(currentLang == "en", stringResource(R.string.lang_en)) {
+                                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en"))
+                                        (ctx as? android.app.Activity)?.recreate()
                                     }
                                 }
 
@@ -505,7 +525,7 @@ fun SettingsScreen(vm: MainViewModel) {
 
                                 // Пункт 2: Вибрация
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("Вибрация", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
+                                    Text(stringResource(R.string.settings_haptics_label), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
                                     RadioRow(s.hapticIntensity == HapticIntensity.OFF, stringResource(R.string.haptic_off)) {
                                         vm.setHapticIntensity(HapticIntensity.OFF)
                                     }
@@ -540,7 +560,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                             Icon(Icons.Filled.Palette, null, tint = NX.accent, modifier = Modifier.size(20.dp))
                                             Spacer(Modifier.width(10.dp))
                                             Column {
-                                                Text("Цветовая схема", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
+                                                Text(stringResource(R.string.appearance_theme_title), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
                                                 Text(s.appTheme.title, fontSize = 12.sp, color = NX.muted, maxLines = 1)
                                             }
                                         }
@@ -604,7 +624,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                             )
                                             Spacer(Modifier.width(10.dp))
                                             Column {
-                                                Text("Иконка приложения", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
+                                                Text(stringResource(R.string.appearance_icon_title), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = NX.text, maxLines = 1)
                                                 Text(s.appIcon.title, fontSize = 12.sp, color = NX.muted, maxLines = 1)
                                             }
                                         }
@@ -695,15 +715,8 @@ fun SettingsScreen(vm: MainViewModel) {
                                             stringResource(R.string.settings_auto_check),
                                             fontSize = 14.sp,
                                             color = NX.text,
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
-                                        Text(
-                                            stringResource(R.string.update_repo_label, UpdateConfig.GITHUB_REPO),
-                                            fontSize = 12.sp,
-                                            color = NX.muted,
-                                            fontFamily = FontFamily.Monospace,
-                                            maxLines = 1
+                                            maxLines = 2,
+                                            softWrap = true
                                         )
                                     }
                                     Switch(
@@ -784,19 +797,28 @@ fun SettingsScreen(vm: MainViewModel) {
 
                     // 6) О ПРИЛОЖЕНИИ
                     item {
-                        Section(stringResource(R.string.settings_about)) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Версия", color = NX.muted2, fontSize = 14.sp, maxLines = 1)
-                                    Text("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", fontWeight = FontWeight.SemiBold, color = NX.text, fontSize = 14.sp, maxLines = 1)
+                        Section(stringResource(R.string.settings_section_about)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(stringResource(R.string.about_version), color = NX.muted2, fontSize = 14.sp, maxLines = 1)
+                                    Text("v${BuildConfig.VERSION_NAME}", fontWeight = FontWeight.SemiBold, color = NX.text, fontSize = 14.sp, maxLines = 1)
                                 }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Ядро Xray", color = NX.muted2, fontSize = 14.sp, maxLines = 1)
-                                    Text(coreVersion, fontFamily = FontFamily.Monospace, color = NX.text, fontSize = 13.sp, maxLines = 1)
-                                }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Архитектура", color = NX.muted2, fontSize = 14.sp, maxLines = 1)
-                                    Text("RemnaWave BFF / Xray-core", color = NX.text, fontSize = 13.sp, maxLines = 1)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(stringResource(R.string.about_core), color = NX.muted2, fontSize = 14.sp, maxLines = 1)
+                                    val cleanCore = if (coreVersion.contains("Xray-core")) {
+                                        "Xray-core " + coreVersion.substringAfter("Xray-core").trim().removePrefix("v").let { "v$it" }
+                                    } else {
+                                        coreVersion
+                                    }
+                                    Text(cleanCore, fontFamily = FontFamily.Monospace, color = NX.text, fontSize = 13.sp, maxLines = 1)
                                 }
                             }
                         }
@@ -806,7 +828,7 @@ fun SettingsScreen(vm: MainViewModel) {
                     item {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "автор: @huqore",
+                            text = stringResource(R.string.about_author),
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
                             fontSize = 12.sp,

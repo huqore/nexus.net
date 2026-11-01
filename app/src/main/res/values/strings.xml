@@ -159,7 +159,7 @@
 
     <!-- Auto connect on boot -->
     <string name="settings_connection_title">Connection</string>
-    <string name="settings_auto_connect_boot">Auto-connect on device boot</string>
+    <string name="settings_auto_connect_boot">Auto-connect on boot</string>
     <string name="settings_auto_connect_boot_desc">Automatically start VPN when your device turns on</string>
 
     <!-- Subscription Renewal & Expiry -->
@@ -214,4 +214,29 @@
     <string name="globe_ping_test">Ping test</string>
     <string name="globe_pinging">Checking&#8230;</string>
     <string name="globe_all_servers_short">All servers</string>
+
+    <!-- Localized settings strings -->
+    <string name="settings_section_user">User &amp; Subscription</string>
+    <string name="settings_sub_label">Subscription</string>
+    <string name="settings_traffic_label">Traffic</string>
+    <string name="settings_devices_label">Devices</string>
+    <string name="settings_devices_max">%1$d max</string>
+    <string name="settings_section_conn">Connection Settings</string>
+    <string name="settings_conn_params">Connection Parameters</string>
+    <string name="settings_section_appearance">Language, Appearance &amp; Haptics</string>
+    <string name="settings_haptics_label">Haptic Feedback</string>
+    <string name="settings_section_links">Links</string>
+    <string name="settings_section_about">About</string>
+    <string name="about_version">Version</string>
+    <string name="about_core">Xray Core</string>
+    <string name="about_author">author: @huqore</string>
+    <string name="split_all_apps">All applications</string>
+    <string name="split_bypass_selected">Bypass selected</string>
+    <string name="split_only_selected">Only selected</string>
+    <string name="split_selected_count">Selected: %1$d</string>
+    <string name="sub_until_date">until %1$s (%2$d days)</string>
+    <string name="sub_until_today">until %1$s (today)</string>
+    <string name="sub_expired_on">Expired on %1$s</string>
+    <string name="sub_unlimited">Unlimited</string>
+    <string name="kill_switch_desc_short">Block traffic when VPN drops</string>
 </resources>

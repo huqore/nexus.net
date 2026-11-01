@@ -601,6 +601,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     id = "nexus_provider",
                     name = "NEXUS",
                     servers = hs.servers,
+                    upload = finalUser.usedTrafficBytes,
+                    download = 0,
+                    total = finalUser.trafficLimitBytes,
                     expireAt = 0,
                     updatedAt = System.currentTimeMillis()
                 )
@@ -636,10 +639,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), hs.user)
                     }
                     if (hs.servers.isNotEmpty()) {
+                        val activeUser = hs.user ?: user
                         val provider = Provider(
                             id = "nexus_provider",
                             name = "NEXUS",
                             servers = hs.servers,
+                            upload = activeUser.usedTrafficBytes,
+                            download = 0,
+                            total = activeUser.trafficLimitBytes,
                             expireAt = 0,
                             updatedAt = System.currentTimeMillis()
                         )

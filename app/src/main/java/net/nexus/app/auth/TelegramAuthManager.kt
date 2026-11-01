@@ -67,6 +67,8 @@ object TelegramAuthManager {
                     expireAt = uObj.optString("expireAt", ""),
                     status = uObj.optString("status", "none"),
                     devicesCount = uObj.optInt("deviceLimit", 3),
+                    usedTrafficBytes = uObj.optLong("usedTrafficBytes", 0L),
+                    trafficLimitBytes = uObj.optLong("trafficLimitBytes", 0L),
                 )
             } else null
 
@@ -155,6 +157,8 @@ object TelegramAuthManager {
             expireAt = expireAt,
             status = status,
             devicesCount = devicesCount,
+            usedTrafficBytes = subObj?.optLong("usedTrafficBytes", 0L) ?: 0L,
+            trafficLimitBytes = subObj?.optLong("trafficLimitBytes", 0L) ?: 0L,
         )
     }
 
@@ -179,6 +183,8 @@ object TelegramAuthManager {
                     status = if (status.equals("active", true)) "active" else "disabled",
                     expireAt = expireAt,
                     devicesCount = devicesCount,
+                    usedTrafficBytes = subObj?.optLong("usedTrafficBytes", user.usedTrafficBytes) ?: user.usedTrafficBytes,
+                    trafficLimitBytes = subObj?.optLong("trafficLimitBytes", user.trafficLimitBytes) ?: user.trafficLimitBytes,
                 )
             }
         } catch (_: Exception) {}

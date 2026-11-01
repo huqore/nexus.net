@@ -158,7 +158,7 @@
 
     <!-- Auto connect on boot -->
     <string name="settings_connection_title">Подключение</string>
-    <string name="settings_auto_connect_boot">Автоподключение при старте</string>
+    <string name="settings_auto_connect_boot">Автозапуск при старте</string>
     <string name="settings_auto_connect_boot_desc">Запускать VPN автоматически при включении устройства</string>
 
     <!-- Subscription Renewal & Expiry -->
@@ -213,4 +213,29 @@
     <string name="globe_ping_test">Тест пинга</string>
     <string name="globe_pinging">Проверка&#8230;</string>
     <string name="globe_all_servers_short">Все серверы</string>
+
+    <!-- Localized settings strings -->
+    <string name="settings_section_user">Данные о пользователе и подписке</string>
+    <string name="settings_sub_label">Подписка</string>
+    <string name="settings_traffic_label">Трафик</string>
+    <string name="settings_devices_label">Устройств</string>
+    <string name="settings_devices_max">%1$d макс.</string>
+    <string name="settings_section_conn">Настройки подключения</string>
+    <string name="settings_conn_params">Параметры соединения</string>
+    <string name="settings_section_appearance">Язык, внешний вид и отклик</string>
+    <string name="settings_haptics_label">Вибрация</string>
+    <string name="settings_section_links">Ссылки</string>
+    <string name="settings_section_about">О приложении</string>
+    <string name="about_version">Версия</string>
+    <string name="about_core">Ядро Xray</string>
+    <string name="about_author">автор: @huqore</string>
+    <string name="split_all_apps">Все приложения</string>
+    <string name="split_bypass_selected">Обходить выбранные</string>
+    <string name="split_only_selected">Только выбранные</string>
+    <string name="split_selected_count">Выбрано: %1$d</string>
+    <string name="sub_until_date">до %1$s (%2$d дн.)</string>
+    <string name="sub_until_today">до %1$s (сегодня)</string>
+    <string name="sub_expired_on">Истекла %1$s</string>
+    <string name="sub_unlimited">Безлимит</string>
+    <string name="kill_switch_desc_short">Блокировать трафик при обрыве VPN</string>
 </resources>
