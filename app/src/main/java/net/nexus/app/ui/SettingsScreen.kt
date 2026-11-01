@@ -73,6 +73,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -944,17 +949,104 @@ private fun AppearanceSettingsScreen(
             }
         }
 
-        // 3: Цветовая схема (HOME_SCREEN на самом верху)
+        // 3: Цветовая схема (переключатель: список / кубики)
         item {
-            Section(stringResource(R.string.appearance_theme_title)) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    AppTheme.entries.forEach { theme ->
-                        ThemeOptionRow(
-                            theme = theme,
-                            palette = theme.palette(),
-                            selected = settings.appTheme == theme,
-                            onClick = { vm.setAppTheme(theme) }
+            Section(
+                title = stringResource(R.string.appearance_theme_title),
+                headerAction = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ViewList,
+                            contentDescription = "List view",
+                            tint = if (!settings.themeGridMode) NX.accent else NX.muted,
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    if (settings.themeGridMode) {
+                                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                                        vm.setThemeGridMode(false)
+                                    }
+                                }
                         )
+                        Switch(
+                            checked = settings.themeGridMode,
+                            onCheckedChange = { isChecked ->
+                                HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                                vm.setThemeGridMode(isChecked)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = NX.accent,
+                                uncheckedThumbColor = NX.muted,
+                                uncheckedTrackColor = NX.cardBorder
+                            ),
+                            modifier = Modifier.scale(0.8f)
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.GridView,
+                            contentDescription = "Grid view",
+                            tint = if (settings.themeGridMode) NX.accent else NX.muted,
+                            modifier = Modifier
+                                .size(19.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    if (!settings.themeGridMode) {
+                                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                                        vm.setThemeGridMode(true)
+                                    }
+                                }
+                        )
+                    }
+                }
+            ) {
+                if (settings.themeGridMode) {
+                    val themes = AppTheme.entries
+                    val rows = themes.chunked(3)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        rows.forEach { rowThemes ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowThemes.forEach { theme ->
+                                    ThemeCube(
+                                        modifier = Modifier.weight(1f),
+                                        theme = theme,
+                                        palette = theme.palette(),
+                                        selected = settings.appTheme == theme,
+                                        onClick = {
+                                            HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                                            vm.setAppTheme(theme)
+                                        }
+                                    )
+                                }
+                                repeat(3 - rowThemes.size) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        AppTheme.entries.forEach { theme ->
+                            ThemeOptionRow(
+                                theme = theme,
+                                palette = theme.palette(),
+                                selected = settings.appTheme == theme,
+                                onClick = {
+                                    HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                                    vm.setAppTheme(theme)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -1074,7 +1166,11 @@ private fun SubscreenHeader(title: String, onBack: () -> Unit) {
 // ---------------------------------------------------------------- helpers & subcomponents
 
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
+private fun Section(
+    title: String,
+    headerAction: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -1084,15 +1180,23 @@ private fun Section(title: String, content: @Composable () -> Unit) {
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(
-            text = title,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = NX.text,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = title,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = NX.text,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            headerAction?.invoke()
+        }
         content()
     }
 }
@@ -1351,15 +1455,28 @@ private fun ThemeOptionRow(
             )
         )
         Spacer(Modifier.width(10.dp))
-        Text(
-            text = theme.title,
-            fontSize = 15.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) NX.text else NX.muted2,
+        Row(
             modifier = Modifier.weight(1f),
-            maxLines = 1,
-            softWrap = false
-        )
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = theme.title,
+                fontSize = 15.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color = if (selected) NX.text else NX.muted2,
+                maxLines = 1,
+                softWrap = false
+            )
+            if (theme == AppTheme.HOME_SCREEN) {
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    imageVector = Icons.Filled.AutoAwesome,
+                    contentDescription = "Live Wallpaper",
+                    tint = NX.yellow,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -1373,10 +1490,10 @@ private fun ThemeOptionRow(
 }
 
 @Composable
-private fun ColorCircle(color: Color, borderColor: Color? = null) {
+private fun ColorCircle(color: Color, borderColor: Color? = null, size: androidx.compose.ui.unit.Dp = 16.dp) {
     Box(
         modifier = Modifier
-            .size(16.dp)
+            .size(size)
             .clip(RoundedCornerShape(50))
             .background(color)
             .then(
@@ -1384,6 +1501,114 @@ private fun ColorCircle(color: Color, borderColor: Color? = null) {
                 else Modifier
             )
     )
+}
+
+@Composable
+private fun ThemeCube(
+    modifier: Modifier = Modifier,
+    theme: AppTheme,
+    palette: NexusColorPalette,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        if (isPressed) 0.94f else 1f,
+        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+        label = "themeCubePress"
+    )
+
+    val shape = RoundedCornerShape(16.dp)
+    val borderColor = if (selected) NX.accent else NX.cardBorder.copy(alpha = 0.6f)
+    val bgColor = if (selected) NX.accentDim.copy(alpha = 0.45f) else NX.chip.copy(alpha = 0.35f)
+    val isLiveTheme = theme == AppTheme.HOME_SCREEN
+
+    Column(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .clip(shape)
+            .background(bgColor)
+            .border(if (selected) 2.dp else 1.dp, borderColor, shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // 4 основных цвета (2x2 мини-палитра)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ColorCircle(palette.bg, borderColor = palette.cardBorder, size = 13.dp)
+                    ColorCircle(palette.card, borderColor = palette.cardBorder, size = 13.dp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ColorCircle(palette.accent, size = 13.dp)
+                    ColorCircle(palette.accentLight, size = 13.dp)
+                }
+            }
+
+            // Живая тема (особая иконка для Home Screen)
+            if (isLiveTheme) {
+                Icon(
+                    imageVector = Icons.Filled.AutoAwesome,
+                    contentDescription = "Live Wallpaper Theme",
+                    tint = NX.yellow,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(13.dp)
+                )
+            }
+
+            // Индикатор выбора (галочка)
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(NX.accent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(9.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Название ниже цветов
+        Text(
+            text = theme.title,
+            fontSize = 11.5.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) NX.text else NX.muted2,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            lineHeight = 14.sp,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
 @Composable

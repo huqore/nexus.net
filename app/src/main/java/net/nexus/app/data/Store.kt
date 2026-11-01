@@ -37,6 +37,7 @@ class Store(context: Context) {
             appIcon = AppIcon.fromId(o.optString("appIcon", "default")),
             appFont = AppFont.fromId(o.optString("appFont", "russo_one")),
             use3dGlobe = o.optBoolean("use3dGlobe", true),
+            themeGridMode = o.optBoolean("themeGridMode", true),
         )
     }.getOrDefault(Settings())
 
@@ -56,6 +57,7 @@ class Store(context: Context) {
             .put("appIcon", s.appIcon.id)
             .put("appFont", s.appFont.id)
             .put("use3dGlobe", s.use3dGlobe)
+            .put("themeGridMode", s.themeGridMode)
         prefs.edit().putString("settings", o.toString()).apply()
     }
 

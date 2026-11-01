@@ -146,4 +146,5 @@ data class Settings(
     val appIcon: AppIcon = AppIcon.DEFAULT,
     val appFont: AppFont = AppFont.RUSSO_ONE,
     val use3dGlobe: Boolean = true,
+    val themeGridMode: Boolean = true,
 )

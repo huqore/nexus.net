@@ -67,13 +67,13 @@ fun cleanServerName(name: String): String {
         val isEn = runCatching {
             androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en", ignoreCase = true)
         }.getOrDefault(false)
-        return if (isEn) "Germany" else "Германия"
+        return if (isEn) "Germany LTE #1" else "Германия LTE #1"
     }
     if (Regex("""lte\s*#?2\b""", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
         val isEn = runCatching {
             androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en", ignoreCase = true)
         }.getOrDefault(false)
-        return if (isEn) "Poland" else "Польша"
+        return if (isEn) "Poland LTE #2" else "Польша LTE #2"
     }
 
     // 2. Strip redundant "WI-FI", "Wi-Fi", "wifi" suffix/prefix and separators

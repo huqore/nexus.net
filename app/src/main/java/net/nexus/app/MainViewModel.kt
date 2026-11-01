@@ -371,6 +371,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setUse3dGlobe(enabled: Boolean) = updateSettings { it.copy(use3dGlobe = enabled) }
+    fun setThemeGridMode(grid: Boolean) = updateSettings { it.copy(themeGridMode = grid) }
 
     // ---------- updates ----------
 
