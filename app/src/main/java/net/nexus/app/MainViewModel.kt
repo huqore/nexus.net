@@ -351,6 +351,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoConnectOnBoot(enabled: Boolean) = updateSettings { it.copy(autoConnectOnBoot = enabled) }
     fun setHapticIntensity(intensity: net.nexus.app.data.HapticIntensity) = updateSettings { it.copy(hapticIntensity = intensity) }
     fun setKillSwitch(enabled: Boolean) = updateSettings { it.copy(killSwitch = enabled) }
+    fun setBlockAds(enabled: Boolean) = updateSettings { it.copy(blockAds = enabled) }
     fun setAppTheme(theme: net.nexus.app.data.AppTheme) = updateSettings { it.copy(appTheme = theme) }
     fun setAppIcon(icon: net.nexus.app.data.AppIcon) {
         updateSettings { it.copy(appIcon = icon) }

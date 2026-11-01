@@ -239,4 +239,8 @@
     <string name="sub_expired_on">Expired on %1$s</string>
     <string name="sub_unlimited">Unlimited</string>
     <string name="kill_switch_desc_short">Block traffic when VPN drops</string>
+    <string name="settings_adblock">Ad Blocking (AdGuard DNS)</string>
+    <string name="settings_adblock_desc">Block ads, trackers and phishing domains via DNS</string>
+    <string name="session_duration">Session duration</string>
+    <string name="session_traffic">Session traffic</string>
 </resources>

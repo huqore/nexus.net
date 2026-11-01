@@ -121,16 +121,17 @@ object ConfigBuilder {
         return Pair(hostsMap, serverIps)
     }
 
-    private fun defaultDns(hostsMap: Map<String, String>) = JSONObject()
+    private fun defaultDns(hostsMap: Map<String, String>, blockAds: Boolean = false) = JSONObject()
         .put("hosts", JSONObject().apply {
             for ((domain, ip) in hostsMap) {
                 put(domain, JSONArray().put(ip))
             }
         })
-        .put("servers", JSONArray()
-            .put("1.1.1.1")
-            .put("8.8.8.8")
-            .put("9.9.9.9"))
+        .put("servers", if (blockAds) {
+            JSONArray().put("94.140.14.14").put("94.140.15.15")
+        } else {
+            JSONArray().put("1.1.1.1").put("8.8.8.8").put("9.9.9.9")
+        })
         .put("queryStrategy", "UseIPv4")
 
     private fun defaultRoutingRules(serverIps: List<String>): JSONArray {
@@ -176,7 +177,7 @@ object ConfigBuilder {
     }
 
     /** Full config used to run the VPN (TUN inbound + local SOCKS inbound for the speed test). */
-    fun forTunnel(server: Server, socksPort: Int): String {
+    fun forTunnel(server: Server, socksPort: Int, blockAds: Boolean = false): String {
         server.fullConfig?.let { raw ->
             // Server-supplied config: keep its outbounds / routing / dns, but we own the inbounds.
             val cfg = JSONObject(raw)
@@ -187,9 +188,12 @@ object ConfigBuilder {
             val (hostsMap, serverIps) = prepareOutbounds(outs)
 
             if (!cfg.has("dns")) {
-                cfg.put("dns", defaultDns(hostsMap))
+                cfg.put("dns", defaultDns(hostsMap, blockAds))
             } else {
                 val dns = cfg.getJSONObject("dns")
+                if (blockAds) {
+                    dns.put("servers", JSONArray().put("94.140.14.14").put("94.140.15.15"))
+                }
                 val hosts = dns.optJSONObject("hosts") ?: JSONObject().also { dns.put("hosts", it) }
                 for ((domain, ip) in hostsMap) {
                     hosts.put(domain, JSONArray().put(ip))
@@ -241,7 +245,7 @@ object ConfigBuilder {
 
         val cfg = JSONObject()
             .put("log", JSONObject().put("loglevel", "warning"))
-            .put("dns", defaultDns(hostsMap))
+            .put("dns", defaultDns(hostsMap, blockAds))
             .put("inbounds", inbounds(socksPort))
             .put("outbounds", outs)
             .put("routing", JSONObject()

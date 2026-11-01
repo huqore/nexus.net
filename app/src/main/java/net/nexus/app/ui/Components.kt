@@ -312,19 +312,17 @@ fun ServerRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FlagBox(server.name, size = 42.dp)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                cleanServerName(server.name),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis
-            )
-            TagLine(server)
-        }
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(
+            cleanServerName(server.name),
+            fontSize = 15.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(8.dp))
         PingBadge(server.pingMs, pinging)
     }
 }

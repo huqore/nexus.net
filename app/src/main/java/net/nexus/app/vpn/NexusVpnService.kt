@@ -42,9 +42,32 @@ class NexusVpnService : VpnService() {
 
     val isConnected: Boolean get() = tun != null && XrayCore.isRunning
 
+    private var isScreenOn: Boolean = true
+    private var screenReceiverRegistered = false
+    private val screenReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    isScreenOn = false
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    isScreenOn = true
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
+        runCatching {
+            val filter = android.content.IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+            }
+            registerReceiver(screenReceiver, filter)
+            screenReceiverRegistered = true
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -81,7 +104,8 @@ class NexusVpnService : VpnService() {
             XrayCore.init(this)
             val socksPort = java.net.ServerSocket(0).use { it.localPort }
             VpnState.socksPort = socksPort
-            val config = ConfigBuilder.forTunnel(server, socksPort)
+            val settings = store.loadSettings()
+            val config = ConfigBuilder.forTunnel(server, socksPort, blockAds = settings.blockAds)
 
             val pfd = buildTun(store) ?: error("VPN permission was revoked")
             tun = pfd
@@ -149,7 +173,8 @@ class NexusVpnService : VpnService() {
         watchdogJob = scope.launch {
             var consecutiveFailures = 0
             while (isActive) {
-                delay(20_000)
+                val delayMs = if (isScreenOn) 20_000L else 60_000L
+                delay(delayMs)
                 if (!XrayCore.isRunning || tun == null) break
 
                 val ok = checkTunnelHealth(socksPort)
@@ -186,7 +211,8 @@ class NexusVpnService : VpnService() {
         if (nextServer.id == activeServerId) return
 
         try {
-            val newConfig = ConfigBuilder.forTunnel(nextServer, socksPort)
+            val settings = store.loadSettings()
+            val newConfig = ConfigBuilder.forTunnel(nextServer, socksPort, blockAds = settings.blockAds)
             XrayCore.stopQuietly()
             XrayCore.start(newConfig, 0) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
 
@@ -208,9 +234,15 @@ class NexusVpnService : VpnService() {
             .setMtu(1500)
             .addAddress(TUN_IPV4, 16)
             .addRoute("0.0.0.0", 0)
-            .addDnsServer("1.1.1.1")
-            .addDnsServer("8.8.8.8")
-            .addDnsServer("77.88.8.8")
+
+        if (settings.blockAds) {
+            b.addDnsServer("94.140.14.14")
+            b.addDnsServer("94.140.15.15")
+        } else {
+            b.addDnsServer("1.1.1.1")
+            b.addDnsServer("8.8.8.8")
+            b.addDnsServer("77.88.8.8")
+        }
 
         // Add IPv6 route to prevent leaks on LTE / dual-stack networks
         runCatching {
@@ -285,6 +317,10 @@ class NexusVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        if (screenReceiverRegistered) {
+            runCatching { unregisterReceiver(screenReceiver) }
+            screenReceiverRegistered = false
+        }
         vpnJob?.cancel()
         vpnJob = null
         speedTickerJob?.cancel()
@@ -380,11 +416,14 @@ class NexusVpnService : VpnService() {
     private fun startSpeedTicker(serverName: String) {
         speedTickerJob?.cancel()
         speedTickerJob = scope.launch {
-            var (lastRx, lastTx) = getTrafficBytes()
+            val (baseRx, baseTx) = getTrafficBytes()
+            var lastRx = baseRx
+            var lastTx = baseTx
             var lastTime = System.currentTimeMillis()
 
             while (isActive && isConnected) {
-                delay(3000)
+                val interval = if (isScreenOn) 3000L else 30_000L
+                delay(interval)
                 val now = System.currentTimeMillis()
                 val (curRx, curTx) = getTrafficBytes()
                 val dtSec = ((now - lastTime) / 1000f).coerceAtLeast(0.5f)
@@ -395,12 +434,19 @@ class NexusVpnService : VpnService() {
                 val rxSpeedBps = (rxDiff / dtSec).toLong()
                 val txSpeedBps = (txDiff / dtSec).toLong()
 
+                val sessionRx = (curRx - baseRx).coerceAtLeast(0)
+                val sessionTx = (curTx - baseTx).coerceAtLeast(0)
+
                 lastRx = curRx
                 lastTx = curTx
                 lastTime = now
 
-                val speedText = "↓ ${formatSpeed(rxSpeedBps)}   ↑ ${formatSpeed(txSpeedBps)}"
-                updateLiveNotification(serverName, speedText)
+                VpnState.updateTraffic(sessionRx, sessionTx, rxSpeedBps, txSpeedBps)
+
+                if (isScreenOn) {
+                    val speedText = "↓ ${formatSpeed(rxSpeedBps)}   ↑ ${formatSpeed(txSpeedBps)}"
+                    updateLiveNotification(serverName, speedText)
+                }
             }
         }
     }

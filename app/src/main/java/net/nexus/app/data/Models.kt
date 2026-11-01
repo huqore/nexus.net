@@ -132,6 +132,7 @@ data class Settings(
     val autoConnectOnBoot: Boolean = false,
     val hapticIntensity: HapticIntensity = HapticIntensity.MEDIUM,
     val killSwitch: Boolean = false,
+    val blockAds: Boolean = false,
     val appTheme: AppTheme = AppTheme.BASE,
     val appIcon: AppIcon = AppIcon.DEFAULT,
     val use3dGlobe: Boolean = true,

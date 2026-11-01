@@ -32,6 +32,7 @@ class Store(context: Context) {
             autoConnectOnBoot = o.optBoolean("autoConnectOnBoot", false),
             hapticIntensity = runCatching { HapticIntensity.valueOf(o.optString("hapticIntensity", "MEDIUM")) }.getOrDefault(HapticIntensity.MEDIUM),
             killSwitch = o.optBoolean("killSwitch", false),
+            blockAds = o.optBoolean("blockAds", false),
             appTheme = AppTheme.fromId(o.optString("appTheme", "base")),
             appIcon = AppIcon.fromId(o.optString("appIcon", "default")),
             use3dGlobe = o.optBoolean("use3dGlobe", true),
@@ -49,6 +50,7 @@ class Store(context: Context) {
             .put("autoConnectOnBoot", s.autoConnectOnBoot)
             .put("hapticIntensity", s.hapticIntensity.name)
             .put("killSwitch", s.killSwitch)
+            .put("blockAds", s.blockAds)
             .put("appTheme", s.appTheme.id)
             .put("appIcon", s.appIcon.id)
             .put("use3dGlobe", s.use3dGlobe)

@@ -818,6 +818,39 @@ private fun ConnectionSettingsScreen(
                             )
                         )
                     }
+
+                    // Блокировщик рекламы AdGuard DNS
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = stringResource(R.string.settings_adblock),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = NX.text,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_adblock_desc),
+                                fontSize = 12.sp,
+                                color = NX.muted
+                            )
+                        }
+                        Switch(
+                            checked = settings.blockAds,
+                            onCheckedChange = { vm.setBlockAds(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = NX.accent,
+                                uncheckedThumbColor = NX.muted,
+                                uncheckedTrackColor = NX.cardBorder
+                            )
+                        )
+                    }
                 }
             }
         }

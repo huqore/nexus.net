@@ -50,17 +50,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.font.FontFamily
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import net.nexus.app.auth.TelegramUser
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -114,6 +123,27 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
     }
     val connected = status == VpnStatus.CONNECTED
     val connecting = status == VpnStatus.CONNECTING
+
+    val connectedAt by VpnState.connectedAt.collectAsState()
+    val sessionRx by VpnState.sessionRxBytes.collectAsState()
+    val sessionTx by VpnState.sessionTxBytes.collectAsState()
+
+    var sessionDurationMs by remember { mutableStateOf(0L) }
+    LaunchedEffect(connected, connectedAt) {
+        if (connected && connectedAt > 0) {
+            while (isActive) {
+                sessionDurationMs = (System.currentTimeMillis() - connectedAt).coerceAtLeast(0L)
+                delay(1000)
+            }
+        } else {
+            sessionDurationMs = 0L
+        }
+    }
+
+    val isRu = locale.language.startsWith("ru")
+    val durationText = fmtDuration(sessionDurationMs)
+    val rxText = fmtBytes(sessionRx, isRu, locale)
+    val txText = fmtBytes(sessionTx, isRu, locale)
 
     val mbpsUnit = stringResource(R.string.unit_mbps)
     val msUnit = stringResource(R.string.unit_ms)
@@ -174,6 +204,20 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             }
             Spacer(Modifier.height(20.dp))
             StatusLabel(status)
+            AnimatedVisibility(
+                visible = connected,
+                enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+                exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(10.dp))
+                    SessionStatsRow(
+                        duration = durationText,
+                        rxBytes = rxText,
+                        txBytes = txText
+                    )
+                }
+            }
             Spacer(Modifier.weight(1f))
             val openUrl: (String) -> Unit = { link ->
                 runCatching {
@@ -431,6 +475,92 @@ private fun StatusLabel(status: VpnStatus) {
             label = "statusTextTransition"
         ) { targetRes ->
             Text(stringResource(targetRes), color = animatedColor, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun SessionStatsRow(
+    duration: String,
+    rxBytes: String,
+    txBytes: String,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(NX.card.copy(alpha = 0.85f))
+            .border(1.dp, NX.cardBorder, shape)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Icon(
+                Icons.Filled.Schedule,
+                contentDescription = null,
+                tint = NX.accentLight,
+                modifier = Modifier.size(15.dp)
+            )
+            Text(
+                text = duration,
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                color = NX.text
+            )
+        }
+
+        Box(
+            Modifier
+                .size(3.dp)
+                .clip(CircleShape)
+                .background(NX.muted)
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Icon(
+                    Icons.Filled.ArrowDownward,
+                    contentDescription = null,
+                    tint = NX.green,
+                    modifier = Modifier.size(13.dp)
+                )
+                Text(
+                    text = rxBytes,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = NX.muted
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Icon(
+                    Icons.Filled.ArrowUpward,
+                    contentDescription = null,
+                    tint = Color(0xFF60A5FA),
+                    modifier = Modifier.size(13.dp)
+                )
+                Text(
+                    text = txBytes,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = NX.muted
+                )
+            }
         }
     }
 }

@@ -238,4 +238,8 @@
     <string name="sub_expired_on">Истекла %1$s</string>
     <string name="sub_unlimited">Безлимит</string>
     <string name="kill_switch_desc_short">Блокировать трафик при обрыве VPN</string>
+    <string name="settings_adblock">Блокировка рекламы (AdGuard DNS)</string>
+    <string name="settings_adblock_desc">Блокирует баннеры, трекеры и фишинг на уровне DNS</string>
+    <string name="session_duration">Длительность сессии</string>
+    <string name="session_traffic">Трафик сессии</string>
 </resources>
