@@ -6,7 +6,19 @@ import androidx.activity.compose.BackHandler
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -191,6 +203,7 @@ private fun MainSettingsList(
     onOpenConnection: () -> Unit,
     onOpenAppearance: () -> Unit
 ) {
+    var showScreamer by remember { mutableStateOf(false) }
     val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags().substringBefore('-')
     val coreVersion = remember { XrayCore.version() }
     val ctx = LocalContext.current
@@ -432,12 +445,13 @@ private fun MainSettingsList(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            val syncCooldown by vm.syncCooldownSeconds.collectAsState()
                             Button(
                                 onClick = { vm.syncTelegramSubscription() },
                                 colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
                                 shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth(),
-                                enabled = !isSyncing
+                                enabled = !isSyncing && syncCooldown == 0
                             ) {
                                 if (isSyncing) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
@@ -447,7 +461,11 @@ private fun MainSettingsList(
                                     Spacer(Modifier.width(8.dp))
                                 }
                                 Text(
-                                    text = stringResource(R.string.tg_auth_btn_sync),
+                                    text = if (syncCooldown > 0) {
+                                        stringResource(R.string.tg_auth_btn_sync_cooldown, syncCooldown)
+                                    } else {
+                                        stringResource(R.string.tg_auth_btn_sync)
+                                    },
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
@@ -669,7 +687,14 @@ private fun MainSettingsList(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.about_author),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        showScreamer = true
+                    },
                 textAlign = TextAlign.Center,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Normal,
@@ -678,6 +703,93 @@ private fun MainSettingsList(
                 softWrap = false
             )
             Spacer(Modifier.height(16.dp))
+        }
+    }
+
+    if (showScreamer) {
+        ScreamerDialog(onDismiss = { showScreamer = false })
+    }
+}
+
+@Composable
+private fun ScreamerDialog(onDismiss: () -> Unit) {
+    var tapCount by remember { mutableIntStateOf(0) }
+    var lastTapTime by remember { mutableLongStateOf(0L) }
+    val haptic = LocalHapticFeedback.current
+
+    val entryScale = remember { Animatable(0.01f) }
+    LaunchedEffect(Unit) {
+        entryScale.animateTo(
+            targetValue = 1.0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessHigh
+            )
+        )
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "screamerStretch")
+    val stretchX by infiniteTransition.animateFloat(
+        initialValue = 0.68f,
+        targetValue = 1.42f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(240, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "stretchX"
+    )
+    val stretchY by infiniteTransition.animateFloat(
+        initialValue = 1.28f,
+        targetValue = 0.74f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(240, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "stretchY"
+    )
+
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.95f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    val now = System.currentTimeMillis()
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    if (now - lastTapTime < 800L) {
+                        tapCount++
+                    } else {
+                        tapCount = 1
+                    }
+                    lastTapTime = now
+
+                    if (tapCount >= 3) {
+                        onDismiss()
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(R.drawable.img_cat_surprise),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .graphicsLayer {
+                        scaleX = entryScale.value * stretchX
+                        scaleY = entryScale.value * stretchY
+                    }
+            )
         }
     }
 }

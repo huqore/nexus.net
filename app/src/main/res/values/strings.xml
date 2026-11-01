@@ -132,6 +132,8 @@
     <string name="tg_auth_status_active">Subscription: Active</string>
     <string name="tg_auth_status_inactive">Subscription: Inactive / Expired</string>
     <string name="tg_auth_btn_sync">Refresh Subscription</string>
+    <string name="tg_auth_btn_sync_cooldown">Wait %1$d s</string>
+    <string name="tg_sync_cooldown">Wait %1$d s before updating</string>
     <string name="tg_auth_btn_logout">Log out</string>
     <string name="tg_auth_logged_out">Logged out from Telegram</string>
     <string name="tg_auth_syncing">Syncing subscription…</string>

@@ -131,6 +131,8 @@
     <string name="tg_auth_status_active">Подписка: Активна</string>
     <string name="tg_auth_status_inactive">Подписка: Не активна / Истекла</string>
     <string name="tg_auth_btn_sync">Обновить подписку</string>
+    <string name="tg_auth_btn_sync_cooldown">Подождите %1$d с</string>
+    <string name="tg_sync_cooldown">Подождите %1$d сек. перед следующим обновлением</string>
     <string name="tg_auth_btn_logout">Выйти из аккаунта</string>
     <string name="tg_auth_logged_out">Вы вышли из Telegram аккаунта</string>
     <string name="tg_auth_syncing">Синхронизация подписки…</string>

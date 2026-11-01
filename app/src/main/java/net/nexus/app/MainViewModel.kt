@@ -24,6 +24,7 @@ import net.nexus.app.data.SplitMode
 import net.nexus.app.data.Store
 import net.nexus.app.data.SubscriptionFetcher
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import net.nexus.app.vpn.NexusVpnService
 import net.nexus.app.vpn.VpnState
 import net.nexus.app.vpn.VpnStatus
@@ -70,6 +71,45 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val telegramAuthState = MutableStateFlow<TelegramAuthState>(TelegramAuthState.Idle)
     val isSyncingTelegram = MutableStateFlow(false)
     private var telegramAuthJob: Job? = null
+
+    val syncCooldownSeconds = MutableStateFlow(0)
+    private var nextAllowedSyncTime = 0L
+    private var wasPingedForNextSync = false
+    private var cooldownJob: Job? = null
+
+    fun onSubscriptionPinged() {
+        val now = System.currentTimeMillis()
+        if (nextAllowedSyncTime > now + 7_500L) {
+            nextAllowedSyncTime = now + 7_500L
+            updateCooldownTicker()
+        }
+        wasPingedForNextSync = true
+    }
+
+    private fun startCooldown(durationMs: Long) {
+        val target = System.currentTimeMillis() + durationMs
+        if (target > nextAllowedSyncTime) {
+            nextAllowedSyncTime = target
+        }
+        updateCooldownTicker()
+    }
+
+    private fun updateCooldownTicker() {
+        cooldownJob?.cancel()
+        cooldownJob = viewModelScope.launch(Dispatchers.Default) {
+            while (isActive) {
+                val now = System.currentTimeMillis()
+                val diff = nextAllowedSyncTime - now
+                if (diff <= 0L) {
+                    nextAllowedSyncTime = 0L
+                    syncCooldownSeconds.value = 0
+                    break
+                }
+                syncCooldownSeconds.value = ((diff + 999L) / 1000L).toInt()
+                delay(200L)
+            }
+        }
+    }
 
     init {
         net.nexus.app.ui.AppIconManager.applyIcon(app, settings.value.appIcon)
@@ -216,6 +256,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val p = providers.value.firstOrNull { it.id == providerId } ?: return
         val url = p.url ?: return
         if (providerId in refreshing.value) return
+
+        val now = System.currentTimeMillis()
+        if (now < nextAllowedSyncTime) {
+            if (!quiet) {
+                val remainingSec = ((nextAllowedSyncTime - now + 999L) / 1000L).toInt()
+                emit(R.string.tg_sync_cooldown, remainingSec)
+            }
+            return
+        }
+
+        val cdMs = if (wasPingedForNextSync) 7_500L else 15_000L
+        wasPingedForNextSync = false
+        startCooldown(cdMs)
+
         viewModelScope.launch(Dispatchers.IO) {
             refreshing.update { it + providerId }
             try {
@@ -311,7 +365,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun pingServers(servers: List<Server>) {
         if (servers.isEmpty()) return
-        silentUpdateSubscriptions()
+        onSubscriptionPinged()
+        val now = System.currentTimeMillis()
+        if (now >= nextAllowedSyncTime) {
+            silentUpdateSubscriptions()
+        }
         viewModelScope.launch(Dispatchers.IO) {
             val ids = servers.map { it.id }.toSet()
             pinging.update { it + ids }
@@ -640,6 +698,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun syncTelegramSubscription(quiet: Boolean = false) {
         val user = telegramUser.value ?: return
         if (isSyncingTelegram.value) return
+
+        val now = System.currentTimeMillis()
+        if (now < nextAllowedSyncTime) {
+            if (!quiet) {
+                val remainingSec = ((nextAllowedSyncTime - now + 999L) / 1000L).toInt()
+                emit(R.string.tg_sync_cooldown, remainingSec)
+            }
+            return
+        }
+
+        val cdMs = if (wasPingedForNextSync) 7_500L else 15_000L
+        wasPingedForNextSync = false
+        startCooldown(cdMs)
+
         viewModelScope.launch(Dispatchers.IO) {
             isSyncingTelegram.value = true
             try {
