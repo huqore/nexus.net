@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -88,6 +89,17 @@ class MainActivity : AppCompatActivity() {
                         VpnStatus.ERROR -> HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.ERROR)
                         else -> {}
                     }
+                }
+
+                // System swipe back gesture handlers:
+                // 1. If on SERVERS or SETTINGS, back swipe returns to CONNECT
+                BackHandler(enabled = tab != Tab.CONNECT) {
+                    tab = Tab.CONNECT
+                }
+
+                // 2. If on CONNECT, minimize to background smoothly with moveTaskToBack(true) instead of crashing/killing the app
+                BackHandler(enabled = tab == Tab.CONNECT) {
+                    (ctx as? android.app.Activity)?.moveTaskToBack(true)
                 }
 
                 Box(Modifier.fillMaxSize()) {

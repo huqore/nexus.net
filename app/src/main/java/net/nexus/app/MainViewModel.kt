@@ -640,6 +640,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     if (hs.servers.isNotEmpty()) {
                         val activeUser = hs.user ?: user
+                        val expSeconds = runCatching {
+                            if (activeUser.expireAt.isNotBlank()) java.time.Instant.parse(activeUser.expireAt).epochSecond else 0L
+                        }.getOrDefault(0L)
                         val provider = Provider(
                             id = "nexus_provider",
                             name = "NEXUS",
@@ -647,7 +650,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             upload = activeUser.usedTrafficBytes,
                             download = 0,
                             total = activeUser.trafficLimitBytes,
-                            expireAt = 0,
+                            expireAt = expSeconds,
                             updatedAt = System.currentTimeMillis()
                         )
                         store.saveProviders(listOf(provider))

@@ -45,6 +45,7 @@ class NexusTileService : TileService() {
 
     private fun updateTile(status: VpnStatus) {
         val tile = qsTile ?: return
+        tile.icon = android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_stat_vpn)
         when (status) {
             VpnStatus.CONNECTED -> {
                 tile.state = Tile.STATE_ACTIVE

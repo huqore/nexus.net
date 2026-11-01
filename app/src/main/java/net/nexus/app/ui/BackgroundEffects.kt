@@ -48,6 +48,7 @@ private data class EffectParticle(
 fun SakuraPetalsOverlay(modifier: Modifier = Modifier) {
     val density = LocalDensity.current.density
     val particles = remember { generateSakuraParticles(count = 26) }
+    val reusablePath = remember { Path() }
 
     val transition = rememberInfiniteTransition(label = "sakuraAnimation")
     val timeMs by transition.animateFloat(
@@ -93,30 +94,29 @@ fun SakuraPetalsOverlay(modifier: Modifier = Modifier) {
 
             rotate(degrees = rotation, pivot = Offset(x, y)) {
                 scale(scaleX = flutterScaleX, scaleY = 1f, pivot = Offset(x, y)) {
-                    drawSakuraPetal(center = Offset(x, y), width = petalW, height = petalH, color = color)
+                    drawSakuraPetal(path = reusablePath, center = Offset(x, y), width = petalW, height = petalH, color = color)
                 }
             }
         }
     }
 }
 
-private fun DrawScope.drawSakuraPetal(center: Offset, width: Float, height: Float, color: Color) {
-    val path = Path().apply {
-        val halfW = width / 2f
-        val halfH = height / 2f
-        moveTo(center.x, center.y - halfH)
-        cubicTo(
-            center.x + halfW * 1.1f, center.y - halfH * 0.4f,
-            center.x + halfW * 0.9f, center.y + halfH * 0.5f,
-            center.x, center.y + halfH
-        )
-        cubicTo(
-            center.x - halfW * 0.9f, center.y + halfH * 0.5f,
-            center.x - halfW * 1.1f, center.y - halfH * 0.4f,
-            center.x, center.y - halfH
-        )
-        close()
-    }
+private fun DrawScope.drawSakuraPetal(path: Path, center: Offset, width: Float, height: Float, color: Color) {
+    path.rewind()
+    val halfW = width / 2f
+    val halfH = height / 2f
+    path.moveTo(center.x, center.y - halfH)
+    path.cubicTo(
+        center.x + halfW * 1.1f, center.y - halfH * 0.4f,
+        center.x + halfW * 0.9f, center.y + halfH * 0.5f,
+        center.x, center.y + halfH
+    )
+    path.cubicTo(
+        center.x - halfW * 0.9f, center.y + halfH * 0.5f,
+        center.x - halfW * 1.1f, center.y - halfH * 0.4f,
+        center.x, center.y - halfH
+    )
+    path.close()
     drawPath(path = path, color = color)
 }
 
