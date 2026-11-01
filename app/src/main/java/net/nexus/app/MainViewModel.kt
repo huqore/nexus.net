@@ -300,8 +300,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- latency ----------
 
+    fun silentUpdateSubscriptions() {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (telegramUser.value != null) {
+                syncTelegramSubscription(quiet = true)
+            }
+            refreshAllSubscriptions(quiet = true)
+        }
+    }
+
     fun pingServers(servers: List<Server>) {
         if (servers.isEmpty()) return
+        silentUpdateSubscriptions()
         viewModelScope.launch(Dispatchers.IO) {
             val ids = servers.map { it.id }.toSet()
             pinging.update { it + ids }

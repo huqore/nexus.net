@@ -3,7 +3,6 @@ package net.nexus.app.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
-import net.nexus.app.auth.SubscriptionNotifier
 import net.nexus.app.data.Store
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -48,10 +47,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -70,7 +66,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import net.nexus.app.auth.TelegramUser
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -104,8 +99,6 @@ import net.nexus.app.vpn.VpnStatus
 fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> Unit) {
     val providers by vm.providers.collectAsState()
     val settings by vm.settings.collectAsState()
-    val tgUser by vm.telegramUser.collectAsState()
-    val isSyncingTg by vm.isSyncingTelegram.collectAsState()
     val status by VpnState.status.collectAsState()
     val activeId by VpnState.serverId.collectAsState()
     val speed by vm.speedMbps.collectAsState()
@@ -125,8 +118,6 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
     val connecting = status == VpnStatus.CONNECTING
 
     val connectedAt by VpnState.connectedAt.collectAsState()
-    val sessionRx by VpnState.sessionRxBytes.collectAsState()
-    val sessionTx by VpnState.sessionTxBytes.collectAsState()
 
     var sessionDurationMs by remember { mutableStateOf(0L) }
     LaunchedEffect(connected, connectedAt) {
@@ -140,10 +131,7 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
         }
     }
 
-    val isRu = locale.language.startsWith("ru")
     val durationText = fmtDuration(sessionDurationMs)
-    val rxText = fmtBytes(sessionRx, isRu, locale)
-    val txText = fmtBytes(sessionTx, isRu, locale)
 
     val mbpsUnit = stringResource(R.string.unit_mbps)
     val msUnit = stringResource(R.string.unit_ms)
@@ -211,31 +199,10 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.height(10.dp))
-                    SessionStatsRow(
-                        duration = durationText,
-                        rxBytes = rxText,
-                        txBytes = txText
-                    )
+                    SessionTimerBadge(duration = durationText)
                 }
             }
             Spacer(Modifier.weight(1f))
-            val openUrl: (String) -> Unit = { link ->
-                runCatching {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link)).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    ctx.startActivity(intent)
-                }
-            }
-            TelegramSyncBar(
-                user = tgUser,
-                providers = providers,
-                isSyncing = isSyncingTg,
-                onLogin = { vm.startTelegramAuth() },
-                onSync = { vm.syncTelegramSubscription() },
-                onRenew = { openUrl(ctx.getString(R.string.tg_auth_bot_url)) }
-            )
-            Spacer(Modifier.height(10.dp))
             ServerCard(selected, isAuto, connected) {
                 HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
                 onAddServers()
@@ -480,10 +447,8 @@ private fun StatusLabel(status: VpnStatus) {
 }
 
 @Composable
-private fun SessionStatsRow(
+private fun SessionTimerBadge(
     duration: String,
-    rxBytes: String,
-    txBytes: String,
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -492,76 +457,23 @@ private fun SessionStatsRow(
             .clip(shape)
             .background(NX.card.copy(alpha = 0.85f))
             .border(1.dp, NX.cardBorder, shape)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Icon(
-                Icons.Filled.Schedule,
-                contentDescription = null,
-                tint = NX.accentLight,
-                modifier = Modifier.size(15.dp)
-            )
-            Text(
-                text = duration,
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold,
-                color = NX.text
-            )
-        }
-
-        Box(
-            Modifier
-                .size(3.dp)
-                .clip(CircleShape)
-                .background(NX.muted)
+        Icon(
+            Icons.Filled.Schedule,
+            contentDescription = null,
+            tint = NX.accentLight,
+            modifier = Modifier.size(15.dp)
         )
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Icon(
-                    Icons.Filled.ArrowDownward,
-                    contentDescription = null,
-                    tint = NX.green,
-                    modifier = Modifier.size(13.dp)
-                )
-                Text(
-                    text = rxBytes,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = NX.muted
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Icon(
-                    Icons.Filled.ArrowUpward,
-                    contentDescription = null,
-                    tint = Color(0xFF60A5FA),
-                    modifier = Modifier.size(13.dp)
-                )
-                Text(
-                    text = txBytes,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = NX.muted
-                )
-            }
-        }
+        Text(
+            text = duration,
+            fontSize = 13.5.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.SemiBold,
+            color = NX.text
+        )
     }
 }
 
@@ -701,180 +613,6 @@ private fun InfoTile(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun TelegramSyncBar(
-    user: TelegramUser?,
-    providers: List<Provider>,
-    isSyncing: Boolean,
-    onLogin: () -> Unit,
-    onSync: () -> Unit,
-    onRenew: () -> Unit,
-) {
-    val nexusProvider = providers.firstOrNull { !it.isLocal } ?: providers.firstOrNull()
-    val daysLeft: Long? = if (user != null && user.expireAt.isNotBlank()) {
-        SubscriptionNotifier.getDaysLeft(user.expireAt)
-    } else if (nexusProvider != null && nexusProvider.expireAt > 0) {
-        java.lang.Math.ceil((nexusProvider.expireAt * 1000 - System.currentTimeMillis()) / 86_400_000.0).toLong()
-    } else null
-
-    val isUserActive = (user != null && user.isSubscribed) || (nexusProvider != null && (nexusProvider.expireAt * 1000 > System.currentTimeMillis() || nexusProvider.expireAt == 0L))
-    val isExpiringSoon = user != null && isUserActive && daysLeft != null && daysLeft in 0..3
-    val isExpired = user != null && (!isUserActive || (daysLeft != null && daysLeft <= 0))
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(NX.card)
-            .border(
-                1.dp,
-                when {
-                    isExpired -> NX.red.copy(alpha = 0.5f)
-                    isExpiringSoon -> NX.yellow.copy(alpha = 0.5f)
-                    user != null -> NX.accent.copy(alpha = 0.35f)
-                    else -> NX.cardBorder
-                },
-                RoundedCornerShape(16.dp)
-            )
-            .clickable(onClick = if (user == null) onLogin else onSync)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(if (user != null) NX.accentDim else NX.iconBtn),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Send,
-                contentDescription = null,
-                tint = if (user != null) NX.accentLight else NX.muted,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-
-        Spacer(Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            if (user == null) {
-                Text(
-                    text = stringResource(R.string.tg_auth_banner_title),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = NX.text,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = stringResource(R.string.tg_auth_banner_subtitle),
-                    fontSize = 11.sp,
-                    color = NX.muted,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis
-                )
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = user.formattedUsername,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NX.text,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    isExpired -> NX.red
-                                    isExpiringSoon -> NX.yellow
-                                    else -> NX.green
-                                }
-                            )
-                    )
-                }
-                val statusText = when {
-                    isExpired -> stringResource(R.string.sub_expired)
-                    isExpiringSoon -> stringResource(R.string.sub_expiring_soon, daysLeft ?: 0)
-                    isUserActive -> {
-                        if (daysLeft != null) {
-                            if (daysLeft in 1..365) {
-                                "${stringResource(R.string.tg_auth_status_active)} · $daysLeft дн."
-                            } else {
-                                "${stringResource(R.string.tg_auth_status_active)} · Безлимит"
-                            }
-                        } else {
-                            stringResource(R.string.tg_auth_status_active)
-                        }
-                    }
-                    else -> stringResource(R.string.tg_auth_status_inactive)
-                }
-                val statusColor = when {
-                    isExpired -> NX.red
-                    isExpiringSoon -> NX.yellow
-                    isUserActive -> NX.green
-                    else -> NX.yellow
-                }
-                Text(
-                    text = statusText,
-                    fontSize = 11.sp,
-                    color = statusColor,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-
-        if (user != null && (isExpired || isExpiringSoon)) {
-            val bgCol = if (isExpired) NX.red.copy(alpha = 0.18f) else NX.yellow.copy(alpha = 0.18f)
-            val borderCol = if (isExpired) NX.red.copy(alpha = 0.5f) else NX.yellow.copy(alpha = 0.5f)
-            val txtCol = if (isExpired) NX.red else NX.yellow
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(bgCol)
-                    .border(1.dp, borderCol, RoundedCornerShape(10.dp))
-                    .clickable(onClick = onRenew)
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.sub_renew_btn),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = txtCol,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-        }
-
-        if (isSyncing) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                color = NX.accentLight,
-                strokeWidth = 2.dp
-            )
-        } else {
-            Icon(
-                imageVector = if (user == null) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.Refresh,
-                contentDescription = null,
-                tint = NX.muted,
-                modifier = Modifier.size(18.dp)
-            )
         }
     }
 }

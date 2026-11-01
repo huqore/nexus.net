@@ -251,19 +251,19 @@ fun TagLine(s: Server) {
 @Composable
 fun PingBadge(ms: Int, loading: Boolean) {
     if (loading) {
-        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = NX.accent)
+        CircularProgressIndicator(Modifier.size(13.dp), strokeWidth = 2.dp, color = NX.accent)
         return
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         when {
-            ms == -1 -> Text("—", color = NX.muted, fontFamily = FontFamily.Monospace)
-            ms == -2 -> Text("n/a", color = NX.muted, fontFamily = FontFamily.Monospace)
+            ms == -1 -> Text("—", color = NX.muted, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+            ms == -2 -> Text("n/a", color = NX.muted, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
             else -> {
                 val c = when { ms < 250 -> NX.green; ms < 500 -> NX.yellow; else -> NX.red }
                 val animatedColor by animateColorAsState(c, tween(300), label = "pingColor")
-                Box(Modifier.size(8.dp).clip(CircleShape).background(animatedColor))
-                Spacer(Modifier.width(8.dp))
-                Text("${ms}ms", color = NX.muted2, fontFamily = FontFamily.Monospace, fontSize = 16.sp, maxLines = 1, softWrap = false)
+                Box(Modifier.size(6.dp).clip(CircleShape).background(animatedColor))
+                Spacer(Modifier.width(5.dp))
+                Text("${ms}ms", color = NX.muted2, fontFamily = FontFamily.Monospace, fontSize = 13.sp, maxLines = 1, softWrap = false)
             }
         }
     }
@@ -308,21 +308,21 @@ fun ServerRow(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 12.dp, vertical = 14.dp),
+            .padding(horizontal = 10.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FlagBox(server.name, size = 42.dp)
-        Spacer(Modifier.width(12.dp))
+        FlagBox(server.name, size = 36.dp)
+        Spacer(Modifier.width(8.dp))
         Text(
             cleanServerName(server.name),
-            fontSize = 15.5.sp,
+            fontSize = 13.5.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
         PingBadge(server.pingMs, pinging)
     }
 }
@@ -406,7 +406,7 @@ fun ProviderCard(
             .clip(shape)
             .background(NX.card)
             .border(1.dp, NX.cardBorder, shape)
-            .padding(14.dp),
+            .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         p.servers.forEach { s ->
