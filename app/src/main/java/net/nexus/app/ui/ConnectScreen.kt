@@ -86,6 +86,7 @@ import net.nexus.app.MainViewModel
 import net.nexus.app.R
 import net.nexus.app.data.Provider
 import net.nexus.app.data.Server
+import net.nexus.app.data.AppTheme
 import net.nexus.app.vpn.VpnState
 import net.nexus.app.vpn.VpnStatus
 
@@ -151,6 +152,13 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
                 ),
                 radius = r, center = c,
             )
+        }
+
+        // Falling particles behind all elements on home screen
+        when (settings.appTheme) {
+            AppTheme.SAKURA -> SakuraPetalsOverlay()
+            AppTheme.WINTER -> WinterSnowOverlay()
+            else -> Unit
         }
 
         Column(

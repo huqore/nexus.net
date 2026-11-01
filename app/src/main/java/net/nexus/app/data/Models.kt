@@ -91,13 +91,13 @@ enum class SplitMode { OFF, BYPASS, ONLY }
 enum class HapticIntensity { OFF, LIGHT, MEDIUM, STRONG }
 
 enum class AppTheme(val id: String, val title: String) {
+    HOME_SCREEN("home_screen", "home screen"),
     BASE("base", "base"),
     AMOLED_BLACK("amoled_black", "amoled black"),
     GREEN_SCREEN("green_screen", "green screen"),
     BLUE_SCREEN("blue_screen", "blue screen"),
     RED_SCREEN("red_screen", "red screen"),
     WHITE_SCREEN("white_screen", "white screen"),
-    HOME_SCREEN("home_screen", "home screen"),
     PINK_SCREEN("pink_screen", "pink screen"),
     YELLOW_SCREEN("yellow_screen", "yellow screen"),
     SAKURA("sakura", "sakura"),

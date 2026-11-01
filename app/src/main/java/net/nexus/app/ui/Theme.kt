@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import android.os.Build
 import android.content.Context
+import android.app.WallpaperManager
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.remember
@@ -92,38 +94,129 @@ val HomeScreenFallbackColors = NexusColorPalette(
     sheetBg = Color(0xFD181C22),
 )
 
-@Composable
-fun rememberDynamicPalette(context: Context): NexusColorPalette {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val dyn = dynamicDarkColorScheme(context)
-        return remember(dyn) {
-            val bg = dyn.background
-            val card = dyn.surface
-            val primary = dyn.primary
-            val cardBorder = dyn.outlineVariant.copy(alpha = 0.5f)
-            NexusColorPalette(
-                bg = bg,
-                card = card,
-                cardBorder = cardBorder,
-                chip = dyn.surfaceVariant,
-                iconBtn = dyn.surfaceVariant,
-                accent = primary,
-                accentDim = dyn.primaryContainer.copy(alpha = 0.5f),
-                accentLight = dyn.inversePrimary,
-                text = dyn.onSurface,
-                muted = dyn.onSurfaceVariant,
-                muted2 = dyn.onSurfaceVariant.copy(alpha = 0.8f),
-                yellow = Color(0xFFE5C14A),
-                green = Color(0xFF3DDC97),
-                red = Color(0xFFFF5C6C),
-                purple = primary,
-                btnGradTop = dyn.surfaceContainerHigh,
-                btnGradBottom = card,
-                sheetBg = card.copy(alpha = 0.95f)
-            )
+fun extractDynamicWallpaperPalette(context: Context): NexusColorPalette {
+    var wpPrimaryColor: Color? = null
+    var wpSecondaryColor: Color? = null
+    var wpTertiaryColor: Color? = null
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+        runCatching {
+            val wm = context.getSystemService(Context.WALLPAPER_SERVICE) as? WallpaperManager
+                ?: WallpaperManager.getInstance(context)
+            val colors = wm.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+            colors?.primaryColor?.toArgb()?.let { wpPrimaryColor = Color(it) }
+            colors?.secondaryColor?.toArgb()?.let { wpSecondaryColor = Color(it) }
+            colors?.tertiaryColor?.toArgb()?.let { wpTertiaryColor = Color(it) }
         }
     }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val dyn = runCatching { dynamicDarkColorScheme(context) }.getOrNull()
+        if (dyn != null) {
+            val seedColor = wpPrimaryColor ?: dyn.primary
+            val hsv = FloatArray(3)
+            android.graphics.Color.colorToHSV(seedColor.toArgb(), hsv)
+            val hue = hsv[0]
+            val sat = hsv[1]
+
+            if (sat >= 0.08f) {
+                val vibrantAccent = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, sat.coerceIn(0.55f, 0.95f), 0.90f)))
+                val accentLight = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, (sat * 0.4f).coerceIn(0.15f, 0.4f), 0.98f)))
+                val accentDim = vibrantAccent.copy(alpha = 0.28f)
+                val cardBorder = vibrantAccent.copy(alpha = 0.35f)
+
+                val bg = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.35f, 0.065f)))
+                val card = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.30f, 0.11f)))
+                val chip = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.26f, 0.16f)))
+                val btnTop = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.30f, 0.20f)))
+                val btnBottom = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.30f, 0.08f)))
+                val sheet = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.32f, 0.08f))).copy(alpha = 0.97f)
+
+                return NexusColorPalette(
+                    bg = bg,
+                    card = card,
+                    cardBorder = cardBorder,
+                    chip = chip,
+                    iconBtn = chip,
+                    accent = vibrantAccent,
+                    accentDim = accentDim,
+                    accentLight = accentLight,
+                    text = Color(0xFFF8FAFC),
+                    muted = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.22f, 0.65f))),
+                    muted2 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.25f, 0.85f))),
+                    yellow = Color(0xFFFBBF24),
+                    green = wpSecondaryColor ?: dyn.secondary,
+                    red = Color(0xFFFB7185),
+                    purple = wpTertiaryColor ?: dyn.tertiary,
+                    btnGradTop = btnTop,
+                    btnGradBottom = btnBottom,
+                    sheetBg = sheet
+                )
+            } else {
+                return NexusColorPalette(
+                    bg = Color(0xFF0D0E12),
+                    card = Color(0xFF16171E),
+                    cardBorder = dyn.outlineVariant.copy(alpha = 0.4f),
+                    chip = Color(0xFF22242D),
+                    iconBtn = Color(0xFF22242D),
+                    accent = dyn.primary,
+                    accentDim = dyn.primaryContainer.copy(alpha = 0.4f),
+                    accentLight = dyn.inversePrimary,
+                    text = dyn.onSurface,
+                    muted = dyn.onSurfaceVariant,
+                    muted2 = dyn.onSurfaceVariant.copy(alpha = 0.8f),
+                    yellow = Color(0xFFFBBF24),
+                    green = Color(0xFF34D399),
+                    red = Color(0xFFFB7185),
+                    purple = dyn.tertiary,
+                    btnGradTop = Color(0xFF242732),
+                    btnGradBottom = Color(0xFF121318),
+                    sheetBg = Color(0xFD121318)
+                )
+            }
+        }
+    }
+
+    if (wpPrimaryColor != null) {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(wpPrimaryColor!!.toArgb(), hsv)
+        val hue = hsv[0]
+        val sat = hsv[1]
+        val vibrantAccent = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, sat.coerceIn(0.55f, 0.95f), 0.90f)))
+        val accentLight = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, (sat * 0.4f).coerceIn(0.15f, 0.4f), 0.98f)))
+        val bg = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.35f, 0.065f)))
+        val card = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.30f, 0.11f)))
+        val chip = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.26f, 0.16f)))
+        return NexusColorPalette(
+            bg = bg,
+            card = card,
+            cardBorder = vibrantAccent.copy(alpha = 0.35f),
+            chip = chip,
+            iconBtn = chip,
+            accent = vibrantAccent,
+            accentDim = vibrantAccent.copy(alpha = 0.28f),
+            accentLight = accentLight,
+            text = Color(0xFFF8FAFC),
+            muted = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.22f, 0.65f))),
+            muted2 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.25f, 0.85f))),
+            yellow = Color(0xFFFBBF24),
+            green = wpSecondaryColor ?: Color(0xFF34D399),
+            red = Color(0xFFFB7185),
+            purple = wpTertiaryColor ?: Color(0xFFA78BFA),
+            btnGradTop = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.30f, 0.20f))),
+            btnGradBottom = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.30f, 0.08f))),
+            sheetBg = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.32f, 0.08f))).copy(alpha = 0.97f)
+        )
+    }
+
     return HomeScreenFallbackColors
+}
+
+@Composable
+fun rememberDynamicPalette(context: Context): NexusColorPalette {
+    return remember(context) {
+        extractDynamicWallpaperPalette(context)
+    }
 }
 
 val WhiteScreenThemeColors = NexusColorPalette(
@@ -275,45 +368,45 @@ val YellowScreenThemeColors = NexusColorPalette(
 )
 
 val SakuraBaseThemeColors = NexusColorPalette(
-    bg = Color(0xFF120910),
-    card = Color(0xFF1D0F1B),
-    cardBorder = Color(0xFF3F1F39),
-    chip = Color(0xFF2B1428),
-    iconBtn = Color(0xFF2B1428),
-    accent = Color(0xFFFF85A1),
-    accentDim = Color(0xFF4A1837),
-    accentLight = Color(0xFFFFCCD5),
-    text = Color(0xFFFFF5F8),
-    muted = Color(0xFFA8899E),
-    muted2 = Color(0xFFFFDDE9),
+    bg = Color(0xFF130910),
+    card = Color(0xFF1F0E1A),
+    cardBorder = Color(0xFF4D1C3E),
+    chip = Color(0xFF2D1226),
+    iconBtn = Color(0xFF2D1226),
+    accent = Color(0xFFFF5E88),       // Cherry blossom rose pink
+    accentDim = Color(0xFF4D1635),
+    accentLight = Color(0xFFFFCCD5),  // Soft petal beige-pink
+    text = Color(0xFFFFF5F7),         // Creamy petal white
+    muted = Color(0xFFA8869B),
+    muted2 = Color(0xFFFCE7DF),       // Petal beige cream
     yellow = Color(0xFFFDE047),
     green = Color(0xFF4ADE80),
-    red = Color(0xFFFF758F),
-    purple = Color(0xFFE879F9),
-    btnGradTop = Color(0xFF36142F),
-    btnGradBottom = Color(0xFF160914),
-    sheetBg = Color(0xFD170B16),
+    red = Color(0xFFE11D48),          // Deep petal crimson
+    purple = Color(0xFFFB7185),
+    btnGradTop = Color(0xFF38142C),
+    btnGradBottom = Color(0xFF160813),
+    sheetBg = Color(0xFD180B15),
 )
 
 val WinterBaseThemeColors = NexusColorPalette(
-    bg = Color(0xFF070B14),
-    card = Color(0xFF0D1526),
-    cardBorder = Color(0xFF1C2C4E),
-    chip = Color(0xFF14203A),
-    iconBtn = Color(0xFF14203A),
-    accent = Color(0xFF38BDF8),
-    accentDim = Color(0xFF112D55),
-    accentLight = Color(0xFFE0F2FE),
-    text = Color(0xFFF0F9FF),
-    muted = Color(0xFF7B91B2),
-    muted2 = Color(0xFFBAE6FD),
-    yellow = Color(0xFFE5C14A),
+    bg = Color(0xFF060A13),
+    card = Color(0xFF0B1424),
+    cardBorder = Color(0xFF1B2E52),
+    chip = Color(0xFF12203B),
+    iconBtn = Color(0xFF12203B),
+    accent = Color(0xFF38BDF8),       // Sky / ice cyan
+    accentDim = Color(0xFF0F2D54),
+    accentLight = Color(0xFFF0F9FF),  // Crisp arctic white
+    text = Color(0xFFF0F9FF),         // Arctic white
+    muted = Color(0xFF7E94B4),
+    muted2 = Color(0xFFBAE6FD),       // Ice light blue
+    yellow = Color(0xFFFDE047),
     green = Color(0xFF34D399),
     red = Color(0xFFFF5C6C),
-    purple = Color(0xFFA78BFA),
-    btnGradTop = Color(0xFF152646),
-    btnGradBottom = Color(0xFF091222),
-    sheetBg = Color(0xFD091222),
+    purple = Color(0xFF0284C7),       // Deep ocean blue
+    btnGradTop = Color(0xFF132546),
+    btnGradBottom = Color(0xFF070E1A),
+    sheetBg = Color(0xFD08101D),
 )
 
 val RgbBaseThemeColors = NexusColorPalette(
@@ -336,79 +429,6 @@ val RgbBaseThemeColors = NexusColorPalette(
     btnGradBottom = Color(0xFF0E0E14),
     sheetBg = Color(0xFD0F0F16),
 )
-
-@Composable
-fun rememberSakuraPalette(): NexusColorPalette {
-    val transition = rememberInfiniteTransition(label = "sakuraShimmer")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 6000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "sakuraProgress"
-    )
-
-    val c1 = Color(0xFFFF85A1)
-    val c2 = Color(0xFFF472B6)
-    val c3 = Color(0xFFFFB3C6)
-
-    val currentAccent = if (progress < 0.5f) {
-        lerpColor(c1, c2, progress * 2f)
-    } else {
-        lerpColor(c2, c3, (progress - 0.5f) * 2f)
-    }
-    val currentLight = if (progress < 0.5f) {
-        lerpColor(Color(0xFFFFCCD5), Color(0xFFFFE5EC), progress * 2f)
-    } else {
-        lerpColor(Color(0xFFFFE5EC), Color(0xFFFFCCD5), (progress - 0.5f) * 2f)
-    }
-
-    return SakuraBaseThemeColors.copy(
-        accent = currentAccent,
-        accentDim = currentAccent.copy(alpha = 0.28f),
-        accentLight = currentLight,
-        cardBorder = currentAccent.copy(alpha = 0.35f)
-    )
-}
-
-@Composable
-fun rememberWinterPalette(): NexusColorPalette {
-    val transition = rememberInfiniteTransition(label = "winterShimmer")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 7000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "winterProgress"
-    )
-
-    val cWhite = Color(0xFFE0F2FE)
-    val cIceBlue = Color(0xFF38BDF8)
-    val cViolet = Color(0xFFA78BFA)
-
-    val currentAccent = if (progress < 0.5f) {
-        lerpColor(cIceBlue, cWhite, progress * 2f)
-    } else {
-        lerpColor(cWhite, cViolet, (progress - 0.5f) * 2f)
-    }
-    val currentLight = if (progress < 0.5f) {
-        lerpColor(Color(0xFFBAE6FD), Color(0xFFF0F9FF), progress * 2f)
-    } else {
-        lerpColor(Color(0xFFF0F9FF), Color(0xFFDDD6FE), (progress - 0.5f) * 2f)
-    }
-
-    return WinterBaseThemeColors.copy(
-        accent = currentAccent,
-        accentDim = currentAccent.copy(alpha = 0.25f),
-        accentLight = currentLight,
-        cardBorder = currentAccent.copy(alpha = 0.32f),
-        purple = cViolet
-    )
-}
 
 @Composable
 fun rememberRgbPalette(): NexusColorPalette {
@@ -440,16 +460,6 @@ fun rememberRgbPalette(): NexusColorPalette {
     )
 }
 
-private fun lerpColor(start: Color, end: Color, fraction: Float): Color {
-    val f = fraction.coerceIn(0f, 1f)
-    return Color(
-        red = start.red + (end.red - start.red) * f,
-        green = start.green + (end.green - start.green) * f,
-        blue = start.blue + (end.blue - start.blue) * f,
-        alpha = start.alpha + (end.alpha - start.alpha) * f
-    )
-}
-
 fun AppTheme.palette(): NexusColorPalette = when (this) {
     AppTheme.BASE -> BaseThemeColors
     AppTheme.AMOLED_BLACK -> AmoledBlackThemeColors
@@ -469,8 +479,6 @@ fun AppTheme.palette(): NexusColorPalette = when (this) {
 fun rememberThemePalette(theme: AppTheme, context: Context): NexusColorPalette {
     return when (theme) {
         AppTheme.HOME_SCREEN -> rememberDynamicPalette(context)
-        AppTheme.SAKURA -> rememberSakuraPalette()
-        AppTheme.WINTER -> rememberWinterPalette()
         AppTheme.RGB -> rememberRgbPalette()
         else -> theme.palette()
     }
