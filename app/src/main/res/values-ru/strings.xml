@@ -108,6 +108,7 @@
     <string name="update_ready_desc">Файл обновления загружен и готов к установке.</string>
     <string name="update_permission_required">Требуется разрешение на установку приложений из этого источника.</string>
     <string name="update_btn_grant_permission">Разрешить в настройках</string>
+    <string name="update_permission_pre_hint">Перед скачиванием обновления разрешите установку приложений в настройках, чтобы установка не сбросилась.</string>
     <string name="settings_updates_title">Обновления</string>
     <string name="settings_check_updates">Проверить обновления</string>
     <string name="settings_auto_check">Автопроверка при запуске</string>

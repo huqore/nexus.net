@@ -109,6 +109,7 @@
     <string name="update_ready_desc">The update file has been downloaded and is ready to install.</string>
     <string name="update_permission_required">Permission required to install unknown apps.</string>
     <string name="update_btn_grant_permission">Grant in Settings</string>
+    <string name="update_permission_pre_hint">Please allow app installation in Android Settings before downloading so installation does not get interrupted.</string>
     <string name="settings_updates_title">Updates</string>
     <string name="settings_check_updates">Check for updates</string>
     <string name="settings_auto_check">Check for updates on startup</string>

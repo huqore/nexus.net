@@ -102,6 +102,28 @@ private fun AvailableDialog(
     onUpdate: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val ctx = LocalContext.current
+    var hasInstallPermission by remember { mutableStateOf(UpdateInstaller.canInstallApk(ctx)) }
+    var askedPermission by remember { mutableStateOf(false) }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                val granted = UpdateInstaller.canInstallApk(ctx)
+                hasInstallPermission = granted
+                if (granted && askedPermission) {
+                    askedPermission = false
+                    onUpdate()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val shape = RoundedCornerShape(28.dp)
     Dialog(
         onDismissRequest = onDismiss,
@@ -211,6 +233,45 @@ private fun AvailableDialog(
                     )
                 }
 
+                if (!hasInstallPermission) {
+                    Spacer(Modifier.height(14.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(NX.yellow.copy(alpha = 0.12f))
+                            .border(1.dp, NX.yellow.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Security,
+                                contentDescription = null,
+                                tint = NX.yellow,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.update_permission_required),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NX.text
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = stringResource(R.string.update_permission_pre_hint),
+                                    fontSize = 12.sp,
+                                    color = NX.muted2,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(22.dp))
 
                 Row(
@@ -227,17 +288,35 @@ private fun AvailableDialog(
 
                     Spacer(Modifier.width(8.dp))
 
-                    Button(
-                        onClick = onUpdate,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NX.accent,
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.update_btn_update), fontWeight = FontWeight.SemiBold)
+                    if (!hasInstallPermission) {
+                        Button(
+                            onClick = {
+                                askedPermission = true
+                                UpdateInstaller.openInstallPermissionSettings(ctx)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = NX.yellow,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Filled.Security, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.update_btn_grant_permission), fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Button(
+                            onClick = onUpdate,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = NX.accent,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.update_btn_update), fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
@@ -369,9 +448,13 @@ private fun ReadyDialog(
     val ctx = LocalContext.current
     var hasInstallPermission by remember { mutableStateOf(UpdateInstaller.canInstallApk(ctx)) }
 
-    // Re-check permission when resuming
+    // Re-check permission and auto-launch installer if permission is already granted
     LaunchedEffect(Unit) {
-        hasInstallPermission = UpdateInstaller.canInstallApk(ctx)
+        val granted = UpdateInstaller.canInstallApk(ctx)
+        hasInstallPermission = granted
+        if (granted) {
+            onInstall()
+        }
     }
 
     val shape = RoundedCornerShape(28.dp)

@@ -78,6 +78,10 @@ import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Animation
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -1414,6 +1418,14 @@ private fun AppPicker(selected: Set<String>, onToggle: (String) -> Unit, onBack:
     }
 }
 
+private fun getThemeLiveIcon(theme: AppTheme): Pair<ImageVector, Color>? = when (theme) {
+    AppTheme.SAKURA -> Icons.Filled.Spa to Color(0xFFFF85A1)
+    AppTheme.WINTER -> Icons.Filled.AcUnit to Color(0xFF38BDF8)
+    AppTheme.RGB -> Icons.Filled.Animation to Color(0xFFA855F7)
+    AppTheme.HOME_SCREEN -> Icons.Filled.Wallpaper to Color(0xFFFBBF24)
+    else -> null
+}
+
 @Composable
 private fun ThemeOptionRow(
     theme: AppTheme,
@@ -1467,13 +1479,14 @@ private fun ThemeOptionRow(
                 maxLines = 1,
                 softWrap = false
             )
-            if (theme == AppTheme.HOME_SCREEN) {
+            val liveIcon = getThemeLiveIcon(theme)
+            if (liveIcon != null) {
                 Spacer(Modifier.width(6.dp))
                 Icon(
-                    imageVector = Icons.Filled.AutoAwesome,
-                    contentDescription = "Live Wallpaper",
-                    tint = NX.yellow,
-                    modifier = Modifier.size(15.dp)
+                    imageVector = liveIcon.first,
+                    contentDescription = "Live Theme",
+                    tint = liveIcon.second,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -1563,15 +1576,16 @@ private fun ThemeCube(
                 }
             }
 
-            // Живая тема (особая иконка для Home Screen)
-            if (isLiveTheme) {
+            // Живая тема (особый SVG-значок для Sakura, Winter, RGB, Home Screen)
+            val liveIcon = getThemeLiveIcon(theme)
+            if (liveIcon != null) {
                 Icon(
-                    imageVector = Icons.Filled.AutoAwesome,
-                    contentDescription = "Live Wallpaper Theme",
-                    tint = NX.yellow,
+                    imageVector = liveIcon.first,
+                    contentDescription = "Live Theme",
+                    tint = liveIcon.second,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .size(13.dp)
+                        .size(14.dp)
                 )
             }
 
