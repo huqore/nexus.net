@@ -216,7 +216,7 @@
     <string name="globe_all_servers_short">All servers</string>
 
     <!-- Localized settings strings -->
-    <string name="settings_section_user">User &amp; Subscription</string>
+    <string name="settings_section_user">Account &amp; Subscription</string>
     <string name="settings_sub_label">Subscription</string>
     <string name="settings_traffic_label">Traffic</string>
     <string name="settings_devices_label">Devices</string>

@@ -258,11 +258,12 @@ fun SettingsScreen(vm: MainViewModel) {
                                     }.getOrNull()
 
                                     val daysText = when {
-                                        formattedDate != null && daysLeft != null && daysLeft > 0 -> stringResource(R.string.sub_until_date, formattedDate, daysLeft)
+                                        formattedDate != null && daysLeft != null && daysLeft > 365 -> "до $formattedDate"
+                                        formattedDate != null && daysLeft != null && daysLeft in 1..365 -> stringResource(R.string.sub_until_date, formattedDate, daysLeft)
                                         formattedDate != null && daysLeft == 0L -> stringResource(R.string.sub_until_today, formattedDate)
                                         formattedDate != null && daysLeft != null && daysLeft < 0 -> stringResource(R.string.sub_expired_on, formattedDate)
                                         formattedDate != null -> "до $formattedDate"
-                                        daysLeft != null && daysLeft > 0 -> "Осталось: $daysLeft дн."
+                                        daysLeft != null && daysLeft in 1..365 -> "Осталось: $daysLeft дн."
                                         else -> stringResource(R.string.sub_unlimited)
                                     }
 
@@ -295,17 +296,77 @@ fun SettingsScreen(vm: MainViewModel) {
                                             .padding(horizontal = 14.dp, vertical = 10.dp),
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(stringResource(R.string.settings_sub_label), fontSize = 13.sp, color = NX.muted2, maxLines = 1)
-                                            Text(daysText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.settings_sub_label),
+                                                fontSize = 13.sp,
+                                                color = NX.muted2,
+                                                maxLines = 1,
+                                                modifier = Modifier.padding(end = 12.dp)
+                                            )
+                                            Text(
+                                                text = daysText,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = NX.text,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.End,
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            )
                                         }
-                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(stringResource(R.string.settings_traffic_label), fontSize = 13.sp, color = NX.muted2, maxLines = 1)
-                                            Text(trafficText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.settings_traffic_label),
+                                                fontSize = 13.sp,
+                                                color = NX.muted2,
+                                                maxLines = 1,
+                                                modifier = Modifier.padding(end = 12.dp)
+                                            )
+                                            Text(
+                                                text = trafficText,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = NX.text,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.End,
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            )
                                         }
-                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(stringResource(R.string.settings_devices_label), fontSize = 13.sp, color = NX.muted2, maxLines = 1)
-                                            Text(devicesText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1)
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.settings_devices_label),
+                                                fontSize = 13.sp,
+                                                color = NX.muted2,
+                                                maxLines = 1,
+                                                modifier = Modifier.padding(end = 12.dp)
+                                            )
+                                            Text(
+                                                text = devicesText,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = NX.text,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.End,
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            )
                                         }
                                     }
 

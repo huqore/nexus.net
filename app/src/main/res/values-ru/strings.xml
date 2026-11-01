@@ -215,7 +215,7 @@
     <string name="globe_all_servers_short">Все серверы</string>
 
     <!-- Localized settings strings -->
-    <string name="settings_section_user">Данные о пользователе и подписке</string>
+    <string name="settings_section_user">Аккаунт и подписка</string>
     <string name="settings_sub_label">Подписка</string>
     <string name="settings_traffic_label">Трафик</string>
     <string name="settings_devices_label">Устройств</string>

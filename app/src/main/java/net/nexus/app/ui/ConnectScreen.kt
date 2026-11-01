@@ -672,7 +672,7 @@ private fun TelegramSyncBar(
                     isExpiringSoon -> stringResource(R.string.sub_expiring_soon, daysLeft ?: 0)
                     isUserActive -> {
                         if (daysLeft != null) {
-                            if (daysLeft < 3650) {
+                            if (daysLeft in 1..365) {
                                 "${stringResource(R.string.tg_auth_status_active)} · $daysLeft дн."
                             } else {
                                 "${stringResource(R.string.tg_auth_status_active)} · Безлимит"
