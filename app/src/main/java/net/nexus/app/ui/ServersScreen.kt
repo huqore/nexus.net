@@ -68,12 +68,7 @@ fun ServersScreen(vm: MainViewModel) {
     val ctx = LocalContext.current
     val bestServer = remember(providers) { Store(ctx).findBestServer() }
     val allServers = remember(providers) { providers.flatMap { it.servers } }
-    LaunchedEffect(providers) {
-        vm.refreshStale(force = false)
-        if (allServers.isNotEmpty() && pinging.isEmpty() && allServers.any { it.pingMs <= 0 }) {
-            vm.pingServers(allServers)
-        }
-    }
+
 
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding(),
@@ -106,12 +101,17 @@ fun ServersScreen(vm: MainViewModel) {
                         onClick = { vm.select(Store.AUTO_SERVER_ID) }
                     )
 
+                    val isPingCooldown by vm.isPingCooldownActive.collectAsState()
+                    val isPinging = pinging.isNotEmpty() || isPingCooldown
+
                     PingTestButton(
                         modifier = Modifier.weight(1f),
-                        isPinging = pinging.isNotEmpty(),
+                        isPinging = isPinging,
                         onClick = {
-                            HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
-                            vm.pingServers(allServers)
+                            if (!isPinging) {
+                                HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                                vm.pingServers(allServers)
+                            }
                         }
                     )
                 }
@@ -246,7 +246,7 @@ private fun PingTestButton(
             .clip(shape)
             .background(NX.card)
             .border(1.dp, NX.cardBorder, shape)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick, enabled = !isPinging)
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

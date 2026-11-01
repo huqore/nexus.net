@@ -56,6 +56,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val refreshing = MutableStateFlow<Set<String>>(emptySet())
     val pinging = MutableStateFlow<Set<String>>(emptySet())
+    val isPingCooldownActive = MutableStateFlow(false)
+    private var pingLockUntil = 0L
+    private var pingLockJob: Job? = null
     val adding = MutableStateFlow(false)
     /** Last speed-test result in Mbit/s (null = not measured). Measured only when the user taps the tile. */
     val speedMbps = MutableStateFlow<Double?>(null)
@@ -365,11 +368,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun pingServers(servers: List<Server>) {
         if (servers.isEmpty()) return
-        onSubscriptionPinged()
         val now = System.currentTimeMillis()
-        if (now >= nextAllowedSyncTime) {
-            silentUpdateSubscriptions()
+        if (pinging.value.isNotEmpty() || isPingCooldownActive.value || now < pingLockUntil) {
+            return
         }
+        onSubscriptionPinged()
         viewModelScope.launch(Dispatchers.IO) {
             val ids = servers.map { it.id }.toSet()
             pinging.update { it + ids }
@@ -388,6 +391,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }.awaitAll()
             store.saveProviders(providers.value)
             pinging.update { it - ids }
+
+            if (pinging.value.isEmpty()) {
+                pingLockUntil = System.currentTimeMillis() + 2000L
+                isPingCooldownActive.value = true
+                pingLockJob?.cancel()
+                pingLockJob = viewModelScope.launch {
+                    delay(2000L)
+                    isPingCooldownActive.value = false
+                }
+            }
         }
     }
 
