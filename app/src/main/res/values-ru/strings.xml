@@ -134,6 +134,11 @@
     <string name="tg_auth_btn_sync_cooldown">Подождите %1$d с</string>
     <string name="tg_sync_cooldown">Подождите %1$d сек. перед следующим обновлением</string>
     <string name="tg_auth_btn_logout">Выйти из аккаунта</string>
+    <string name="logout_confirm_title">Выход из аккаунта</string>
+    <string name="logout_confirm_msg_prefix">Вы точно хотите выйти из аккаунта</string>
+    <string name="logout_confirm_msg_suffix">?</string>
+    <string name="logout_confirm_btn_confirm">Подтвердить</string>
+    <string name="logout_confirm_btn_cancel">Отменить выход</string>
     <string name="tg_auth_logged_out">Вы вышли из Telegram аккаунта</string>
     <string name="tg_auth_syncing">Синхронизация подписки…</string>
     <string name="tg_sync_success">Подписка обновлена: серверов %1$d</string>

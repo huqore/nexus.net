@@ -135,6 +135,11 @@
     <string name="tg_auth_btn_sync_cooldown">Wait %1$d s</string>
     <string name="tg_sync_cooldown">Wait %1$d s before updating</string>
     <string name="tg_auth_btn_logout">Log out</string>
+    <string name="logout_confirm_title">Log Out</string>
+    <string name="logout_confirm_msg_prefix">Are you sure you want to log out of</string>
+    <string name="logout_confirm_msg_suffix">?</string>
+    <string name="logout_confirm_btn_confirm">Confirm</string>
+    <string name="logout_confirm_btn_cancel">Cancel</string>
     <string name="tg_auth_logged_out">Logged out from Telegram</string>
     <string name="tg_auth_syncing">Syncing subscription…</string>
     <string name="tg_sync_success">Subscription synced: %1$d servers</string>

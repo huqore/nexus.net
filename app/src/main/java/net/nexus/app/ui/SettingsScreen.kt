@@ -43,6 +43,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -69,6 +70,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Campaign
@@ -79,6 +81,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -115,7 +118,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -254,6 +260,8 @@ private fun MainSettingsList(
     var showScreamer by remember { mutableStateOf(false) }
     var screamerTapCount by remember { mutableIntStateOf(0) }
     var lastScreamerTapTime by remember { mutableLongStateOf(0L) }
+    var showLogoutConfirm by rememberSaveable { mutableStateOf(false) }
+    val tgUser by vm.telegramUser.collectAsState()
     val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags().substringBefore('-')
     val coreVersion = remember { XrayCore.version() }
     val coroutineScope = rememberCoroutineScope()
@@ -280,7 +288,7 @@ private fun MainSettingsList(
 
         // 1) ДАННЫЕ О ПОДПИСКЕ И ПОЛЬЗОВАТЕЛЕ
         item {
-            val tgUser by vm.telegramUser.collectAsState()
+            // tgUser is hoisted above
             val isSyncing by vm.isSyncingTelegram.collectAsState()
             val providersList by vm.providers.collectAsState()
             val nexusProvider = providersList.firstOrNull { !it.isLocal } ?: providersList.firstOrNull()
@@ -527,7 +535,7 @@ private fun MainSettingsList(
                             }
 
                             TextButton(
-                                onClick = { vm.logoutTelegram() },
+                                onClick = { showLogoutConfirm = true },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -793,6 +801,19 @@ private fun MainSettingsList(
 
     if (showScreamer) {
         ScreamerDialog(onDismiss = { showScreamer = false })
+    }
+
+    if (showLogoutConfirm && tgUser != null) {
+        LogoutConfirmationDialog(
+            username = tgUser!!.formattedUsername,
+            onConfirm = {
+                showLogoutConfirm = false
+                vm.logoutTelegram()
+            },
+            onDismiss = {
+                showLogoutConfirm = false
+            }
+        )
     }
 }
 
@@ -1914,5 +1935,125 @@ private fun IconOptionRow(
             maxLines = 1,
             softWrap = false
         )
+    }
+}
+
+
+@Composable
+private fun LogoutConfirmationDialog(
+    username: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val shape = RoundedCornerShape(26.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .fillMaxWidth()
+                .clip(shape)
+                .background(NX.card)
+                .border(1.dp, NX.cardBorder, shape)
+                .padding(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(NX.red.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = null,
+                        tint = NX.red,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+                Text(
+                    text = stringResource(R.string.logout_confirm_title),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NX.text,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                val prefix = stringResource(R.string.logout_confirm_msg_prefix)
+                val suffix = stringResource(R.string.logout_confirm_msg_suffix)
+                Text(
+                    text = buildAnnotatedString {
+                        append(prefix)
+                        append(' ')
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = NX.text)) {
+                            append(username)
+                        }
+                        append(suffix)
+                    },
+                    fontSize = 14.sp,
+                    color = NX.muted2,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NX.red,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.logout_confirm_btn_confirm),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, NX.cardBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = NX.text
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.logout_confirm_btn_cancel),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
+            }
+        }
     }
 }
