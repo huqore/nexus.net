@@ -13,6 +13,10 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -150,6 +154,11 @@ fun SettingsScreen(vm: MainViewModel) {
     val s by vm.settings.collectAsState()
     var subscreen by remember { mutableStateOf(SettingsSubscreen.MAIN) }
 
+    // Hoisted scroll states to preserve exact scroll position across navigation
+    val mainListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val connectionListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val appearanceListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
     BackHandler(enabled = subscreen != SettingsSubscreen.MAIN) {
         subscreen = when (subscreen) {
             SettingsSubscreen.APP_PICKER -> SettingsSubscreen.CONNECTION
@@ -160,15 +169,41 @@ fun SettingsScreen(vm: MainViewModel) {
     AnimatedContent(
         targetState = subscreen,
         transitionSpec = {
-            if (targetState == SettingsSubscreen.MAIN) {
-                slideInHorizontally(tween(250, easing = FastOutSlowInEasing)) { -it / 3 } togetherWith
-                    slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { it }
+            val isBack = (targetState == SettingsSubscreen.MAIN) ||
+                (initialState == SettingsSubscreen.APP_PICKER && targetState == SettingsSubscreen.CONNECTION)
+
+            if (isBack) {
+                (slideInHorizontally(
+                    animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    initialOffsetX = { width -> -(width * 0.25f).toInt() }
+                ) + fadeIn(
+                    animationSpec = tween(260, easing = FastOutSlowInEasing)
+                )).togetherWith(
+                    slideOutHorizontally(
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                        targetOffsetX = { width -> width }
+                    ) + fadeOut(
+                        animationSpec = tween(220, easing = FastOutSlowInEasing)
+                    )
+                ).using(SizeTransform(clip = false))
             } else {
-                slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { it } togetherWith
-                    slideOutHorizontally(tween(250, easing = FastOutSlowInEasing)) { -it / 3 }
+                (slideInHorizontally(
+                    animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    initialOffsetX = { width -> width }
+                ) + fadeIn(
+                    animationSpec = tween(260, easing = FastOutSlowInEasing)
+                )).togetherWith(
+                    slideOutHorizontally(
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                        targetOffsetX = { width -> -(width * 0.25f).toInt() }
+                    ) + fadeOut(
+                        animationSpec = tween(220, easing = FastOutSlowInEasing)
+                    )
+                ).using(SizeTransform(clip = false))
             }
         },
-        label = "settingsSubscreens"
+        label = "settingsSubscreens",
+        modifier = Modifier.fillMaxSize()
     ) { currentSubscreen ->
         when (currentSubscreen) {
             SettingsSubscreen.APP_PICKER -> {
@@ -182,6 +217,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 ConnectionSettingsScreen(
                     settings = s,
                     vm = vm,
+                    listState = connectionListState,
                     onPickApps = { subscreen = SettingsSubscreen.APP_PICKER },
                     onBack = { subscreen = SettingsSubscreen.MAIN }
                 )
@@ -190,6 +226,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 AppearanceSettingsScreen(
                     settings = s,
                     vm = vm,
+                    listState = appearanceListState,
                     onBack = { subscreen = SettingsSubscreen.MAIN }
                 )
             }
@@ -197,6 +234,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 MainSettingsList(
                     vm = vm,
                     settings = s,
+                    listState = mainListState,
                     onOpenConnection = { subscreen = SettingsSubscreen.CONNECTION },
                     onOpenAppearance = { subscreen = SettingsSubscreen.APPEARANCE }
                 )
@@ -209,6 +247,7 @@ fun SettingsScreen(vm: MainViewModel) {
 private fun MainSettingsList(
     vm: MainViewModel,
     settings: Settings,
+    listState: LazyListState,
     onOpenConnection: () -> Unit,
     onOpenAppearance: () -> Unit
 ) {
@@ -230,7 +269,8 @@ private fun MainSettingsList(
     }
 
     LazyColumn(
-        Modifier.fillMaxSize().statusBarsPadding(),
+        state = listState,
+        modifier = Modifier.fillMaxSize().statusBarsPadding(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 130.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -875,10 +915,12 @@ private fun ScreamerDialog(onDismiss: () -> Unit) {
 private fun ConnectionSettingsScreen(
     settings: Settings,
     vm: MainViewModel,
+    listState: LazyListState,
     onPickApps: () -> Unit,
     onBack: () -> Unit
 ) {
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
@@ -1063,6 +1105,7 @@ private fun ConnectionSettingsScreen(
 private fun AppearanceSettingsScreen(
     settings: Settings,
     vm: MainViewModel,
+    listState: LazyListState,
     onBack: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -1070,6 +1113,7 @@ private fun AppearanceSettingsScreen(
     var iconExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
