@@ -16,6 +16,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -212,6 +213,8 @@ private fun MainSettingsList(
     onOpenAppearance: () -> Unit
 ) {
     var showScreamer by remember { mutableStateOf(false) }
+    var screamerTapCount by remember { mutableIntStateOf(0) }
+    var lastScreamerTapTime by remember { mutableLongStateOf(0L) }
     val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags().substringBefore('-')
     val coreVersion = remember { XrayCore.version() }
     val coroutineScope = rememberCoroutineScope()
@@ -707,6 +710,7 @@ private fun MainSettingsList(
                             val holdJob = coroutineScope.launch {
                                 delay(3000L)
                                 longPressed = true
+                                screamerTapCount = 0
                                 HapticManager.trigger(context, HapticIntensity.STRONG, HapticType.CLICK)
                                 vm.setAppTheme(AppTheme.SECRET_RGB)
                                 Toast.makeText(context, "🌈 Secret RGB Theme Activated!", Toast.LENGTH_SHORT).show()
@@ -715,8 +719,23 @@ private fun MainSettingsList(
                             holdJob.cancel()
                             if (up != null && !longPressed) {
                                 val duration = System.currentTimeMillis() - startTime
-                                if (duration < 600L) {
-                                    showScreamer = true
+                                if (duration < 550L) {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastScreamerTapTime < 850L) {
+                                        screamerTapCount++
+                                    } else {
+                                        screamerTapCount = 1
+                                    }
+                                    lastScreamerTapTime = now
+
+                                    if (screamerTapCount >= 3) {
+                                        screamerTapCount = 0
+                                        showScreamer = true
+                                    } else {
+                                        HapticManager.trigger(context, settings.hapticIntensity, HapticType.CLICK)
+                                    }
+                                } else {
+                                    screamerTapCount = 0
                                 }
                             }
                         }
@@ -742,33 +761,53 @@ private fun ScreamerDialog(onDismiss: () -> Unit) {
     var tapCount by remember { mutableIntStateOf(0) }
     var lastTapTime by remember { mutableLongStateOf(0L) }
     val haptic = LocalHapticFeedback.current
+    val ctx = LocalContext.current
 
-    val entryScale = remember { Animatable(0.01f) }
+    val entryScale = remember { Animatable(0.02f) }
+    val flashAlpha = remember { Animatable(0.9f) }
+    val shakeOffset = remember { Animatable(0f) }
+
     LaunchedEffect(Unit) {
-        entryScale.animateTo(
-            targetValue = 1.0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessHigh
+        HapticManager.trigger(ctx, HapticIntensity.STRONG, HapticType.ERROR)
+        launch {
+            entryScale.animateTo(
+                targetValue = 1.35f,
+                animationSpec = tween(durationMillis = 75, easing = LinearEasing)
             )
-        )
+            entryScale.animateTo(
+                targetValue = 1.0f,
+                animationSpec = tween(durationMillis = 65, easing = FastOutSlowInEasing)
+            )
+        }
+        launch {
+            flashAlpha.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 220, easing = LinearEasing)
+            )
+        }
+        launch {
+            val shakeSteps = listOf(35f, -30f, 22f, -16f, 10f, -5f, 0f)
+            for (step in shakeSteps) {
+                shakeOffset.animateTo(step, animationSpec = tween(35, easing = LinearEasing))
+            }
+        }
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "screamerStretch")
     val stretchX by infiniteTransition.animateFloat(
-        initialValue = 0.68f,
-        targetValue = 1.42f,
+        initialValue = 0.38f,
+        targetValue = 1.85f,
         animationSpec = infiniteRepeatable(
-            animation = tween(240, easing = FastOutSlowInEasing),
+            animation = tween(170, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "stretchX"
     )
     val stretchY by infiniteTransition.animateFloat(
-        initialValue = 1.28f,
-        targetValue = 0.74f,
+        initialValue = 1.85f,
+        targetValue = 0.38f,
         animationSpec = infiniteRepeatable(
-            animation = tween(240, easing = FastOutSlowInEasing),
+            animation = tween(170, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "stretchY"
@@ -785,7 +824,7 @@ private fun ScreamerDialog(onDismiss: () -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.95f))
+                .background(Color.Black.copy(alpha = 0.98f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -808,14 +847,23 @@ private fun ScreamerDialog(onDismiss: () -> Unit) {
             Image(
                 painter = painterResource(R.drawable.img_cat_surprise),
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.FillBounds,
                 modifier = Modifier
-                    .fillMaxWidth(0.92f)
+                    .fillMaxSize()
                     .graphicsLayer {
                         scaleX = entryScale.value * stretchX
                         scaleY = entryScale.value * stretchY
+                        translationX = shakeOffset.value
                     }
             )
+
+            if (flashAlpha.value > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFFFF0033).copy(alpha = flashAlpha.value))
+                )
+            }
         }
     }
 }
