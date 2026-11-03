@@ -58,6 +58,13 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.runtime.mutableFloatStateOf
+import kotlin.math.roundToInt
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Button
@@ -717,31 +724,52 @@ private fun InAppSubscriptionNotification(
     onRenew: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    var offsetY by remember { mutableFloatStateOf(0f) }
+    val animatedOffsetY by animateFloatAsState(
+        targetValue = offsetY,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "notificationSwipeY"
+    )
+
+    val shape = RoundedCornerShape(14.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
+            .draggable(
+                state = rememberDraggableState { delta ->
+                    offsetY = (offsetY + delta).coerceAtMost(0f)
+                },
+                orientation = Orientation.Vertical,
+                onDragStopped = { velocity ->
+                    if (offsetY < -35f || velocity < -250f) {
+                        onDismiss()
+                    } else {
+                        offsetY = 0f
+                    }
+                }
+            )
             .shadow(
-                elevation = 16.dp,
+                elevation = 14.dp,
                 shape = shape,
-                spotColor = Color.Black.copy(alpha = 0.65f),
+                spotColor = Color.Black.copy(alpha = 0.8f),
                 ambientColor = NX.yellow.copy(alpha = 0.25f)
             )
             .clip(shape)
-            .background(Color(0xF0101726))
+            .background(Color(0xFF0F172A))
             .border(
                 width = 1.dp,
                 brush = Brush.horizontalGradient(
                     listOf(
-                        NX.yellow.copy(alpha = 0.65f),
-                        NX.yellow.copy(alpha = 0.3f),
-                        Color(0xFF38BDF8).copy(alpha = 0.2f)
+                        NX.yellow.copy(alpha = 0.7f),
+                        NX.yellow.copy(alpha = 0.35f),
+                        Color(0xFF38BDF8).copy(alpha = 0.25f)
                     )
                 ),
                 shape = shape
             )
             .clickable { onRenew() }
-            .padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp)
+            .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -749,7 +777,7 @@ private fun InAppSubscriptionNotification(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(28.dp)
                     .clip(CircleShape)
                     .background(NX.yellow.copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center
@@ -758,11 +786,11 @@ private fun InAppSubscriptionNotification(
                     imageVector = Icons.Filled.HourglassTop,
                     contentDescription = null,
                     tint = NX.yellow,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(15.dp)
                 )
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(8.dp))
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -772,65 +800,68 @@ private fun InAppSubscriptionNotification(
                 ) {
                     Text(
                         text = stringResource(R.string.sub_expiry_warning_title),
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = NX.text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = Color.White,
+                        maxLines = 1
                     )
                     if (isTester) {
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.sub_expiry_test_badge),
-                            fontSize = 10.sp,
+                            fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = NX.yellow
                         )
                     }
                 }
-                Spacer(Modifier.height(2.dp))
                 Text(
                     text = when {
                         daysLeft <= 0 -> stringResource(R.string.sub_expiry_warning_expired)
                         daysLeft == 1L -> stringResource(R.string.sub_expiry_warning_today)
                         else -> stringResource(R.string.sub_expiry_warning_desc, daysLeft)
                     },
-                    fontSize = 11.sp,
+                    fontSize = 10.5.sp,
                     fontWeight = FontWeight.Medium,
                     color = NX.yellow,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1
                 )
             }
 
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
 
             Button(
                 onClick = onRenew,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NX.yellow,
                     contentColor = Color.Black
                 ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                modifier = Modifier.height(28.dp)
             ) {
                 Text(
                     text = stringResource(R.string.sub_expiry_renew_short),
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
             }
 
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(32.dp)
+            Spacer(Modifier.width(4.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onDismiss),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.Close,
                     contentDescription = "Close",
                     tint = NX.muted2,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
             }
         }
