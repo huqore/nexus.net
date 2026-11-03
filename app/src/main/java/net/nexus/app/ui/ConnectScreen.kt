@@ -169,8 +169,7 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
     var dismissedNotification by rememberSaveable { mutableStateOf(false) }
     var showInAppNotification by remember { mutableStateOf(false) }
 
-    val isTester = tgUser?.cleanUsername.equals("huqore", ignoreCase = true)
-    val showExpiryWarning = tgUser != null && (isTester || (daysLeft != null && daysLeft <= 3))
+    val showExpiryWarning = tgUser != null && daysLeft != null && daysLeft <= 3
 
     LaunchedEffect(showExpiryWarning) {
         if (showExpiryWarning && !dismissedNotification) {
@@ -299,8 +298,7 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             InAppSubscriptionNotification(
-                daysLeft = if (isTester && (daysLeft == null || daysLeft > 3)) 2L else (daysLeft ?: 0L),
-                isTester = isTester,
+                daysLeft = daysLeft ?: 0L,
                 onRenew = {
                     runCatching {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/NEXUSnet_robot")).apply {
@@ -720,7 +718,6 @@ private fun InfoTile(
 @Composable
 private fun InAppSubscriptionNotification(
     daysLeft: Long,
-    isTester: Boolean,
     onRenew: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -805,15 +802,7 @@ private fun InAppSubscriptionNotification(
                         color = Color.White,
                         maxLines = 1
                     )
-                    if (isTester) {
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(R.string.sub_expiry_test_badge),
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NX.yellow
-                        )
-                    }
+
                 }
                 Text(
                     text = when {

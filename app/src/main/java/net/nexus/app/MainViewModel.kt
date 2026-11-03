@@ -36,6 +36,7 @@ import java.net.URL
 import net.nexus.app.auth.TelegramAuthManager
 import net.nexus.app.auth.TelegramAuthState
 import net.nexus.app.auth.TelegramUser
+import net.nexus.app.auth.HandshakeResult
 import net.nexus.app.update.AppReleaseInfo
 import net.nexus.app.update.UpdateChecker
 import net.nexus.app.update.UpdateDownloader
@@ -730,15 +731,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             isSyncingTelegram.value = true
             try {
                 val hwid = store.getOrCreateHwid()
-                val hs = TelegramAuthManager.handshake(hwid, user.tgUsername, user.telegramId)
-                if (hs.success) {
-                    if (hs.user != null) {
-                        telegramUser.value = hs.user
-                        store.saveTelegramUser(hs.user)
-                        net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), hs.user)
+                var hs = TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId)
+
+                // Fallback 1: If handshake failed or returned no servers, refresh user via RemnaWave API and fetch subscription URL directly
+                if (!hs.success || hs.servers.isEmpty()) {
+                    val refreshedUser = TelegramAuthManager.refreshFromRemnaWave(user)
+                    val effectiveUrl = refreshedUser.subscriptionUrl.ifBlank { user.subscriptionUrl }
+                    if (effectiveUrl.isNotBlank() && (effectiveUrl.startsWith("http://") || effectiveUrl.startsWith("https://"))) {
+                        val fetchResult = runCatching { SubscriptionFetcher.fetch(effectiveUrl, hwid) }.getOrNull()
+                        if (fetchResult != null && fetchResult.servers.isNotEmpty()) {
+                            hs = HandshakeResult(
+                                success = true,
+                                authenticated = true,
+                                user = refreshedUser,
+                                servers = fetchResult.servers
+                            )
+                        }
                     }
+                }
+
+                if (hs.success) {
+                    val activeUser = hs.user ?: user
+                    telegramUser.value = activeUser
+                    store.saveTelegramUser(activeUser)
+                    net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), activeUser)
+
                     if (hs.servers.isNotEmpty()) {
-                        val activeUser = hs.user ?: user
                         val expSeconds = runCatching {
                             if (activeUser.expireAt.isNotBlank()) java.time.Instant.parse(activeUser.expireAt).epochSecond else 0L
                         }.getOrDefault(0L)
@@ -758,11 +776,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         if (!quiet) {
                             emit(R.string.tg_sync_success, hs.servers.size)
                         }
-                    } else if (hs.user?.status != "active" && !quiet) {
+                    } else if (activeUser.status != "active" && !quiet) {
                         emit(R.string.tg_no_active_sub)
+                    } else if (!quiet) {
+                        val count = providers.value.flatMap { it.servers }.size
+                        emit(R.string.tg_sync_success, count)
                     }
-                } else if (!quiet) {
-                    emit(R.string.tg_sync_failed, "Ошибка соединения с сервером")
+                } else {
+                    // Fallback 2: Direct fetch from user's current subscriptionUrl if present
+                    var fallbackSuccess = false
+                    val effectiveUrl = user.subscriptionUrl
+                    if (effectiveUrl.isNotBlank() && (effectiveUrl.startsWith("http://") || effectiveUrl.startsWith("https://"))) {
+                        val fetchResult = runCatching { SubscriptionFetcher.fetch(effectiveUrl, hwid) }.getOrNull()
+                        if (fetchResult != null && fetchResult.servers.isNotEmpty()) {
+                            upsertSubscription(effectiveUrl, fetchResult)
+                            fallbackSuccess = true
+                            if (!quiet) emit(R.string.tg_sync_success, fetchResult.servers.size)
+                        }
+                    }
+                    if (!fallbackSuccess && !quiet) {
+                        emit(R.string.tg_sync_failed, "Ошибка соединения с сервером")
+                    }
                 }
             } catch (e: Exception) {
                 if (!quiet) {

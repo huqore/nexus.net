@@ -41,9 +41,10 @@ object TelegramAuthManager {
         sessionToken: String? = null
     ): HandshakeResult = withContext(Dispatchers.IO) {
         try {
+            val cleanName = username?.removePrefix("@")?.removePrefix("nexus_")?.trim()
             val payload = JSONObject().apply {
                 put("hwid", hwid)
-                if (!username.isNullOrBlank()) put("username", username)
+                if (!cleanName.isNullOrBlank()) put("username", cleanName)
                 if (telegramId != null && telegramId > 0) put("telegramId", telegramId)
                 if (!sessionToken.isNullOrBlank()) put("sessionToken", sessionToken)
                 put("clientVersion", net.nexus.app.BuildConfig.VERSION_NAME)
