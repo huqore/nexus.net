@@ -13,6 +13,7 @@ data class TelegramUser(
     val remnaUserId: Long = 0,
     val usedTrafficBytes: Long = 0,
     val trafficLimitBytes: Long = 0,
+    val activeDevicesCount: Int = 1,
 ) {
     val cleanUsername: String
         get() = tgUsername.removePrefix("@").trim()
@@ -34,6 +35,7 @@ data class TelegramUser(
         .put("remnaUserId", remnaUserId)
         .put("usedTrafficBytes", usedTrafficBytes)
         .put("trafficLimitBytes", trafficLimitBytes)
+        .put("activeDevicesCount", activeDevicesCount)
 
     companion object {
         fun fromJson(o: JSONObject): TelegramUser = TelegramUser(
@@ -47,6 +49,7 @@ data class TelegramUser(
             remnaUserId = o.optLong("remnaUserId", 0L),
             usedTrafficBytes = o.optLong("usedTrafficBytes", 0L),
             trafficLimitBytes = o.optLong("trafficLimitBytes", 0L),
+            activeDevicesCount = o.optInt("activeDevicesCount", o.optInt("activeDevices", 1)).coerceAtLeast(1),
         )
     }
 }

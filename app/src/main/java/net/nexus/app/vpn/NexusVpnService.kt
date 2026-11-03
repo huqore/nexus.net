@@ -430,6 +430,10 @@ class NexusVpnService : VpnService() {
 
                 val rxDiff = (curRx - lastRx).coerceAtLeast(0)
                 val txDiff = (curTx - lastTx).coerceAtLeast(0)
+                val deltaBytes = rxDiff + txDiff
+                if (deltaBytes > 0) {
+                    net.nexus.app.data.TrafficStatsManager.recordBytes(this@NexusVpnService, deltaBytes)
+                }
 
                 val rxSpeedBps = (rxDiff / dtSec).toLong()
                 val txSpeedBps = (txDiff / dtSec).toLong()

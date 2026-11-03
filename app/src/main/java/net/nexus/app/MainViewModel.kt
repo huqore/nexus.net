@@ -431,6 +431,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setAutoCheckUpdates(enabled: Boolean) = updateSettings { it.copy(autoCheckUpdates = enabled) }
     fun setAutoConnectOnBoot(enabled: Boolean) = updateSettings { it.copy(autoConnectOnBoot = enabled) }
     fun setHapticIntensity(intensity: net.nexus.app.data.HapticIntensity) = updateSettings { it.copy(hapticIntensity = intensity) }
+    fun setAppSounds(enabled: Boolean) = updateSettings { it.copy(appSounds = enabled) }
     fun setKillSwitch(enabled: Boolean) = updateSettings { it.copy(killSwitch = enabled) }
     fun setBlockAds(enabled: Boolean) = updateSettings { it.copy(blockAds = enabled) }
     fun setAppTheme(theme: net.nexus.app.data.AppTheme) = updateSettings { it.copy(appTheme = theme) }

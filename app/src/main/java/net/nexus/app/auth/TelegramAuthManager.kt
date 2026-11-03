@@ -67,6 +67,7 @@ object TelegramAuthManager {
                     expireAt = uObj.optString("expireAt", ""),
                     status = uObj.optString("status", "none"),
                     devicesCount = uObj.optInt("deviceLimit", 3),
+                    activeDevicesCount = uObj.optInt("activeDevices", uObj.optInt("activeDevicesCount", 1)).coerceAtLeast(1),
                     usedTrafficBytes = uObj.optLong("usedTrafficBytes", 0L),
                     trafficLimitBytes = uObj.optLong("trafficLimitBytes", 0L),
                 )
@@ -157,6 +158,7 @@ object TelegramAuthManager {
             expireAt = expireAt,
             status = status,
             devicesCount = devicesCount,
+            activeDevicesCount = subObj?.optInt("activeDevices", subObj.optInt("activeDevicesCount", 1))?.coerceAtLeast(1) ?: 1,
             usedTrafficBytes = subObj?.optLong("usedTrafficBytes", 0L) ?: 0L,
             trafficLimitBytes = subObj?.optLong("trafficLimitBytes", 0L) ?: 0L,
         )
@@ -183,6 +185,7 @@ object TelegramAuthManager {
                     status = if (status.equals("active", true)) "active" else "disabled",
                     expireAt = expireAt,
                     devicesCount = devicesCount,
+            activeDevicesCount = subObj?.optInt("activeDevices", subObj.optInt("activeDevicesCount", 1))?.coerceAtLeast(1) ?: 1,
                     usedTrafficBytes = subObj?.optLong("usedTrafficBytes", user.usedTrafficBytes) ?: user.usedTrafficBytes,
                     trafficLimitBytes = subObj?.optLong("trafficLimitBytes", user.trafficLimitBytes) ?: user.trafficLimitBytes,
                 )

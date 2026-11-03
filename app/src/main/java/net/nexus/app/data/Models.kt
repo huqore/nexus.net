@@ -148,4 +148,5 @@ data class Settings(
     val appFont: AppFont = AppFont.RUSSO_ONE,
     val use3dGlobe: Boolean = true,
     val themeGridMode: Boolean = true,
+    val appSounds: Boolean = true,
 )

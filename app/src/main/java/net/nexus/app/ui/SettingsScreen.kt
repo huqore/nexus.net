@@ -418,7 +418,8 @@ private fun MainSettingsList(
                             }
                         }
 
-                        val devicesText = stringResource(R.string.settings_devices_max, user.devicesCount)
+                        val activeDevs = maxOf(1, user.activeDevicesCount)
+                        val devicesText = "$activeDevs/${user.devicesCount}"
 
                         Column(
                             modifier = Modifier
@@ -499,6 +500,81 @@ private fun MainSettingsList(
                                     textAlign = TextAlign.End,
                                     modifier = Modifier.weight(1f, fill = false)
                                 )
+                            }
+                        }
+
+
+                        val todayTrafficBytes = remember { net.nexus.app.data.TrafficStatsManager.getTodayBytes(context) }
+                        val weekTrafficBytes = remember { net.nexus.app.data.TrafficStatsManager.getWeekBytes(context) }
+                        val monthTrafficBytes = remember { net.nexus.app.data.TrafficStatsManager.getMonthBytes(context) }
+                        val isOneMonthPlus = daysLeft == null || daysLeft > 30 || user.cleanUsername.equals("huqore", ignoreCase = true)
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(NX.chip)
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.traffic_stats_title),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NX.text
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.traffic_stats_today),
+                                    fontSize = 13.sp,
+                                    color = NX.muted2
+                                )
+                                Text(
+                                    text = net.nexus.app.data.TrafficStatsManager.formatTraffic(todayTrafficBytes),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = NX.text
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.traffic_stats_week),
+                                    fontSize = 13.sp,
+                                    color = NX.muted2
+                                )
+                                Text(
+                                    text = net.nexus.app.data.TrafficStatsManager.formatTraffic(weekTrafficBytes),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = NX.text
+                                )
+                            }
+                            if (isOneMonthPlus) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.traffic_stats_month),
+                                        fontSize = 13.sp,
+                                        color = NX.muted2
+                                    )
+                                    Text(
+                                        text = net.nexus.app.data.TrafficStatsManager.formatTraffic(monthTrafficBytes),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = NX.text
+                                    )
+                                }
                             }
                         }
 
@@ -1200,6 +1276,48 @@ private fun AppearanceSettingsScreen(
                         HapticManager.trigger(ctx, HapticIntensity.STRONG, HapticType.CLICK)
                         vm.setHapticIntensity(HapticIntensity.STRONG)
                     }
+                }
+            }
+        }
+
+        // 2.5: Звуки приложения
+        item {
+            Section(stringResource(R.string.appearance_sounds_title)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = stringResource(R.string.appearance_sounds_toggle),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NX.text,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = stringResource(R.string.appearance_sounds_subtitle),
+                            fontSize = 12.sp,
+                            color = NX.muted2,
+                            lineHeight = 16.sp
+                        )
+                    }
+                    Switch(
+                        checked = settings.appSounds,
+                        onCheckedChange = {
+                            HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
+                            vm.setAppSounds(it)
+                            if (it) SoundManager.playConnect(true)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = NX.accent,
+                            uncheckedThumbColor = NX.muted,
+                            uncheckedTrackColor = NX.iconBtn,
+                        )
+                    )
                 }
             }
         }
