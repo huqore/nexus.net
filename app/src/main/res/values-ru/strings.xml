@@ -151,6 +151,7 @@
     <string name="sub_expiry_warning_today">Истекает сегодня!</string>
     <string name="sub_expiry_warning_expired">Срок действия подписки истёк!</string>
     <string name="sub_expiry_renew">Продлить в боте</string>
+    <string name="sub_expiry_renew_short">Продлить</string>
     <string name="sub_expiry_test_badge">(Тест)</string>
     <string name="tg_auth_logged_out">Вы вышли из Telegram аккаунта</string>
     <string name="tg_auth_syncing">Синхронизация подписки…</string>

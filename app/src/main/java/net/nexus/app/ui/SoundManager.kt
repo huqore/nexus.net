@@ -111,6 +111,36 @@ object SoundManager {
         }
     }
 
+    /**
+     * Subtle soft two-tone notification chime for in-app alert.
+     */
+    fun playNotification(enabled: Boolean) {
+        if (!enabled) return
+        scope.launch {
+            runCatching {
+                val sampleRate = 44100
+                val durationMs = 150
+                val numSamples = (sampleRate * (durationMs / 1000f)).toInt()
+                val samples = ShortArray(numSamples)
+
+                for (i in 0 until numSamples) {
+                    val progress = i.toFloat() / numSamples
+                    val freq = if (progress < 0.4f) 660.0 else 880.0
+                    val localProgress = if (progress < 0.4f) progress / 0.4f else (progress - 0.4f) / 0.6f
+                    val attack = (localProgress * 15f).coerceAtMost(1f)
+                    val decay = (1.0 - localProgress)
+                    val envelope = attack * decay * decay
+
+                    val wave = sin(2.0 * PI * freq * i / sampleRate) +
+                               0.25 * sin(3.0 * PI * freq * i / sampleRate)
+                    samples[i] = (wave * envelope * 20000.0).toInt().coerceIn(-32767, 32767).toShort()
+                }
+
+                playPcm(samples, sampleRate)
+            }
+        }
+    }
+
     private fun playPcm(samples: ShortArray, sampleRate: Int) {
         val audioTrack = AudioTrack.Builder()
             .setAudioAttributes(

@@ -55,6 +55,10 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.draw.shadow
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -155,8 +159,19 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
     val daysLeft: Long? = if (!tgUser?.expireAt.isNullOrBlank()) {
         SubscriptionNotifier.getDaysLeft(tgUser!!.expireAt)
     } else null
+    var dismissedNotification by rememberSaveable { mutableStateOf(false) }
+    var showInAppNotification by remember { mutableStateOf(false) }
+
     val isTester = tgUser?.cleanUsername.equals("huqore", ignoreCase = true)
     val showExpiryWarning = tgUser != null && (isTester || (daysLeft != null && daysLeft <= 3))
+
+    LaunchedEffect(showExpiryWarning) {
+        if (showExpiryWarning && !dismissedNotification) {
+            delay(450)
+            showInAppNotification = true
+            SoundManager.playNotification(settings.appSounds)
+        }
+    }
 
     val mbpsUnit = stringResource(R.string.unit_mbps)
     val msUnit = stringResource(R.string.unit_ms)
@@ -211,27 +226,6 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
         ) {
             Spacer(Modifier.height(32.dp))
             Header()
-            AnimatedVisibility(
-                visible = showExpiryWarning,
-                enter = fadeIn(tween(300)) + expandVertically(tween(300)),
-                exit = fadeOut(tween(200)) + shrinkVertically(tween(200))
-            ) {
-                Column {
-                    Spacer(Modifier.height(14.dp))
-                    SubscriptionExpiryBanner(
-                        daysLeft = if (isTester && (daysLeft == null || daysLeft > 3)) 2L else (daysLeft ?: 0L),
-                        isTester = isTester,
-                        onRenew = {
-                            runCatching {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/NEXUSnet_robot")).apply {
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                }
-                                ctx.startActivity(intent)
-                            }
-                        }
-                    )
-                }
-            }
             Spacer(Modifier.weight(1f))
             PowerButton(status = status, isSecretRgb = settings.appTheme == AppTheme.SECRET_RGB) {
                 HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
@@ -276,6 +270,42 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             }
 
             Spacer(Modifier.height(112.dp)) // room for the bottom bar
+        }
+
+        // In-App Expiry Notification floating smoothly from top
+        AnimatedVisibility(
+            visible = showExpiryWarning && showInAppNotification && !dismissedNotification,
+            enter = slideInVertically(
+                initialOffsetY = { -it - 60 },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + fadeIn(tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it - 60 },
+                animationSpec = tween(220, easing = FastOutSlowInEasing)
+            ) + fadeOut(tween(180)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            InAppSubscriptionNotification(
+                daysLeft = if (isTester && (daysLeft == null || daysLeft > 3)) 2L else (daysLeft ?: 0L),
+                isTester = isTester,
+                onRenew = {
+                    runCatching {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/NEXUSnet_robot")).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        ctx.startActivity(intent)
+                    }
+                },
+                onDismiss = {
+                    dismissedNotification = true
+                }
+            )
         }
     }
 }
@@ -681,64 +711,96 @@ private fun InfoTile(
 
 
 @Composable
-private fun SubscriptionExpiryBanner(
+private fun InAppSubscriptionNotification(
     daysLeft: Long,
     isTester: Boolean,
-    onRenew: () -> Unit
+    onRenew: () -> Unit,
+    onDismiss: () -> Unit
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(18.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 16.dp,
+                shape = shape,
+                spotColor = Color.Black.copy(alpha = 0.65f),
+                ambientColor = NX.yellow.copy(alpha = 0.25f)
+            )
             .clip(shape)
-            .background(NX.yellow.copy(alpha = 0.12f))
-            .border(1.dp, NX.yellow.copy(alpha = 0.35f), shape)
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .background(Color(0xF0101726))
+            .border(
+                width = 1.dp,
+                brush = Brush.horizontalGradient(
+                    listOf(
+                        NX.yellow.copy(alpha = 0.65f),
+                        NX.yellow.copy(alpha = 0.3f),
+                        Color(0xFF38BDF8).copy(alpha = 0.2f)
+                    )
+                ),
+                shape = shape
+            )
+            .clickable { onRenew() }
+            .padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(NX.yellow.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.HourglassTop,
                     contentDescription = null,
                     tint = NX.yellow,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(20.dp)
                 )
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = when {
-                                daysLeft <= 0 -> stringResource(R.string.sub_expiry_warning_expired)
-                                daysLeft == 1L -> stringResource(R.string.sub_expiry_warning_today)
-                                else -> stringResource(R.string.sub_expiry_warning_desc, daysLeft)
-                            },
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NX.text
-                        )
-                        if (isTester) {
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(R.string.sub_expiry_test_badge),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = NX.yellow
-                            )
-                        }
-                    }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = stringResource(R.string.sub_expiry_warning_title),
-                        fontSize = 11.sp,
-                        color = NX.muted2
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NX.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    if (isTester) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.sub_expiry_test_badge),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NX.yellow
+                        )
+                    }
                 }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = when {
+                        daysLeft <= 0 -> stringResource(R.string.sub_expiry_warning_expired)
+                        daysLeft == 1L -> stringResource(R.string.sub_expiry_warning_today)
+                        else -> stringResource(R.string.sub_expiry_warning_desc, daysLeft)
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = NX.yellow,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             Spacer(Modifier.width(8.dp))
@@ -753,10 +815,22 @@ private fun SubscriptionExpiryBanner(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.sub_expiry_renew),
+                    text = stringResource(R.string.sub_expiry_renew_short),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
+                )
+            }
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Close",
+                    tint = NX.muted2,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }

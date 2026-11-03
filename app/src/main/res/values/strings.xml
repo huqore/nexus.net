@@ -152,6 +152,7 @@
     <string name="sub_expiry_warning_today">Expires today!</string>
     <string name="sub_expiry_warning_expired">Subscription has expired!</string>
     <string name="sub_expiry_renew">Renew in Bot</string>
+    <string name="sub_expiry_renew_short">Renew</string>
     <string name="sub_expiry_test_badge">(Test)</string>
     <string name="tg_auth_logged_out">Logged out from Telegram</string>
     <string name="tg_auth_syncing">Syncing subscription…</string>
