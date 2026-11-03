@@ -1,0 +1,24 @@
+{
+  "releases": [
+    {
+      "tag": "v3.1.0",
+      "name": "v3.1.0",
+      "versionName": "3.1.0",
+      "draft": false,
+      "markdown": "NEXUS.net v3.1.0 - Звуки приложения, статистика трафика, надежная синхронизация серверов, компактное уведомление о подписке.",
+      "publishedAt": "2026-11-03T18:42:13Z",
+      "assets": [
+        {
+          "name": "nexus-net-v3.1.0.apk",
+          "downloadUrl": "https://github.com/huqore/nexus.net/releases/download/v3.1.0/nexus-net-v3.1.0.apk",
+          "size": 71568673
+        },
+        {
+          "name": "app-universal-release.apk",
+          "downloadUrl": "https://github.com/huqore/nexus.net/releases/download/v3.1.0/app-universal-release.apk",
+          "size": 71568673
+        }
+      ]
+    }
+  ]
+}

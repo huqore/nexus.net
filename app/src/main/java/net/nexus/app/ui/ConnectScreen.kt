@@ -169,7 +169,8 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
     var dismissedNotification by rememberSaveable { mutableStateOf(false) }
     var showInAppNotification by remember { mutableStateOf(false) }
 
-    val showExpiryWarning = tgUser != null && daysLeft != null && daysLeft <= 3
+    val isHuqore = tgUser?.cleanUsername?.removePrefix("nexus_")?.equals("huqore", ignoreCase = true) == true
+    val showExpiryWarning = tgUser != null && !isHuqore && daysLeft != null && daysLeft <= 3
 
     LaunchedEffect(showExpiryWarning) {
         if (showExpiryWarning && !dismissedNotification) {

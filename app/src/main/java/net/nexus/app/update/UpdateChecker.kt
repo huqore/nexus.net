@@ -1,16 +1,21 @@
 package net.nexus.app.update
 
 import net.nexus.app.BuildConfig
+import net.nexus.app.vpn.VpnState
+import net.nexus.app.vpn.VpnStatus
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URL
 
 object UpdateChecker {
 
-    private const val CONNECT_TIMEOUT = 12_000
-    private const val READ_TIMEOUT = 15_000
+    private const val CONNECT_TIMEOUT = 5_000
+    private const val READ_TIMEOUT = 10_000
 
     /**
      * Checks if a newer version is available.
@@ -25,7 +30,7 @@ object UpdateChecker {
             if (repo.isBlank() || repo.contains("YOUR_GITHUB_USERNAME", ignoreCase = true)) {
                 error("GitHub repository not configured in UpdateConfig.kt")
             }
-            checkGitHubReleases(repo)
+            fetchReleasesWithFallback(repo)
         } ?: return null
 
         val currentVersion = BuildConfig.VERSION_NAME
@@ -33,26 +38,82 @@ object UpdateChecker {
         return if (isNewer) release else null
     }
 
-    private fun checkGitHubReleases(repo: String): AppReleaseInfo? {
-        val endpoint = "https://api.github.com/repos/$repo/releases?per_page=10"
-        val jsonText = httpGet(endpoint, accept = "application/vnd.github.v3+json")
-            ?: httpGet("https://api.github.com/repos/$repo/releases/latest", accept = "application/vnd.github.v3+json")
-            ?: return null
+    private fun fetchReleasesWithFallback(repo: String): AppReleaseInfo? {
+        val proxy = getProxyIfVpnActive()
 
-        val candidates = if (jsonText.trim().startsWith("[")) {
-            val arr = org.json.JSONArray(jsonText)
-            (0 until arr.length())
-                .map { arr.getJSONObject(it) }
-                .filter { !it.optBoolean("draft", false) }
+        // 1. If VPN is active, route through SOCKS proxy to official GitHub Releases API
+        if (proxy != null) {
+            val vpnResult = queryEndpoint("https://api.github.com/repos/$repo/releases?per_page=10", accept = "application/vnd.github.v3+json", proxy = proxy)
+            if (vpnResult != null) return vpnResult
+        }
+
+        // 2. Direct or Fallback mirrors (Cloudflare/CDN backed - bypasses Russian ISP DPI blocks)
+        val endpoints = listOf(
+            // ungh.cc is a high-speed Cloudflare-backed GitHub releases CDN, globally accessible without DPI blocks
+            "https://ungh.cc/repos/$repo/releases",
+            // jsDelivr global CDN mirrors for static releases manifest
+            "https://cdn.jsdelivr.net/gh/$repo@v3-pure/releases.json",
+            "https://cdn.jsdelivr.net/gh/$repo@main/releases.json",
+            // official GitHub Releases API (direct connection, short timeout)
+            "https://api.github.com/repos/$repo/releases?per_page=10",
+            // Nexus BFF proxy route
+            "https://nexus-net.xyz/api/v1/client/releases",
+            // GitHub latest release endpoint
+            "https://api.github.com/repos/$repo/releases/latest"
+        )
+
+        for (endpoint in endpoints) {
+            val release = queryEndpoint(endpoint, accept = "application/json, application/vnd.github.v3+json", proxy = null)
+            if (release != null) return release
+        }
+
+        return null
+    }
+
+    private fun queryEndpoint(endpoint: String, accept: String, proxy: Proxy?): AppReleaseInfo? {
+        val jsonText = runCatching { httpGet(endpoint, accept = accept, proxy = proxy) }.getOrNull() ?: return null
+        return parseReleaseCandidates(jsonText)
+    }
+
+    private fun getProxyIfVpnActive(): Proxy? {
+        val port = VpnState.socksPort
+        return if (VpnState.status.value == VpnStatus.CONNECTED && port > 0) {
+            Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))
         } else {
-            listOf(JSONObject(jsonText))
+            null
+        }
+    }
+
+    fun parseReleaseCandidates(jsonText: String): AppReleaseInfo? {
+        val trimmed = jsonText.trim()
+        val candidates: List<JSONObject> = when {
+            trimmed.startsWith("[") -> {
+                val arr = JSONArray(trimmed)
+                (0 until arr.length())
+                    .map { arr.getJSONObject(it) }
+                    .filter { !it.optBoolean("draft", false) }
+            }
+            trimmed.startsWith("{") -> {
+                val root = JSONObject(trimmed)
+                if (root.has("releases")) {
+                    val arr = root.optJSONArray("releases") ?: JSONArray()
+                    (0 until arr.length())
+                        .map { arr.getJSONObject(it) }
+                        .filter { !it.optBoolean("draft", false) }
+                } else if (!root.optBoolean("draft", false)) {
+                    listOf(root)
+                } else {
+                    emptyList()
+                }
+            }
+            else -> emptyList()
         }
 
         for (json in candidates) {
-            val tagName = json.optString("tag_name", "").trim()
+            val tagName = json.optString("tag_name", "").ifBlank { json.optString("tag", "") }.trim()
             val name = json.optString("name", "").trim()
-            val body = json.optString("body", "").trim()
-            val publishedAt = json.optString("published_at", "")
+            val body = json.optString("body", "").ifBlank { json.optString("markdown", "") }.trim()
+            val publishedAt = json.optString("published_at", "").ifBlank { json.optString("publishedAt", "") }
 
             val versionName = cleanVersion(if (name.isNotBlank()) name else tagName)
             val assets = json.optJSONArray("assets") ?: continue
@@ -63,14 +124,27 @@ object UpdateChecker {
 
             for (i in 0 until assets.length()) {
                 val asset = assets.getJSONObject(i)
-                val aName = asset.optString("name", "")
-                if (aName.endsWith(".apk", ignoreCase = true)) {
-                    val browserUrl = asset.optString("browser_download_url", "")
-                    val apiUrl = asset.optString("url", "")
+                val browserUrl = asset.optString("browser_download_url", "")
+                val apiUrl = asset.optString("url", "")
+                val unghUrl = asset.optString("downloadUrl", "")
+
+                val directUrl = when {
+                    browserUrl.isNotBlank() -> browserUrl
+                    unghUrl.isNotBlank() -> unghUrl
+                    apiUrl.isNotBlank() -> apiUrl
+                    else -> ""
+                }
+
+                var aName = asset.optString("name", "")
+                if (aName.isBlank() && directUrl.isNotBlank()) {
+                    aName = directUrl.substringAfterLast('/')
+                }
+
+                if (aName.endsWith(".apk", ignoreCase = true) || directUrl.endsWith(".apk", ignoreCase = true)) {
                     val size = asset.optLong("size", 0)
                     // Prefer universal or release APK if multiple are present
                     if (apkUrl == null || aName.contains("universal", ignoreCase = true) || aName.contains("release", ignoreCase = true)) {
-                        apkUrl = if (UpdateConfig.GITHUB_TOKEN.isNotBlank() && apiUrl.isNotBlank()) apiUrl else browserUrl
+                        apkUrl = if (UpdateConfig.GITHUB_TOKEN.isNotBlank() && apiUrl.isNotBlank()) apiUrl else directUrl
                         apkName = aName
                         apkSize = size
                     }
@@ -94,7 +168,7 @@ object UpdateChecker {
     }
 
     private fun checkCustomJson(url: String): AppReleaseInfo? {
-        val jsonText = httpGet(url, accept = "application/json") ?: return null
+        val jsonText = httpGet(url, accept = "application/json", proxy = getProxyIfVpnActive()) ?: return null
         val json = JSONObject(jsonText)
         val versionName = json.optString("versionName", "").ifBlank { json.optString("version", "") }
         val apkUrl = json.optString("apkUrl", "").ifBlank { json.optString("url", "") }
@@ -116,8 +190,12 @@ object UpdateChecker {
         )
     }
 
-    private fun httpGet(urlStr: String, accept: String): String? {
-        val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+    private fun httpGet(urlStr: String, accept: String, proxy: Proxy? = null): String? {
+        val conn = (if (proxy != null) {
+            URL(urlStr).openConnection(proxy) as HttpURLConnection
+        } else {
+            URL(urlStr).openConnection() as HttpURLConnection
+        }).apply {
             connectTimeout = CONNECT_TIMEOUT
             readTimeout = READ_TIMEOUT
             instanceFollowRedirects = true
@@ -131,7 +209,7 @@ object UpdateChecker {
             val code = conn.responseCode
             // 404 means no releases are published yet for this repository
             if (code == 404) return null
-            if (code !in 200..299) error("Server returned HTTP $code")
+            if (code !in 200..299) return null
 
             BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8)).use { reader ->
                 return reader.readText()

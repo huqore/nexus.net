@@ -5,9 +5,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import net.nexus.app.vpn.VpnState
+import net.nexus.app.vpn.VpnStatus
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URL
 import kotlin.coroutines.coroutineContext
 
@@ -32,17 +36,60 @@ object UpdateDownloader {
 
         if (tempFile.exists()) tempFile.delete()
 
-        var currentUrl = release.downloadUrl
+        // Build list of candidate URLs: direct download and mirror fallback (for Russian ISP DPI bypass)
+        val candidateUrls = mutableListOf<String>()
+        candidateUrls.add(release.downloadUrl)
+        if (release.downloadUrl.contains("github.com", ignoreCase = true)) {
+            candidateUrls.add("https://ghproxy.net/${release.downloadUrl}")
+        }
+
+        var lastError: Exception? = null
+        for (url in candidateUrls) {
+            try {
+                downloadFromUrl(url, targetFile, tempFile, release, onProgress)
+                return@withContext targetFile
+            } catch (e: CancellationException) {
+                if (tempFile.exists()) tempFile.delete()
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+                if (tempFile.exists()) tempFile.delete()
+            }
+        }
+
+        throw lastError ?: java.io.IOException("Failed to download update from all available sources")
+    }
+
+    private suspend fun downloadFromUrl(
+        initialUrl: String,
+        targetFile: File,
+        tempFile: File,
+        release: AppReleaseInfo,
+        onProgress: (Float, Long, Long) -> Unit,
+    ) {
+        var currentUrl = initialUrl
         if (!net.nexus.app.security.UrlValidator.isSecureUrl(currentUrl, allowLoopback = false)) {
             error("Insecure download URL: HTTPS is required")
         }
+
+        val port = VpnState.socksPort
+        val proxy = if (VpnState.status.value == VpnStatus.CONNECTED && port > 0) {
+            Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))
+        } else {
+            null
+        }
+
         var conn: HttpURLConnection? = null
         var redirects = 0
 
         try {
             while (redirects < 6) {
-                val connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 15_000
+                val connection = (if (proxy != null) {
+                    URL(currentUrl).openConnection(proxy) as HttpURLConnection
+                } else {
+                    URL(currentUrl).openConnection() as HttpURLConnection
+                }).apply {
+                    connectTimeout = 10_000
                     readTimeout = 30_000
                     instanceFollowRedirects = false
                     setRequestProperty("User-Agent", "nexus.net-updater/1.0 (Android)")
@@ -90,7 +137,6 @@ object UpdateDownloader {
                         output.write(buffer, 0, read)
                         bytesDownloaded += read
 
-                        // Throttle progress updates slightly to keep UI smooth
                         val now = System.currentTimeMillis()
                         if (now - lastReported > 80 || bytesDownloaded == totalBytes) {
                             lastReported = now
@@ -102,13 +148,13 @@ object UpdateDownloader {
                             onProgress(progress, bytesDownloaded, totalBytes)
                         }
                     }
-
-                    if (!coroutineContext.isActive) {
-                        tempFile.delete()
-                        throw CancellationException("Download cancelled")
-                    }
                     output.flush()
                 }
+            }
+
+            if (!coroutineContext.isActive) {
+                if (tempFile.exists()) tempFile.delete()
+                throw CancellationException("Download cancelled")
             }
 
             if (targetFile.exists()) targetFile.delete()
@@ -116,9 +162,6 @@ object UpdateDownloader {
                 tempFile.copyTo(targetFile, overwrite = true)
                 tempFile.delete()
             }
-
-            onProgress(1.0f, targetFile.length(), targetFile.length())
-            targetFile
         } finally {
             conn?.disconnect()
         }
