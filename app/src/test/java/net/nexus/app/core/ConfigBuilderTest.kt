@@ -137,5 +137,52 @@ class ConfigBuilderTest {
         assertNotNull("Direct rule for server IP must exist", serverIpRule)
         assertEquals("direct", serverIpRule!!.getString("outboundTag"))
     }
+
+    @Test
+    fun `default routing rules route Russian domains and IPs to direct without geosite ru crash`() {
+        val server = sampleVlessServer()
+        val configStr = ConfigBuilder.forTunnel(server, socksPort = 10808)
+        val cfg = JSONObject(configStr)
+
+        val routing = cfg.getJSONObject("routing")
+        val rules = routing.getJSONArray("rules")
+
+        var hasRuDomains = false
+        var hasRuIps = false
+
+        for (i in 0 until rules.length()) {
+            val rule = rules.getJSONObject(i)
+            val tag = rule.optString("outboundTag")
+            val domainArr = rule.optJSONArray("domain")
+            if (domainArr != null) {
+                val domains = (0 until domainArr.length()).map { domainArr.getString(it) }
+                assertFalse("Must never contain geosite:ru (not present in geosite.dat)", domains.contains("geosite:ru"))
+                if (domains.contains("geosite:category-ru") && tag == "direct") {
+                    hasRuDomains = true
+                }
+            }
+            val ipArr = rule.optJSONArray("ip")
+            if (ipArr != null) {
+                val ips = (0 until ipArr.length()).map { ipArr.getString(it) }
+                if (ips.contains("geoip:ru") && tag == "direct") {
+                    hasRuIps = true
+                }
+            }
+        }
+
+        assertTrue("Russian domains should be routed to direct", hasRuDomains)
+        assertTrue("Russian IPs should be routed to direct", hasRuIps)
+    }
+
+    @Test
+    fun `socks inbound tag is socks to match RemnaWave rules`() {
+        val server = sampleVlessServer()
+        val configStr = ConfigBuilder.forTunnel(server, socksPort = 10808)
+        val cfg = JSONObject(configStr)
+
+        val inbounds = cfg.getJSONArray("inbounds")
+        val socks = inbounds.getJSONObject(0)
+        assertEquals("socks", socks.getString("tag"))
+    }
 }
 

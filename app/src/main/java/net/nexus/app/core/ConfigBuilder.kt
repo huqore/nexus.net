@@ -15,7 +15,7 @@ object ConfigBuilder {
      * Also used by the latency/speed test.
      */
     private fun socksInbound(port: Int) = JSONObject()
-        .put("tag", "socks-in")
+        .put("tag", "socks")
         .put("listen", "127.0.0.1")
         .put("port", port)
         .put("protocol", "socks")
@@ -171,6 +171,22 @@ object ConfigBuilder {
                 .put("172.16.0.0/12")
                 .put("192.168.0.0/16")
                 .put("127.0.0.0/8"))
+            .put("outboundTag", "direct"))
+
+        // 5. Whitelist bypass for Russian traffic (government, banks, local services)
+        // NOTE: Only valid geosite list name is category-ru. geosite:ru DOES NOT EXIST and causes fatal crash.
+        rules.put(JSONObject()
+            .put("type", "field")
+            .put("domain", JSONArray()
+                .put("geosite:category-ru")
+                .put("domain:ru")
+                .put("domain:su")
+                .put("domain:xn--p1ai"))
+            .put("outboundTag", "direct"))
+
+        rules.put(JSONObject()
+            .put("type", "field")
+            .put("ip", JSONArray().put("geoip:ru"))
             .put("outboundTag", "direct"))
 
         return rules

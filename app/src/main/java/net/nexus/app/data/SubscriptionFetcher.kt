@@ -39,7 +39,7 @@ object SubscriptionFetcher {
             setRequestProperty("Cache-Control", "no-cache, no-store, must-revalidate")
             setRequestProperty("Pragma", "no-cache")
             val model = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
-            setRequestProperty("User-Agent", "NEXUS.net/2.0 (v2ray; Xray; Android $model)")
+            setRequestProperty("User-Agent", "Happ/3.4.1 (NEXUS.net; Android $model)")
             setRequestProperty("Accept", "*/*")
             if (!hwid.isNullOrBlank()) {
                 setRequestProperty("X-HWID", hwid)
