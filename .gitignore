@@ -15,3 +15,9 @@ apks/
 
 /scratch/
 *.bundle
+
+# Local AI rules & SSL cert dumps (not for Git)
+GEMINI.md
+*.pem
+*.der
+

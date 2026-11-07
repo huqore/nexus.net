@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "tag": "v3.1.1",
+      "name": "v3.1.1",
+      "versionName": "3.1.1",
+      "draft": false,
+      "markdown": "NEXUS.net v3.1.1 - Исправление маршрутизации WL bypass, совместимость с RemnaWave профилями, обход DPI для обновлений через CDN-зеркала.",
+      "publishedAt": "2026-11-05T16:07:22Z",
+      "assets": [
+        {
+          "name": "nexus-net-v3.1.1.apk",
+          "downloadUrl": "https://github.com/huqore/nexus.net/releases/download/v3.1.1/nexus-net-v3.1.1.apk",
+          "size": 71570129
+        },
+        {
+          "name": "app-universal-release.apk",
+          "downloadUrl": "https://github.com/huqore/nexus.net/releases/download/v3.1.1/app-universal-release.apk",
+          "size": 71570129
+        }
+      ]
+    },
+    {
       "tag": "v3.1.0",
       "name": "v3.1.0",
       "versionName": "3.1.0",
