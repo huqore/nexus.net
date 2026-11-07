@@ -67,7 +67,7 @@
 1. **Установите приложение**:
    Скачайте актуальный файл [**nexus-net-v3.1.1.apk**](https://github.com/huqore/nexus.net/releases/download/v3.1.1/nexus-net-v3.1.1.apk) и разрешите установку из доверенного источника.
 2. **Получите подписку**:
-   Запустите Telegram-бота [@NEXUSnet_robot](https://t.me/NEXUSnet_robot) или откройте Mini-App на [nexus-net.xyz](https://nexus-net.xyz).
+   Запустите Telegram-бота [@NEXUSnet_robot](https://t.me/NEXUSnet_robot) или откройте Mini-App, а так же на нашем сайте[nexus-net.xyz](https://nexus-net.xyz).
 3. **Подключитесь**:
    Вставьте ссылку подписки или авторизуйтесь через Telegram — сервера загрузятся мгновенно. Нажмите центральную кнопку подключения.
 
