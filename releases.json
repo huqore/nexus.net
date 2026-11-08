@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "tag": "v3.2.0",
+      "name": "v3.2.0",
+      "versionName": "3.2.0",
+      "draft": false,
+      "markdown": "NEXUS.net v3.2.0 - Вход в 1 клик через Telegram и авторизация через сайт, синхронизация активных сессий и устройств, удаленный разрыв туннеля при сбросе сессий, сверхскоростной CDN-канал обновлений.",
+      "publishedAt": "2026-11-08T10:18:17Z",
+      "assets": [
+        {
+          "name": "nexus-net-v3.2.0.apk",
+          "downloadUrl": "https://nexus-net.xyz/downloads/nexus-net-v3.2.0.apk",
+          "size": 71585829
+        },
+        {
+          "name": "app-universal-release.apk",
+          "downloadUrl": "https://nexus-net.xyz/downloads/app-universal-release.apk",
+          "size": 71585829
+        }
+      ]
+    },
+    {
       "tag": "v3.1.1",
       "name": "v3.1.1",
       "versionName": "3.1.1",
@@ -10,12 +30,12 @@
       "assets": [
         {
           "name": "nexus-net-v3.1.1.apk",
-          "downloadUrl": "https://github.com/huqore/nexus.net/releases/download/v3.1.1/nexus-net-v3.1.1.apk",
+          "downloadUrl": "https://nexus-net.xyz/downloads/nexus-net-v3.1.1.apk",
           "size": 71570129
         },
         {
           "name": "app-universal-release.apk",
-          "downloadUrl": "https://github.com/huqore/nexus.net/releases/download/v3.1.1/app-universal-release.apk",
+          "downloadUrl": "https://nexus-net.xyz/downloads/app-universal-release.apk",
           "size": 71570129
         }
       ]
