@@ -49,15 +49,15 @@ object UpdateChecker {
 
         // 2. Direct or Fallback mirrors (Cloudflare/CDN backed - bypasses Russian ISP DPI blocks)
         val endpoints = listOf(
-            // ungh.cc is a high-speed Cloudflare-backed GitHub releases CDN, globally accessible without DPI blocks
-            "https://ungh.cc/repos/$repo/releases",
+            // Nexus BFF proxy route (real-time, hosted on our fast Cloudflare-backed infrastructure)
+            "https://nexus-net.xyz/api/v1/client/releases",
             // jsDelivr global CDN mirrors for static releases manifest
             "https://cdn.jsdelivr.net/gh/$repo@v3-pure/releases.json",
             "https://cdn.jsdelivr.net/gh/$repo@main/releases.json",
+            // ungh.cc is a high-speed Cloudflare-backed GitHub releases CDN, globally accessible without DPI blocks
+            "https://ungh.cc/repos/$repo/releases",
             // official GitHub Releases API (direct connection, short timeout)
             "https://api.github.com/repos/$repo/releases?per_page=10",
-            // Nexus BFF proxy route
-            "https://nexus-net.xyz/api/v1/client/releases",
             // GitHub latest release endpoint
             "https://api.github.com/repos/$repo/releases/latest"
         )

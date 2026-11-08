@@ -38,7 +38,22 @@ object UpdateDownloader {
 
         // Build list of candidate URLs: direct download and mirror fallback (for Russian ISP DPI bypass)
         val candidateUrls = mutableListOf<String>()
+        val fileName = File(release.apkFileName.ifBlank { "nexus-net-v${release.versionName}.apk" }).name
+
+        // 1. Direct release download URL provided by UpdateChecker (e.g. from nexus-net.xyz or GitHub)
         candidateUrls.add(release.downloadUrl)
+
+        // 2. High-speed direct Cloudflare CDN from nexus-net.xyz (always unblocked, fast, no 502/504 errors)
+        val directCdnUrl = "https://nexus-net.xyz/downloads/$fileName"
+        if (!candidateUrls.contains(directCdnUrl)) {
+            candidateUrls.add(directCdnUrl)
+        }
+        val latestCdnUrl = "https://nexus-net.xyz/downloads/nexus-net-latest.apk"
+        if (!candidateUrls.contains(latestCdnUrl)) {
+            candidateUrls.add(latestCdnUrl)
+        }
+
+        // 3. Fallback proxy mirror if upstream GitHub is slow/throttled
         if (release.downloadUrl.contains("github.com", ignoreCase = true)) {
             candidateUrls.add("https://ghproxy.net/${release.downloadUrl}")
         }
