@@ -171,7 +171,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                                 contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().height(50.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
@@ -183,6 +183,30 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                                 text = stringResource(R.string.tg_auth_btn_open_bot),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
+                            )
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // Immediate check confirmation button
+                        OutlinedButton(
+                            onClick = { vm.checkActiveTelegramAuthNow() },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = NX.text),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NX.cardBorder),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth().height(46.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                tint = NX.green,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Я подтвердил в боте",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
                             )
                         }
 
@@ -245,9 +269,21 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                             color = NX.accentLight
                         )
                         Spacer(Modifier.height(6.dp))
+                        val hasSub = state.user.isSubscribed ||
+                            state.user.status.equals("active", ignoreCase = true) ||
+                            state.user.expireAt.isNotBlank() ||
+                            state.serverCount > 0
+
                         if (state.serverCount > 0) {
                             Text(
                                 text = "Подписка активна • Загружено серверов: ${state.serverCount}",
+                                fontSize = 14.sp,
+                                color = NX.green,
+                                textAlign = TextAlign.Center
+                            )
+                        } else if (hasSub) {
+                            Text(
+                                text = "Подписка активна • Серверы обновляются…",
                                 fontSize = 14.sp,
                                 color = NX.green,
                                 textAlign = TextAlign.Center

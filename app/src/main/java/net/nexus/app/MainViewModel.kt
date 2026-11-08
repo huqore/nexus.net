@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.async
@@ -127,6 +128,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 syncTelegramSubscription(quiet = true)
             }
         }
+        startPeriodicSessionWatchdog()
         viewModelScope.launch {
             VpnState.status.collect { st ->
                 if (st == VpnStatus.CONNECTED) checkSelected() else {
@@ -590,7 +592,86 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    // ---------- Telegram Auth & Sync ----------
+    // ---------- Telegram & Website Auth & Session Management ----------
+
+    val isWebLoggingIn = MutableStateFlow(false)
+    val webLoginError = MutableStateFlow<String?>(null)
+
+    fun startPeriodicSessionWatchdog() {
+        viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                // If VPN is actively connected, NexusVpnService handles periodic heartbeat.
+                // We check every 25 seconds when VPN is disconnected to avoid unnecessary duplicate polling.
+                val interval = if (net.nexus.app.vpn.VpnState.status.value == net.nexus.app.vpn.VpnStatus.CONNECTED) 30_000L else 20_000L
+                delay(interval)
+                val user = telegramUser.value
+                if (user != null) {
+                    val hwid = store.getOrCreateHwid()
+                    val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId)
+                    if (!isValid) {
+                        android.util.Log.w("NexusAuth", "Device was unlinked or kicked remotely! Revoking local session.")
+                        revokeSession("Устройство отвязано от аккаунта")
+                    }
+                }
+            }
+        }
+    }
+
+    fun checkAndSyncOnResume() {
+        val user = telegramUser.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val hwid = store.getOrCreateHwid()
+            val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId)
+            if (!isValid) {
+                revokeSession("Устройство отвязано от аккаунта")
+            } else {
+                syncTelegramSubscription(quiet = true)
+            }
+        }
+    }
+
+    fun revokeSession(reason: String = "Устройство отвязано от аккаунта") {
+        viewModelScope.launch(Dispatchers.Main) {
+            NexusVpnService.stop(getApplication())
+            telegramUser.value = null
+            store.saveTelegramUser(null)
+            store.saveProviders(emptyList())
+            providers.value = emptyList()
+            telegramAuthState.value = TelegramAuthState.Idle
+            emit(R.string.device_session_revoked)
+        }
+    }
+
+    fun loginWithWebsite(identifier: String, pass: String, onSuccess: () -> Unit) {
+        if (identifier.isBlank() || pass.isBlank()) {
+            webLoginError.value = "Заполните все поля"
+            return
+        }
+        webLoginError.value = null
+        isWebLoggingIn.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val res = TelegramAuthManager.loginWithWebsite(identifier, pass)
+                if (res.success && res.user != null) {
+                    webLoginError.value = null
+                    isWebLoggingIn.value = false
+                    withContext(Dispatchers.Main) {
+                        onSuccess()
+                    }
+                    applyConfirmedTelegramUser(res.user, sessionToken = res.token)
+                } else {
+                    isWebLoggingIn.value = false
+                    webLoginError.value = res.error ?: "Неверный логин или пароль"
+                }
+            } catch (e: Exception) {
+                isWebLoggingIn.value = false
+                webLoginError.value = e.message ?: "Ошибка подключения"
+            }
+        }
+    }
+
+    var activeTelegramSessionId: String? = null
+        private set
 
     fun startTelegramAuth() {
         telegramAuthJob?.cancel()
@@ -598,12 +679,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         telegramAuthJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val (sessionId, botUrl) = TelegramAuthManager.createLoginSession()
+                activeTelegramSessionId = sessionId
                 telegramAuthState.value = TelegramAuthState.WaitingConfirmation(sessionId, botUrl)
 
-                // Poll every 2 seconds for up to 3 minutes (90 iterations)
+                // Poll every 1200ms for up to 3 minutes (150 iterations)
                 var confirmedUser: TelegramUser? = null
-                for (i in 0 until 90) {
-                    delay(2000)
+                for (i in 0 until 150) {
+                    delay(1200)
                     val u = TelegramAuthManager.checkLoginSession(sessionId)
                     if (u != null) {
                         confirmedUser = u
@@ -612,15 +694,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
 
                 if (confirmedUser == null) {
+                    activeTelegramSessionId = null
                     telegramAuthState.value = TelegramAuthState.Error("Время ожидания подтверждения истекло")
                     return@launch
                 }
 
-                applyConfirmedTelegramUser(confirmedUser)
+                activeTelegramSessionId = null
+                applyConfirmedTelegramUser(confirmedUser, sessionToken = sessionId)
             } catch (e: CancellationException) {
                 // User cancelled or dismissed
             } catch (e: Exception) {
+                activeTelegramSessionId = null
                 telegramAuthState.value = TelegramAuthState.Error(e.message ?: "Ошибка авторизации")
+            }
+        }
+    }
+
+    fun checkActiveTelegramAuthNow() {
+        val sId = activeTelegramSessionId ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val u = TelegramAuthManager.checkLoginSession(sId)
+            if (u != null) {
+                activeTelegramSessionId = null
+                applyConfirmedTelegramUser(u, sessionToken = sId)
             }
         }
     }
@@ -661,13 +757,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val u = TelegramAuthManager.checkLoginSession(sessionId)
                 if (u != null) {
-                    applyConfirmedTelegramUser(u)
+                    applyConfirmedTelegramUser(u, sessionToken = sessionId)
                 }
             } catch (_: Exception) {}
         }
     }
 
-    private suspend fun applyConfirmedTelegramUser(confirmedUser: TelegramUser) {
+    private suspend fun applyConfirmedTelegramUser(confirmedUser: TelegramUser, sessionToken: String? = null) {
         var serverCount = 0
         var finalUser = confirmedUser
 
@@ -675,14 +771,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         store.saveTelegramUser(finalUser)
 
         val hwid = store.getOrCreateHwid()
-        val hs = TelegramAuthManager.handshake(hwid, finalUser.tgUsername, finalUser.telegramId)
-        if (hs.success) {
+        val hs = TelegramAuthManager.handshake(hwid, finalUser.cleanUsername, finalUser.telegramId, sessionToken = sessionToken)
+        if (hs.success && hs.authenticated) {
             if (hs.user != null) {
                 finalUser = hs.user
                 telegramUser.value = finalUser
                 store.saveTelegramUser(finalUser)
             }
             if (hs.servers.isNotEmpty()) {
+                val expSeconds = runCatching {
+                    if (finalUser.expireAt.isNotBlank()) java.time.Instant.parse(finalUser.expireAt).epochSecond else 0L
+                }.getOrDefault(0L)
                 val provider = Provider(
                     id = "nexus_provider",
                     name = "NEXUS",
@@ -690,7 +789,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     upload = finalUser.usedTrafficBytes,
                     download = 0,
                     total = finalUser.trafficLimitBytes,
-                    expireAt = 0,
+                    expireAt = expSeconds,
                     updatedAt = System.currentTimeMillis()
                 )
                 store.saveProviders(listOf(provider))
@@ -700,11 +799,44 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
+        // Direct fallback during login if handshake returned no servers:
+        // Fetch directly from subscription URL so serverCount is immediately populated!
+        if (serverCount == 0) {
+            val refreshedUser = TelegramAuthManager.refreshFromRemnaWave(finalUser)
+            val effectiveUrl = refreshedUser.subscriptionUrl.ifBlank { finalUser.subscriptionUrl }
+            if (effectiveUrl.isNotBlank() && (effectiveUrl.startsWith("http://") || effectiveUrl.startsWith("https://"))) {
+                val fetchResult = runCatching { SubscriptionFetcher.fetch(effectiveUrl, hwid) }.getOrNull()
+                if (fetchResult != null && fetchResult.servers.isNotEmpty()) {
+                    finalUser = refreshedUser.copy(
+                        usedTrafficBytes = fetchResult.upload,
+                        trafficLimitBytes = fetchResult.total
+                    )
+                    telegramUser.value = finalUser
+                    store.saveTelegramUser(finalUser)
+                    val provider = Provider(
+                        id = "nexus_provider",
+                        name = "NEXUS",
+                        servers = fetchResult.servers,
+                        upload = fetchResult.upload,
+                        download = fetchResult.download,
+                        total = fetchResult.total,
+                        expireAt = fetchResult.expireAt,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    store.saveProviders(listOf(provider))
+                    providers.value = listOf(provider)
+                    serverCount = fetchResult.servers.size
+                    ensureSelection()
+                }
+            }
+        }
+
         telegramAuthState.value = TelegramAuthState.Success(finalUser, serverCount)
         emit(R.string.tg_auth_success, finalUser.formattedUsername)
     }
 
     fun dismissTelegramAuthDialog() {
+        activeTelegramSessionId = null
         telegramAuthJob?.cancel()
         telegramAuthJob = null
         telegramAuthState.value = TelegramAuthState.Idle
@@ -732,6 +864,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val hwid = store.getOrCreateHwid()
                 var hs = TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId)
+                if (hs.success && !hs.authenticated) {
+                    revokeSession("Устройство отвязано от аккаунта")
+                    return@launch
+                }
 
                 // Fallback 1: If handshake failed or returned no servers, refresh user via RemnaWave API and fetch subscription URL directly
                 if (!hs.success || hs.servers.isEmpty()) {
@@ -809,6 +945,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun logoutTelegram() {
+        // Disconnect VPN tunnel immediately on logout
+        NexusVpnService.stop(getApplication())
+        net.nexus.app.vpn.VpnState.disconnected()
+
         val user = telegramUser.value ?: return
         val hwid = store.getOrCreateHwid()
         viewModelScope.launch(Dispatchers.IO) {

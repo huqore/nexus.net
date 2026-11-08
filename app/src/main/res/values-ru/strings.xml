@@ -126,7 +126,7 @@
     <string name="tg_auth_waiting">Ожидание подтверждения в боте…</string>
     <string name="tg_auth_btn_open_bot">Открыть Telegram бота</string>
     <string name="tg_auth_success">Добро пожаловать, %1$s!</string>
-    <string name="tg_auth_no_subscription">Подписка не найдена в боте. Оформите её в @NEXUSnet_robot</string>
+    <string name="tg_auth_no_subscription">Подписка не найдена. Оформите её в боте или на сайте</string>
     <string name="tg_auth_account_title">Данные о пользователе и подписке</string>
     <string name="tg_auth_status_active">Подписка: Активна</string>
     <string name="tg_auth_status_inactive">Подписка: Не активна / Истекла</string>
@@ -134,6 +134,7 @@
     <string name="tg_auth_btn_sync_cooldown">Подождите %1$d с</string>
     <string name="tg_sync_cooldown">Подождите %1$d сек. перед следующим обновлением</string>
     <string name="tg_auth_btn_logout">Выйти из аккаунта</string>
+    <string name="device_session_revoked">Устройство отвязано от аккаунта</string>
     <string name="logout_confirm_title">Выход из аккаунта</string>
     <string name="logout_confirm_msg_prefix">Вы точно хотите выйти из аккаунта</string>
     <string name="logout_confirm_msg_suffix">?</string>

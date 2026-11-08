@@ -61,3 +61,10 @@ sealed interface TelegramAuthState {
     data class Success(val user: TelegramUser, val serverCount: Int) : TelegramAuthState
     data class Error(val message: String) : TelegramAuthState
 }
+
+data class WebLoginResult(
+    val success: Boolean,
+    val token: String? = null,
+    val user: TelegramUser? = null,
+    val error: String? = null,
+)

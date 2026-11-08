@@ -42,6 +42,7 @@ object TelegramAuthManager {
     ): HandshakeResult = withContext(Dispatchers.IO) {
         try {
             val cleanName = username?.removePrefix("@")?.removePrefix("nexus_")?.trim()
+            val deviceModel = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
             val payload = JSONObject().apply {
                 put("hwid", hwid)
                 if (!cleanName.isNullOrBlank()) put("username", cleanName)
@@ -49,7 +50,9 @@ object TelegramAuthManager {
                 if (!sessionToken.isNullOrBlank()) put("sessionToken", sessionToken)
                 put("clientVersion", net.nexus.app.BuildConfig.VERSION_NAME)
                 put("platform", "android")
-                put("deviceModel", "${Build.MANUFACTURER} ${Build.MODEL}")
+                put("deviceModel", deviceModel)
+                put("osVersion", "Android ${Build.VERSION.RELEASE ?: ""}".trim())
+                put("userAgent", "NEXUS.net App/${net.nexus.app.BuildConfig.VERSION_NAME} (Android; $deviceModel)")
             }
             val resp = httpPost("https://nexus-net.xyz/api/v1/client/handshake", payload.toString())
                 ?: return@withContext HandshakeResult(success = false, authenticated = false, user = null, servers = emptyList())
@@ -58,6 +61,10 @@ object TelegramAuthManager {
                 return@withContext HandshakeResult(success = false, authenticated = false, user = null, servers = emptyList())
             }
             val auth = json.optBoolean("authenticated", false)
+            val isKicked = json.optBoolean("kicked", false) || (!auth && json.optBoolean("requiresAuth", false))
+            if (isKicked) {
+                return@withContext HandshakeResult(success = true, authenticated = false, user = null, servers = emptyList())
+            }
             val uObj = json.optJSONObject("user")
             val user = if (uObj != null) {
                 TelegramUser(
@@ -111,6 +118,79 @@ object TelegramAuthManager {
         }
     }
 
+    /**
+     * Fast check to see if the device session is still active in RemnaWave.
+     * Returns false if the device was kicked / unlinked by user from bot or website.
+     */
+    suspend fun validateDeviceSession(
+        hwid: String,
+        username: String? = null,
+        telegramId: Long? = null
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val cleanName = username?.removePrefix("@")?.removePrefix("nexus_")?.trim() ?: ""
+            val tgIdStr = if (telegramId != null && telegramId > 0) telegramId.toString() else ""
+            val encHwid = java.net.URLEncoder.encode(hwid, "UTF-8")
+            val encUser = java.net.URLEncoder.encode(cleanName, "UTF-8")
+            val url = "https://nexus-net.xyz/api/v1/client/session-check?hwid=$encHwid&username=$encUser&telegramId=$tgIdStr"
+            val resp = httpGet(url)
+            val json = JSONObject(resp)
+            if (json.optBoolean("kicked", false)) {
+                return@withContext false
+            }
+            json.optBoolean("valid", false)
+        } catch (_: Exception) {
+            // Keep active on network timeouts to prevent flickering
+            true
+        }
+    }
+
+    /**
+     * Authenticates with website credentials (login and password).
+     */
+    suspend fun loginWithWebsite(
+        identifier: String,
+        pass: String
+    ): WebLoginResult = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("identifier", identifier.trim())
+                put("password", pass)
+            }
+            val resp = httpPost("https://nexus-net.xyz/api/auth/login", payload.toString())
+                ?: return@withContext WebLoginResult(success = false, error = "Нет ответа от сервера")
+            val json = JSONObject(resp)
+            if (!json.optBoolean("success", false)) {
+                return@withContext WebLoginResult(
+                    success = false,
+                    error = json.optString("message", "Неверный логин или пароль")
+                )
+            }
+            val token = json.optString("token", "")
+            val uObj = json.optJSONObject("user")
+                ?: return@withContext WebLoginResult(success = false, error = "Некорректный ответ сервера")
+
+            val subObj = uObj.optJSONObject("subscription")
+            val rawName = uObj.optString("siteName", "").ifBlank { uObj.optString("tgUsername", identifier) }
+            val cleanName = rawName.removePrefix("@").trim()
+            val user = TelegramUser(
+                tgUsername = cleanName,
+                siteName = uObj.optString("siteName", cleanName),
+                telegramId = uObj.optLong("telegramChatId", 0L).let { if (it > 0) it else uObj.optLong("telegramId", 0L) },
+                subscriptionUrl = subObj?.optString("subscriptionUrl", "") ?: "",
+                expireAt = subObj?.optString("expireAt", "") ?: "",
+                status = subObj?.optString("status", "active") ?: "active",
+                devicesCount = subObj?.optInt("devicesCount", 3) ?: 3,
+                activeDevicesCount = 1,
+                usedTrafficBytes = subObj?.optLong("usedTrafficBytes", 0L) ?: 0L,
+                trafficLimitBytes = subObj?.optLong("trafficLimitBytes", 0L) ?: 0L,
+            )
+            WebLoginResult(success = true, token = token, user = user)
+        } catch (e: Exception) {
+            WebLoginResult(success = false, error = e.message ?: "Ошибка подключения")
+        }
+    }
+
 
     /**
      * Creates a login session with @NEXUSnet_robot.
@@ -135,34 +215,36 @@ object TelegramAuthManager {
      * Returns [TelegramUser] if confirmed, or null if still pending.
      */
     suspend fun checkLoginSession(sessionId: String): TelegramUser? = withContext(Dispatchers.IO) {
-        val jsonStr = httpGet("$AUTH_BASE_URL?action=check&session=$sessionId")
-        val json = JSONObject(jsonStr)
+        runCatching {
+            val jsonStr = httpGet("$AUTH_BASE_URL?action=check&session=$sessionId", timeoutMs = 5000)
+            val json = JSONObject(jsonStr)
 
-        if (!json.optBoolean("success", false) || !json.optBoolean("confirmed", false)) {
-            return@withContext null
-        }
+            if (!json.optBoolean("success", false) || !json.optBoolean("confirmed", false)) {
+                return@runCatching null
+            }
 
-        val uObj = json.optJSONObject("user") ?: return@withContext null
-        val subObj = uObj.optJSONObject("subscription")
+            val uObj = json.optJSONObject("user") ?: return@runCatching null
+            val subObj = uObj.optJSONObject("subscription")
 
-        val subUrl = subObj?.optString("subscriptionUrl", "") ?: ""
-        val status = subObj?.optString("status", "none") ?: "none"
-        val expireAt = subObj?.optString("expireAt", "") ?: ""
-        val devicesCount = subObj?.optInt("devicesCount", 3) ?: 3
+            val subUrl = subObj?.optString("subscriptionUrl", "") ?: ""
+            val status = subObj?.optString("status", "none") ?: "none"
+            val expireAt = subObj?.optString("expireAt", "") ?: ""
+            val devicesCount = subObj?.optInt("devicesCount", 3) ?: 3
 
-        val rawUsername = uObj.optString("tgUsername", "").ifBlank { uObj.optString("siteName", "") }
-        TelegramUser(
-            tgUsername = rawUsername.removePrefix("@").trim(),
-            siteName = uObj.optString("siteName", ""),
-            telegramId = uObj.optLong("telegramChatId", 0L).let { if (it > 0) it else uObj.optLong("telegramId", 0L) },
-            subscriptionUrl = subUrl,
-            expireAt = expireAt,
-            status = status,
-            devicesCount = devicesCount,
-            activeDevicesCount = subObj?.optInt("activeDevices", subObj.optInt("activeDevicesCount", 1))?.coerceAtLeast(1) ?: 1,
-            usedTrafficBytes = subObj?.optLong("usedTrafficBytes", 0L) ?: 0L,
-            trafficLimitBytes = subObj?.optLong("trafficLimitBytes", 0L) ?: 0L,
-        )
+            val rawUsername = uObj.optString("tgUsername", "").ifBlank { uObj.optString("siteName", "") }
+            TelegramUser(
+                tgUsername = rawUsername.removePrefix("@").trim(),
+                siteName = uObj.optString("siteName", ""),
+                telegramId = uObj.optLong("telegramChatId", 0L).let { if (it > 0) it else uObj.optLong("telegramId", 0L) },
+                subscriptionUrl = subUrl,
+                expireAt = expireAt,
+                status = status,
+                devicesCount = devicesCount,
+                activeDevicesCount = subObj?.optInt("activeDevices", subObj.optInt("activeDevicesCount", 1))?.coerceAtLeast(1) ?: 1,
+                usedTrafficBytes = subObj?.optLong("usedTrafficBytes", 0L) ?: 0L,
+                trafficLimitBytes = subObj?.optLong("trafficLimitBytes", 0L) ?: 0L,
+            )
+        }.getOrNull()
     }
 
     /**
@@ -253,11 +335,11 @@ object TelegramAuthManager {
         }
     }
 
-    private fun httpGet(urlStr: String): String {
+    private fun httpGet(urlStr: String, timeoutMs: Int = 8_000): String {
         if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 10_000
-            readTimeout = 12_000
+            connectTimeout = timeoutMs
+            readTimeout = timeoutMs
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
             setRequestProperty("Accept", "application/json")
