@@ -21,6 +21,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.nexus.app.MainActivity
 import net.nexus.app.R
 import net.nexus.app.core.ConfigBuilder
@@ -36,6 +37,7 @@ class NexusVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private var vpnJob: kotlinx.coroutines.Job? = null
     private var watchdogJob: kotlinx.coroutines.Job? = null
+    private var sessionWatchdogJob: kotlinx.coroutines.Job? = null
     private var activeServerId: String? = null
     private var isAutoMode: Boolean = false
     private var speedTickerJob: kotlinx.coroutines.Job? = null
@@ -154,6 +156,7 @@ class NexusVpnService : VpnService() {
             startSpeedTicker(server.name)
             updateTileState()
             NexusAppWidgetProvider.updateAllWidgets(this)
+            startSessionWatchdog()
 
             if (isAuto) {
                 startWatchdog(socksPort)
@@ -292,7 +295,50 @@ class NexusVpnService : VpnService() {
         stopSelf()
     }
 
+    private fun startSessionWatchdog() {
+        sessionWatchdogJob?.cancel()
+        sessionWatchdogJob = scope.launch(Dispatchers.IO) {
+            val store = Store(this@NexusVpnService)
+            val user = store.loadTelegramUser()
+            val hwid = store.getOrCreateHwid()
+            if (user != null) {
+                runCatching {
+                    net.nexus.app.auth.TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId)
+                }
+            }
+
+            while (isActive) {
+                delay(15_000L)
+                if (!XrayCore.isRunning || tun == null) break
+                val currentUser = store.loadTelegramUser()
+                if (currentUser != null) {
+                    val valid = net.nexus.app.auth.TelegramAuthManager.validateDeviceSession(
+                        hwid,
+                        currentUser.cleanUsername,
+                        currentUser.telegramId
+                    )
+                    if (!valid) {
+                        android.util.Log.w("NexusVPN", "Remote session revoked: stopping VPN")
+                        store.saveTelegramUser(null)
+                        store.saveProviders(emptyList())
+                        withContext(Dispatchers.Main) {
+                            stopVpn()
+                            showNotification("Устройство отвязано от аккаунта")
+                            val intent = Intent("net.nexus.app.ACTION_SESSION_REVOKED").apply {
+                                setPackage(packageName)
+                            }
+                            sendBroadcast(intent)
+                        }
+                        break
+                    }
+                }
+            }
+        }
+    }
+
     fun stopVpn() {
+        sessionWatchdogJob?.cancel()
+        sessionWatchdogJob = null
         vpnJob?.cancel()
         vpnJob = null
         speedTickerJob?.cancel()
@@ -321,6 +367,8 @@ class NexusVpnService : VpnService() {
             runCatching { unregisterReceiver(screenReceiver) }
             screenReceiverRegistered = false
         }
+        sessionWatchdogJob?.cancel()
+        sessionWatchdogJob = null
         vpnJob?.cancel()
         vpnJob = null
         speedTickerJob?.cancel()

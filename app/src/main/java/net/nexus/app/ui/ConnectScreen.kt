@@ -125,11 +125,13 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
 
     val ctx = LocalContext.current
     val isAuto = settings.selectedServerId == Store.AUTO_SERVER_ID
-    val selected = if (isAuto) {
-        providers.flatMap { it.servers }.firstOrNull { it.id == activeId }
-            ?: remember(providers) { Store(ctx).findBestServer() }
-    } else {
-        providers.flatMap { it.servers }.firstOrNull { it.id == settings.selectedServerId }
+    val allServers = remember(providers) { providers.flatMap { it.servers } }
+    val selected = remember(allServers, isAuto, activeId, settings.selectedServerId) {
+        if (isAuto) {
+            allServers.firstOrNull { it.id == activeId } ?: Store(ctx).findBestServer()
+        } else {
+            allServers.firstOrNull { it.id == settings.selectedServerId }
+        }
     }
     val connected = status == VpnStatus.CONNECTED
     val connecting = status == VpnStatus.CONNECTING

@@ -69,6 +69,22 @@ class MainActivity : AppCompatActivity() {
                         VpnState.disconnected()
                     }
                 }
+                DisposableEffect(Unit) {
+                    val filter = android.content.IntentFilter("net.nexus.app.ACTION_SESSION_REVOKED")
+                    val receiver = object : android.content.BroadcastReceiver() {
+                        override fun onReceive(context: android.content.Context?, intent: Intent?) {
+                            vm.revokeSession("Устройство отвязано от аккаунта")
+                        }
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        ContextCompat.registerReceiver(ctx, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+                    } else {
+                        ctx.registerReceiver(receiver, filter)
+                    }
+                    onDispose {
+                        runCatching { ctx.unregisterReceiver(receiver) }
+                    }
+                }
                 LaunchedEffect(Unit) {
                     vm.events.collect { Toast.makeText(ctx, ctx.getString(it.id, *it.args.toTypedArray()), Toast.LENGTH_SHORT).show() }
                 }
@@ -165,7 +181,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        vm.checkActiveTelegramAuthNow()
         vm.silentUpdateSubscriptions()
+        vm.checkAndSyncOnResume()
     }
 
     override fun onNewIntent(intent: Intent) {
