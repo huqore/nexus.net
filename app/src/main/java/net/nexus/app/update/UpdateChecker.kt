@@ -115,7 +115,9 @@ object UpdateChecker {
             val body = json.optString("body", "").ifBlank { json.optString("markdown", "") }.trim()
             val publishedAt = json.optString("published_at", "").ifBlank { json.optString("publishedAt", "") }
 
-            val versionName = cleanVersion(if (name.isNotBlank()) name else tagName)
+            // Prefer git tagName (e.g. "v3.2.0") over human-readable title which might contain descriptive numbers
+            val rawVersion = if (tagName.isNotBlank()) tagName else name
+            val versionName = extractSemVer(rawVersion)
             val assets = json.optJSONArray("assets") ?: continue
 
             var apkUrl: String? = null
@@ -227,40 +229,35 @@ object UpdateChecker {
         val currentIsPreRelease = currentVersion.contains("-") || currentVersion.contains("test", ignoreCase = true)
         val remoteIsPreRelease = remoteVersion.contains("-") || remoteVersion.contains("test", ignoreCase = true)
 
-        // If the current app is any test/pre-release build (e.g. 2.3.1-test, 3.2.2-test)
-        // and remote is an official release, ALWAYS offer the update!
-        if (currentIsPreRelease && !remoteIsPreRelease) {
-            return true
-        }
-
         val maxLen = maxOf(remoteDigits.size, currentDigits.size)
         for (i in 0 until maxLen) {
             val r = remoteDigits.getOrElse(i) { 0 }
             val c = currentDigits.getOrElse(i) { 0 }
             if (r > c) return true
-            if (r < c) {
-                // If current is a test version and remote is a different stable version, update
-                if (currentIsPreRelease && cleanVersion(remoteVersion) != cleanVersion(currentVersion)) {
-                    return true
-                }
-                return false
-            }
+            if (r < c) return false
         }
 
         // If numeric components are identical:
-        // A stable release is newer than a test version (e.g., 2.4.0 > 2.4.0-test)
+        // A stable release is newer than a test version (e.g., 3.2.0 > 3.2.0-test)
         if (currentIsPreRelease && !remoteIsPreRelease) return true
-
-        // If current is a test build and remote has a different clean version
-        if (currentIsPreRelease && cleanVersion(remoteVersion) != cleanVersion(currentVersion)) {
-            return true
-        }
 
         return false
     }
 
-    private fun extractVersionDigits(v: String): List<Int> =
-        Regex("""\d+""").findAll(v).mapNotNull { it.value.toIntOrNull() }.toList()
+    private fun extractVersionDigits(v: String): List<Int> {
+        val semver = extractSemVer(v)
+        val base = semver.substringBefore("-")
+        return Regex("""\d+""").findAll(base).mapNotNull { it.value.toIntOrNull() }.toList()
+    }
+
+    fun extractSemVer(raw: String): String {
+        val s = raw.trim()
+        val match = Regex("""(?:v|V)?(\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9.]+)?)(?:[^\w.-]|$)""").find(s)
+        if (match != null) {
+            return match.groupValues[1].removePrefix("v").removePrefix("V").trim()
+        }
+        return cleanVersion(raw)
+    }
 
     fun cleanVersion(raw: String): String {
         var s = raw.trim()
