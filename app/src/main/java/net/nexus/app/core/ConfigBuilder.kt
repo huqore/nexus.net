@@ -23,7 +23,7 @@ object ConfigBuilder {
         .put("sniffing", JSONObject()
             .put("enabled", true)
             .put("destOverride", JSONArray().put("http").put("tls"))
-            .put("routeOnly", true))
+            .put("routeOnly", false))
 
     private fun inbounds(socksPort: Int) = JSONArray().put(socksInbound(socksPort))
 
@@ -38,11 +38,21 @@ object ConfigBuilder {
                 .put("settings", JSONObject().put("domainStrategy", "UseIP")))
         if (!hasTag(outs, "block"))
             outs.put(JSONObject().put("tag", "block").put("protocol", "blackhole"))
+        if (!hasTag(outs, "dns-out"))
+            outs.put(JSONObject().put("tag", "dns-out").put("protocol", "dns"))
     }
 
     private fun resolveHostToIpv4(host: String): String? {
         if (host.isBlank()) return null
         if (host.matches(Regex("""\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""))) return host
+        if (host.equals("cdn1.wyverniumx.ru", ignoreCase = true) || host.equals("cdn.wyverniumx.ru", ignoreCase = true)) {
+            val resolved = runCatching {
+                InetAddress.getAllByName(host)
+                    .firstOrNull { it is Inet4Address }
+                    ?.hostAddress
+            }.getOrNull()
+            return resolved ?: "188.72.112.1"
+        }
         return runCatching {
             InetAddress.getAllByName(host)
                 .firstOrNull { it is Inet4Address }
@@ -121,8 +131,10 @@ object ConfigBuilder {
         return Pair(hostsMap, serverIps)
     }
 
-    private fun defaultDns(hostsMap: Map<String, String>, blockAds: Boolean = false) = JSONObject()
+    private fun defaultDns(hostsMap: Map<String, String>, blockAds: Boolean = false, isWl: Boolean = false) = JSONObject()
         .put("hosts", JSONObject().apply {
+            put("cdn1.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
+            put("cdn.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
             for ((domain, ip) in hostsMap) {
                 put(domain, JSONArray().put(ip))
             }
@@ -134,17 +146,24 @@ object ConfigBuilder {
         })
         .put("queryStrategy", "UseIPv4")
 
-    private fun defaultRoutingRules(serverIps: List<String>): JSONArray {
+    private fun defaultRoutingRules(serverIps: List<String>, isWl: Boolean = false): JSONArray {
         val rules = JSONArray()
 
         // 1. Direct route for the proxy server's own IP address(es) to completely prevent routing loops
-        val distinctIps = serverIps.distinct().filter { it.isNotBlank() }
+        val distinctIps = (serverIps + if (isWl) listOf("188.72.112.1", "188.72.111.36") else emptyList()).distinct().filter { it.isNotBlank() }
         if (distinctIps.isNotEmpty()) {
             val ipsArray = JSONArray()
             distinctIps.forEach { ipsArray.put(it) }
             rules.put(JSONObject()
                 .put("type", "field")
                 .put("ip", ipsArray)
+                .put("outboundTag", "direct"))
+        }
+
+        if (isWl) {
+            rules.put(JSONObject()
+                .put("type", "field")
+                .put("ip", JSONArray().put("188.72.112.0/24").put("188.72.111.0/24"))
                 .put("outboundTag", "direct"))
         }
 
@@ -162,7 +181,8 @@ object ConfigBuilder {
             .put("network", "udp")
             .put("outboundTag", "block"))
 
-        // 4. Bypass private LAN IPs
+
+        // 5. Bypass private LAN IPs
         rules.put(JSONObject()
             .put("type", "field")
             .put("ip", JSONArray()
@@ -173,27 +193,30 @@ object ConfigBuilder {
                 .put("127.0.0.0/8"))
             .put("outboundTag", "direct"))
 
-        // 5. Whitelist bypass for Russian traffic (government, banks, local services)
-        // NOTE: Only valid geosite list name is category-ru. geosite:ru DOES NOT EXIST and causes fatal crash.
-        rules.put(JSONObject()
-            .put("type", "field")
-            .put("domain", JSONArray()
-                .put("geosite:category-ru")
-                .put("domain:ru")
-                .put("domain:su")
-                .put("domain:xn--p1ai"))
-            .put("outboundTag", "direct"))
+        // 6. Direct routing for Russian traffic ONLY when NOT in WL bypass mode.
+        // During WL bypass mode, direct Russian routing fails due to operator whitelist blocks.
+        if (!isWl) {
+            rules.put(JSONObject()
+                .put("type", "field")
+                .put("domain", JSONArray()
+                    .put("geosite:category-ru")
+                    .put("domain:ru")
+                    .put("domain:su")
+                    .put("domain:xn--p1ai"))
+                .put("outboundTag", "direct"))
 
-        rules.put(JSONObject()
-            .put("type", "field")
-            .put("ip", JSONArray().put("geoip:ru"))
-            .put("outboundTag", "direct"))
+            rules.put(JSONObject()
+                .put("type", "field")
+                .put("ip", JSONArray().put("geoip:ru"))
+                .put("outboundTag", "direct"))
+        }
 
         return rules
     }
 
     /** Full config used to run the VPN (TUN inbound + local SOCKS inbound for the speed test). */
     fun forTunnel(server: Server, socksPort: Int, blockAds: Boolean = false): String {
+        val isWl = net.nexus.app.data.Store.isWlBypass(server)
         server.fullConfig?.let { raw ->
             // Server-supplied config: keep its outbounds / routing / dns, but we own the inbounds.
             val cfg = JSONObject(raw)
@@ -204,13 +227,17 @@ object ConfigBuilder {
             val (hostsMap, serverIps) = prepareOutbounds(outs)
 
             if (!cfg.has("dns")) {
-                cfg.put("dns", defaultDns(hostsMap, blockAds))
+                cfg.put("dns", defaultDns(hostsMap, blockAds, isWl))
             } else {
                 val dns = cfg.getJSONObject("dns")
                 if (blockAds) {
                     dns.put("servers", JSONArray().put("94.140.14.14").put("94.140.15.15"))
+                } else if (!dns.has("servers") || dns.getJSONArray("servers").length() == 0) {
+                    dns.put("servers", JSONArray().put("1.1.1.1").put("8.8.8.8").put("9.9.9.9"))
                 }
                 val hosts = dns.optJSONObject("hosts") ?: JSONObject().also { dns.put("hosts", it) }
+                hosts.put("cdn1.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
+                hosts.put("cdn.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
                 for ((domain, ip) in hostsMap) {
                     hosts.put(domain, JSONArray().put(ip))
                 }
@@ -226,13 +253,20 @@ object ConfigBuilder {
             val existingRules = routing.optJSONArray("rules") ?: JSONArray().also { routing.put("rules", it) }
             val newRules = JSONArray()
 
-            val distinctIps = serverIps.distinct().filter { it.isNotBlank() }
+            val distinctIps = (serverIps + if (isWl) listOf("188.72.112.1", "188.72.111.36") else emptyList()).distinct().filter { it.isNotBlank() }
             if (distinctIps.isNotEmpty()) {
                 val ipsArray = JSONArray()
                 distinctIps.forEach { ipsArray.put(it) }
                 newRules.put(JSONObject()
                     .put("type", "field")
                     .put("ip", ipsArray)
+                    .put("outboundTag", "direct"))
+            }
+
+            if (isWl) {
+                newRules.put(JSONObject()
+                    .put("type", "field")
+                    .put("ip", JSONArray().put("188.72.112.0/24").put("188.72.111.0/24"))
                     .put("outboundTag", "direct"))
             }
 
@@ -249,7 +283,15 @@ object ConfigBuilder {
                 .put("outboundTag", "block"))
 
             for (i in 0 until existingRules.length()) {
-                newRules.put(existingRules.getJSONObject(i))
+                val r = existingRules.getJSONObject(i)
+                if (isWl && r.optString("outboundTag") == "direct") {
+                    val doms = r.optJSONArray("domain")
+                    val ips = r.optJSONArray("ip")
+                    val isRuRule = (doms != null && (0 until doms.length()).any { doms.getString(it).contains("ru") }) ||
+                                   (ips != null && (0 until ips.length()).any { ips.getString(it).contains(":ru") })
+                    if (isRuRule) continue
+                }
+                newRules.put(r)
             }
             routing.put("rules", newRules)
             return cfg.toString()
@@ -261,26 +303,40 @@ object ConfigBuilder {
 
         val cfg = JSONObject()
             .put("log", JSONObject().put("loglevel", "warning"))
-            .put("dns", defaultDns(hostsMap, blockAds))
+            .put("dns", defaultDns(hostsMap, blockAds, isWl))
             .put("inbounds", inbounds(socksPort))
             .put("outbounds", outs)
             .put("routing", JSONObject()
+                .put("domainMatcher", "hybrid")
                 .put("domainStrategy", "IPIfNonMatch")
-                .put("rules", defaultRoutingRules(serverIps)))
+                .put("rules", defaultRoutingRules(serverIps, isWl)))
         return cfg.toString()
     }
 
     /** Minimal config (no inbound) used only for the latency test. */
     fun forPing(server: Server): String {
+        val isWl = net.nexus.app.data.Store.isWlBypass(server)
         server.fullConfig?.let { raw ->
             val cfg = JSONObject(raw)
             cfg.remove("inbounds")
             val outs = cfg.optJSONArray("outbounds") ?: JSONArray().also { cfg.put("outbounds", it) }
             ensureBuiltins(outs)
+            val (hostsMap, _) = prepareOutbounds(outs)
+            val dns = cfg.optJSONObject("dns") ?: defaultDns(hostsMap, isWl = isWl).also { cfg.put("dns", it) }
+            val hosts = dns.optJSONObject("hosts") ?: JSONObject().also { dns.put("hosts", it) }
+            hosts.put("cdn1.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
+            hosts.put("cdn.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
+            for ((domain, ip) in hostsMap) {
+                hosts.put(domain, JSONArray().put(ip))
+            }
             return cfg.toString()
         }
         val outs = JSONArray(server.outbounds ?: error("server has no outbounds"))
         ensureBuiltins(outs)
-        return JSONObject().put("outbounds", outs).toString()
+        val (hostsMap, _) = prepareOutbounds(outs)
+        val cfg = JSONObject()
+            .put("dns", defaultDns(hostsMap, isWl = isWl))
+            .put("outbounds", outs)
+        return cfg.toString()
     }
 }

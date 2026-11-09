@@ -116,7 +116,7 @@ class NexusVpnService : VpnService() {
             val yamlContent = """
                 tunnel:
                   name: tun0
-                  mtu: 1500
+                  mtu: 1360
                   ipv4: $TUN_IPV4
                   ipv6: '$TUN_IPV6'
 
@@ -234,7 +234,7 @@ class NexusVpnService : VpnService() {
         val settings = store.loadSettings()
         val b = Builder()
             .setSession("nexus.net")
-            .setMtu(1500)
+            .setMtu(1360)
             .addAddress(TUN_IPV4, 16)
             .addRoute("0.0.0.0", 0)
 
@@ -244,7 +244,6 @@ class NexusVpnService : VpnService() {
         } else {
             b.addDnsServer("1.1.1.1")
             b.addDnsServer("8.8.8.8")
-            b.addDnsServer("77.88.8.8")
         }
 
         // Add IPv6 route to prevent leaks on LTE / dual-stack networks

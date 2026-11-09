@@ -49,7 +49,7 @@ class ConfigBuilderTest {
     }
 
     @Test
-    fun `socks inbound has routeOnly true and no quic in destOverride`() {
+    fun `socks inbound has routeOnly false and no quic in destOverride`() {
         val server = sampleVlessServer()
         val configStr = ConfigBuilder.forTunnel(server, socksPort = 10808)
         val cfg = JSONObject(configStr)
@@ -61,7 +61,7 @@ class ConfigBuilderTest {
 
         val sniffing = socks.getJSONObject("sniffing")
         assertTrue("sniffing must be enabled", sniffing.getBoolean("enabled"))
-        assertTrue("routeOnly must be true to avoid rewriting destination IPs", sniffing.getBoolean("routeOnly"))
+        assertFalse("routeOnly must be false so Xray rewrites destination IPs under mobile whitelist censorship", sniffing.getBoolean("routeOnly"))
 
         val destOverride = sniffing.getJSONArray("destOverride")
         val overrides = (0 until destOverride.length()).map { destOverride.getString(it) }
@@ -183,6 +183,60 @@ class ConfigBuilderTest {
         val inbounds = cfg.getJSONArray("inbounds")
         val socks = inbounds.getJSONObject(0)
         assertEquals("socks", socks.getString("tag"))
+    }
+
+    @Test
+    fun `wl bypass config includes Yandex DNS and CDN edge IP direct routes`() {
+        val stream = JSONObject()
+            .put("network", "xhttp")
+            .put("security", "tls")
+            .put("tlsSettings", JSONObject().put("serverName", "cdn1.wyverniumx.ru"))
+
+        val settings = JSONObject()
+            .put("vnext", JSONArray().put(JSONObject()
+                .put("address", "188.72.112.1")
+                .put("port", 443)
+                .put("users", JSONArray().put(JSONObject()
+                    .put("id", "00000000-0000-0000-0000-000000000000")
+                    .put("encryption", "none")))))
+
+        val proxyOutbound = JSONObject()
+            .put("tag", "proxy")
+            .put("protocol", "vless")
+            .put("settings", settings)
+            .put("streamSettings", stream)
+
+        val server = Server(
+            id = "server-wl-1",
+            name = "LTE #1 | WL bypass",
+            protocol = "vless",
+            network = "xhttp",
+            security = "tls",
+            source = "LINK",
+            outbounds = JSONArray().put(proxyOutbound).toString()
+        )
+
+        val configStr = ConfigBuilder.forTunnel(server, socksPort = 10808)
+        val cfg = JSONObject(configStr)
+
+        val dns = cfg.getJSONObject("dns")
+        val servers = dns.getJSONArray("servers")
+        val serverList = (0 until servers.length()).map { servers.getString(it) }
+        assertTrue("WL bypass DNS must contain 1.1.1.1", serverList.contains("1.1.1.1"))
+
+        val routing = cfg.getJSONObject("routing")
+        val rules = routing.getJSONArray("rules")
+        val hasCdnPrefix = (0 until rules.length()).any {
+            val ips = rules.getJSONObject(it).optJSONArray("ip")
+            ips != null && (0 until ips.length()).any { j -> ips.getString(j) == "188.72.112.0/24" }
+        }
+        assertTrue("WL bypass must have direct route for Yandex CDN prefix", hasCdnPrefix)
+
+        // Verify forPing prepares outbounds with packetEncoding xudp
+        val pingConfigStr = ConfigBuilder.forPing(server)
+        val pingCfg = JSONObject(pingConfigStr)
+        val pingProxy = pingCfg.getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("xudp", pingProxy.getJSONObject("settings").getString("packetEncoding"))
     }
 }
 

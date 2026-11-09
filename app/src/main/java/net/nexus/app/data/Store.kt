@@ -63,14 +63,7 @@ class Store(context: Context) {
         prefs.edit().putString("settings", o.toString()).apply()
     }
 
-    fun isWlBypass(server: Server): Boolean {
-        val n = server.name.lowercase()
-        return n.contains("wl bypass") ||
-               n.contains("wl-bypass") ||
-               n.contains("wl_bypass") ||
-               n.contains("whitelist") ||
-               Regex("""\bwl\b""", RegexOption.IGNORE_CASE).containsMatchIn(server.name)
-    }
+    fun isWlBypass(server: Server): Boolean = Companion.isWlBypass(server)
 
     /** Finds the best server by lowest positive ping, or falls back to the first available server.
      * Excludes WL bypass servers if other servers have a valid ping. */
@@ -151,11 +144,15 @@ class Store(context: Context) {
 
         fun isWlBypass(server: Server): Boolean {
             val n = server.name.lowercase()
-            return n.contains("wl bypass") ||
-                   n.contains("wl-bypass") ||
-                   n.contains("wl_bypass") ||
-                   n.contains("whitelist") ||
-                   Regex("""\bwl\b""", RegexOption.IGNORE_CASE).containsMatchIn(server.name)
+            if (n.contains("wl bypass") ||
+                n.contains("wl-bypass") ||
+                n.contains("wl_bypass") ||
+                n.contains("whitelist") ||
+                Regex("""\bwl\b""", RegexOption.IGNORE_CASE).containsMatchIn(server.name)) {
+                return true
+            }
+            val raw = server.fullConfig ?: server.outbounds ?: ""
+            return raw.contains("wyverniumx.ru") || raw.contains("188.72.112.") || raw.contains("188.72.111.")
         }
     }
 }
