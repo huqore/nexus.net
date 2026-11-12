@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "tag": "v4.0.0",
+      "name": "v4.0.0",
+      "versionName": "4.0.0",
+      "draft": false,
+      "markdown": "NEXUS.net v4.0.0 - Три стиля оформления: Fluent, Material You (M3 Expressive, цвета из обоев) и Liquid Glass с живыми бликами от гироскопа; своя цветовая тема с частицами (сакура, снег, пепел); переключатели AMOLED и светлой темы; живой ползунок в нижней панели; автовыбор сервера больше не скачет; серверы с пометкой WL bypass отделены от Wi-Fi; меньше расход батареи.",
+      "publishedAt": "2026-11-12T09:32:55Z",
+      "assets": [
+        {
+          "name": "nexus-net-v4.0.0.apk",
+          "downloadUrl": "https://nexus-net.xyz/downloads/nexus-net-v4.0.0.apk",
+          "size": 71733417
+        },
+        {
+          "name": "app-universal-release.apk",
+          "downloadUrl": "https://nexus-net.xyz/downloads/app-universal-release.apk",
+          "size": 71733417
+        }
+      ]
+    },
+    {
       "tag": "v3.2.0",
       "name": "v3.2.0",
       "versionName": "3.2.0",

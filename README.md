@@ -1,101 +1,70 @@
 <div align="center">
 
-<img src="app/src/main/res/drawable/app_logo.png" alt="NEXUS.net Logo" width="128" height="128" />
+  <img src="app/src/main/res/drawable/app_logo.png" alt="NEXUS.net" width="112" />
 
-# NEXUS.net for Android
+  # NEXUS.net для Android
 
-**Высокоскоростной клиент нового поколения на базе ядра Xray core и Jetpack Compose (Material Design 3)**
+  **Быстрый и удобный VPN-клиент на базе Xray Core**
 
-[![Latest Release](https://img.shields.io/badge/Release-v3.1.1-6366f1?style=for-the-badge&logo=android&logoColor=white)](https://github.com/huqore/nexus.net/releases/download/v3.1.1/nexus-net-v3.1.1.apk)
-[![Android Version](https://img.shields.io/badge/Android-8.0%2B%20(API%2026%E2%80%9335)-34d399?style=for-the-badge&logo=android&logoColor=white)](https://android.com)
-[![Xray Core](https://img.shields.io/badge/Xray_Core-v26.10.29-blue?style=for-the-badge&logo=xray)](https://github.com/XTLS/Xray-core)
-[![Telegram Bot](https://img.shields.io/badge/Telegram_Bot-@NEXUSnet__robot-229ED9?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/NEXUSnet_robot)
-[![Website](https://img.shields.io/badge/Web_Platform-nexus--net.xyz-0ea5e9?style=for-the-badge&logo=google-chrome&logoColor=white)](https://nexus-net.xyz)
+  <p>
+    <a href="https://github.com/huqore/nexus.net/releases/latest"><img src="https://img.shields.io/badge/релиз-v4.0.0-7657e8?style=for-the-badge" alt="Последний релиз v4.0.0"></a>
+    <a href="https://developer.android.com/about/versions/oreo"><img src="https://img.shields.io/badge/Android-8.0%2B-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Android 8.0 и новее"></a>
+    <a href="https://github.com/XTLS/Xray-core"><img src="https://img.shields.io/badge/Xray_Core-v26.10.29-3478c9?style=for-the-badge" alt="Xray Core v26.10.29"></a>
+  </p>
 
-<br/>
-
-[![Скачать APK v3.1.1](https://img.shields.io/badge/📥_Скачать_актуальный_APK-v3.1.1-22c55e?style=for-the-badge&logo=android&logoColor=white)](https://github.com/huqore/nexus.net/releases/download/v3.1.1/nexus-net-v3.1.1.apk)
-[![Все релизы](https://img.shields.io/badge/Архив_релизов-GitHub_Releases-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/huqore/nexus.net/releases)
+  <p>
+    <a href="https://github.com/huqore/nexus.net/releases/latest">Скачать APK</a> ·
+    <a href="https://nexus-net.xyz">Сайт</a> ·
+    <a href="https://t.me/NEXUSnet_robot">Telegram-бот</a> ·
+    <a href="https://t.me/NEXUS_net_support">Поддержка</a>
+  </p>
 
 </div>
 
 ---
 
-## 📥 Актуальная версия для скачивания
+## О приложении
 
-> [!IMPORTANT]
-> Для корректной работы и обхода блокировок используйте **только актуальную версию**. Старые версии могут быть заблокированы на уровне протоколов провайдеров РФ.
+NEXUS.net — Android-клиент для подключения к VPN-серверам через Xray. Добавьте серверную ссылку или подписку, выберите нужный режим маршрутизации и подключитесь в одно касание. Подписку также можно синхронизировать через Telegram.
 
-| Параметр | Значение |
-| :--- | :--- |
-| **Текущая версия** | **v3.1.1 (Stable)** |
-| **Номер сборки (versionCode)** | `57` |
-| **Прямая ссылка на APK** | [**nexus-net-v3.1.1.apk**](https://github.com/huqore/nexus.net/releases/download/v3.1.1/nexus-net-v3.1.1.apk) |
-| **Размер файла** | `~71.5 MB` (Universal: arm64-v8a, armeabi-v7a, x86_64, x86) |
-| **Контрольная сумма SHA-256** | `be0b63e7870969fb079ab7c6bd4b2502b9052a0d201e9ce58a22087addcbb066` |
-| **Системные требования** | Android 8.0 (Oreo, API 26) и новее (включая Android 15 / API 35) |
+**Актуальный релиз: v4.0.0** · Android 8.0+ · `versionCode 60`
 
-### 🚀 Что нового в версии 3.1.1:
-- **Совместимость с RemnaWave**: полная поддержка обновленных профилей и параметров подписки.
-- **Оптимизация WL Bypass Routing**: надежный обход белых списков и ускоренная маршрутизация.
-- **Обход DPI для автообновлений**: многоуровневая доставка манифестов обновлений через CDN-зеркала (jsDelivr, ungh.cc, BFF proxy) при блокировках GitHub провайдерами.
-- **Стабильность туннеля**: улучшенная обработка сетевых переключений (Wi-Fi ↔ LTE) и быстрый реконнект.
+## Возможности
 
----
+| Подключение | Контроль и удобство |
+| --- | --- |
+| VLESS, VMess, Trojan и Shadowsocks | Раздельная маршрутизация приложений |
+| Ссылки серверов, Xray JSON и подписки | Проверка задержки и статистика трафика |
+| Синхронизация подписки через Telegram | Виджет и плитка быстрых настроек |
+| Ядро Xray Core | Смена темы оформления и иконки приложения |
 
-## ⚡ Ключевые возможности
+## Установка
 
-* **Передовые протоколы обхода блокировок**:
-  * Поддержка **VLESS + Reality + XHTTP**, Shadowsocks, Trojan и VMess (транспорты: ws, grpc, httpupgrade, h2, tcp).
-  * Официальное ядро **Xray core v26.10.29** со встроенным TUN-интерфейсом (`libhev-socks5-tunnel.so`), обеспечивающее минимальное энергопотребление и максимальную скорость.
-* **Синхронизация в 1 клик с экосистемой**:
-  * Интеграция с Telegram-ботом [@NEXUSnet_robot](https://t.me/NEXUSnet_robot) и WebApp.
-  * Автоматическая загрузка серверов, лимитов трафика, срока действия подписки и ссылок поддержки.
-* **Раздельное туннелирование (Split Tunneling)**:
-  * Гибкая настройка: пускать через VPN только выбранные приложения или исключать российские сервисы (банки, Госуслуги, маркетплейсы).
-* **Мониторинг сети в реальном времени**:
-  * Быстрый замер задержки серверов (⚡) и тест скорости прямо с главного экрана.
-  * Точный учёт входящего и исходящего трафика на уровне UID системы.
-* **Строгий дизайн Material Design 3 (Material You)**:
-  * Глубокая темная тема, чистые тональные поверхности, отсутствие визуального мусора.
-  * Выбор акцентных цветов, смена иконок приложения на рабочем столе и деликатный тактильный отклик (haptic feedback).
+Скачайте APK со [страницы последнего релиза](https://github.com/huqore/nexus.net/releases/latest). После установки добавьте ссылку на сервер или подписку либо войдите через Telegram.
 
----
+## Сборка из исходников
 
-## 📖 Быстрый старт
+Понадобятся **JDK 17** и **Android SDK Platform 35**. Укажите путь к SDK в `local.properties` (шаблон — [`local.properties.example`](local.properties.example)), затем запустите:
 
-1. **Установите приложение**:
-   Скачайте актуальный файл [**nexus-net-v3.1.1.apk**](https://github.com/huqore/nexus.net/releases/download/v3.1.1/nexus-net-v3.1.1.apk) и разрешите установку из доверенного источника.
-2. **Получите подписку**:
-   Запустите Telegram-бота [@NEXUSnet_robot](https://t.me/NEXUSnet_robot) или откройте Mini-App, а так же на нашем сайте[nexus-net.xyz](https://nexus-net.xyz).
-3. **Подключитесь**:
-   Вставьте ссылку подписки или авторизуйтесь через Telegram — сервера загрузятся мгновенно. Нажмите центральную кнопку подключения.
-
----
-
-## 🛠️ Сборка из исходников (Developer Guide)
-
-Проект использует современный стек: **Kotlin + Jetpack Compose + Gradle KTS**.
-
-### Требования к окружению:
-* **JDK:** OpenJDK 17
-* **Android SDK:** Platform SDK 35 (`compileSdk = 35`, `minSdk = 26`)
-* **Gradle:** 8.x / 9.x (в комплекте через `./gradlew`)
-
-### Сборка релизного APK:
 ```bash
-git clone https://github.com/huqore/nexus.net.git
-cd nexus.net
-./gradlew assembleRelease
+# Linux / macOS
+./gradlew assembleDebug
+
+# Windows
+gradlew.bat assembleDebug
 ```
-> *Ядро Xray core (`libs/libv2ray.aar`, ~65 МБ) загружается автоматически при первом запуске сборки.*  
-> Готовый универсальный APK находится в `app/build/outputs/apk/release/app-release-unsigned.apk` (или `apks/release/`).
 
----
+Чтобы собрать release APK, используйте задачу `assembleRelease`. Для подписи собственным ключом задайте переменные окружения `KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` и `KEY_PASSWORD`. Без них сборка подписывается debug-ключом.
 
-## 💬 Поддержка и контакты
+Если `app/libs/libv2ray.aar` отсутствует, Gradle скачает Xray Core AAR версии `v26.10.29` из GitHub при конфигурации проекта.
 
-* 🤖 **Telegram-бот:** [@NEXUSnet_robot](https://t.me/NEXUSnet_robot)
-* 🆘 **Служба поддержки:** [@NEXUS_net_support](https://t.me/NEXUS_net_support)
-* 🌐 **Официальный сайт:** [nexus-net.xyz](https://nexus-net.xyz)
-* 👨‍💻 **Архитектор проекта:** [@huqore](https://t.me/huqore)
+## Технологии
+
+`Kotlin` · `Jetpack Compose` · `Material 3` · `Android VpnService` · `Xray Core`
+
+## Ссылки
+
+- [Все релизы](https://github.com/huqore/nexus.net/releases)
+- [Сайт NEXUS.net](https://nexus-net.xyz)
+- [Telegram-бот](https://t.me/NEXUSnet_robot)
+- [Поддержка](https://t.me/NEXUS_net_support)

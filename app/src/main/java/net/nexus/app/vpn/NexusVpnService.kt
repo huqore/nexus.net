@@ -93,7 +93,7 @@ class NexusVpnService : VpnService() {
         val store = Store(this)
         val isAuto = (serverId == Store.AUTO_SERVER_ID || serverId == null)
         isAutoMode = isAuto
-        val server = if (isAuto) store.findBestServer() else store.findServer(serverId)
+        val server = if (isAuto) store.resolveAutoServer() else store.findServer(serverId)
         if (server == null) {
             fail("server not found"); return
         }
@@ -171,63 +171,13 @@ class NexusVpnService : VpnService() {
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     private fun startWatchdog(socksPort: Int) {
+        // Disabled on purpose: the periodic health probe (every 20-60 s) made Auto mode hop between
+        // servers whenever the probe host was unreachable (e.g. on whitelist-only mobile networks).
+        // Auto now locks onto one server (Store.resolveAutoServer); switching is the user's choice.
         watchdogJob?.cancel()
-        watchdogJob = scope.launch {
-            var consecutiveFailures = 0
-            while (isActive) {
-                val delayMs = if (isScreenOn) 20_000L else 60_000L
-                delay(delayMs)
-                if (!XrayCore.isRunning || tun == null) break
-
-                val ok = checkTunnelHealth(socksPort)
-                if (!ok) {
-                    consecutiveFailures++
-                    if (consecutiveFailures >= 2) {
-                        consecutiveFailures = 0
-                        performAutoFailover(socksPort)
-                    }
-                } else {
-                    consecutiveFailures = 0
-                }
-            }
-        }
-    }
-
-    private fun checkTunnelHealth(socksPort: Int): Boolean = runCatching {
-        val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", socksPort))
-        val conn = java.net.URL("http://www.google.com/generate_204").openConnection(proxy) as java.net.HttpURLConnection
-        conn.connectTimeout = 4000
-        conn.readTimeout = 4000
-        conn.instanceFollowRedirects = false
-        try {
-            conn.responseCode in 200..399
-        } finally {
-            conn.disconnect()
-        }
-    }.getOrDefault(false)
-
-    private fun performAutoFailover(socksPort: Int) {
-        if (!isAutoMode || tun == null) return
-        val store = Store(this)
-        val nextServer = store.findNextBestServer(activeServerId) ?: return
-        if (nextServer.id == activeServerId) return
-
-        try {
-            val settings = store.loadSettings()
-            val newConfig = ConfigBuilder.forTunnel(nextServer, socksPort, blockAds = settings.blockAds)
-            XrayCore.stopQuietly()
-            XrayCore.start(newConfig, 0) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
-
-            activeServerId = nextServer.id
-            VpnState.connected(nextServer.id, isAuto = true, serverName = nextServer.name)
-            showNotification(getString(R.string.notif_connected_auto, nextServer.name))
-            startSpeedTicker(nextServer.name)
-            updateTileState()
-            NexusAppWidgetProvider.updateAllWidgets(this)
-        } catch (_: Throwable) {
-            // If failover failed, let watchdog retry on next cycle
-        }
+        watchdogJob = null
     }
 
     private fun buildTun(store: Store): ParcelFileDescriptor? {

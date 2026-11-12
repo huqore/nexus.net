@@ -35,6 +35,9 @@ import androidx.compose.ui.text.font.FontWeight
 import net.nexus.app.R
 import net.nexus.app.data.AppFont
 import net.nexus.app.data.AppTheme
+import net.nexus.app.data.DesignStyle
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.luminance
 
 enum class Tab { CONNECT, SERVERS, SETTINGS }
 
@@ -499,6 +502,67 @@ fun rememberSecretRgbPalette(): NexusColorPalette {
     )
 }
 
+/** Live colours of the user's custom theme (pushed from Settings by NexusTheme). */
+object CustomThemeColors {
+    var accent by mutableStateOf(Color(0xFF8B5CF6))
+    var bg by mutableStateOf(Color(0xFF0A0812))
+}
+
+/** Builds a full palette from just an accent and a background colour (dark or light). */
+fun customPalette(accent: Color, bg: Color): NexusColorPalette {
+    val light = bg.luminance() > 0.5f
+    val ink = if (light) Color.Black else Color.White
+    val text = if (light) Color(0xFF16141C) else Color(0xFFF2F0F7)
+    fun l(a: Color, b: Color, t: Float) = androidx.compose.ui.graphics.lerp(a, b, t)
+    val card = l(l(bg, ink, if (light) 0.035f else 0.055f), accent, 0.06f)
+    val chip = l(l(bg, ink, if (light) 0.07f else 0.10f), accent, 0.10f)
+    return NexusColorPalette(
+        bg = bg,
+        card = card,
+        cardBorder = accent.copy(alpha = if (light) 0.40f else 0.35f),
+        chip = chip,
+        iconBtn = chip,
+        accent = accent,
+        accentDim = l(bg, accent, if (light) 0.22f else 0.30f),
+        accentLight = if (light) l(accent, Color.Black, 0.25f) else l(accent, Color.White, 0.55f),
+        text = text,
+        muted = l(text, bg, 0.45f),
+        muted2 = l(text, accent, 0.35f),
+        purple = l(accent, ink, 0.2f),
+        btnGradTop = l(bg, accent, if (light) 0.10f else 0.18f),
+        btnGradBottom = l(bg, ink, if (light) 0.02f else 0.03f),
+        sheetBg = l(bg, ink, 0.03f).copy(alpha = 0.97f),
+    )
+}
+
+/** AMOLED toggle: same theme on a pure-black background, cards only faintly lifted. */
+fun amoledVariant(p: NexusColorPalette): NexusColorPalette {
+    fun k(c: Color, t: Float) = androidx.compose.ui.graphics.lerp(Color.Black, c, t)
+    return p.copy(
+        bg = Color.Black,
+        card = k(p.card, 0.55f),
+        chip = k(p.chip, 0.75f),
+        iconBtn = k(p.iconBtn, 0.75f),
+        accentDim = k(p.accentDim, 0.8f),
+        btnGradTop = k(p.btnGradTop, 0.7f),
+        btnGradBottom = Color.Black,
+        sheetBg = Color.Black.copy(alpha = 0.97f),
+    )
+}
+
+/** Light-mode toggle: a light variant of the theme built from its accent. */
+fun lightVariant(p: NexusColorPalette): NexusColorPalette {
+    val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(p.accent.toArgb(), it) }
+    val bg = Color(android.graphics.Color.HSVToColor(floatArrayOf(hsv[0], 0.05f, 0.985f)))
+    // Bright accents (yellow, cyan, white-ish) get darker so they stay readable on white.
+    val accent = if (p.accent.luminance() > 0.45f) androidx.compose.ui.graphics.lerp(p.accent, Color.Black, 0.32f) else p.accent
+    return customPalette(accent, bg).copy(
+        yellow = Color(0xFFB7791F),
+        green = Color(0xFF15803D),
+        red = Color(0xFFDC2626),
+    )
+}
+
 fun AppTheme.palette(): NexusColorPalette = when (this) {
     AppTheme.BASE -> BaseThemeColors
     AppTheme.AMOLED_BLACK -> AmoledBlackThemeColors
@@ -513,6 +577,7 @@ fun AppTheme.palette(): NexusColorPalette = when (this) {
     AppTheme.WINTER -> WinterBaseThemeColors
     AppTheme.RGB -> RgbBaseThemeColors
     AppTheme.SECRET_RGB -> RgbBaseThemeColors
+    AppTheme.CUSTOM -> customPalette(CustomThemeColors.accent, CustomThemeColors.bg)
 }
 
 @Composable
@@ -521,6 +586,11 @@ fun rememberThemePalette(theme: AppTheme, context: Context): NexusColorPalette {
         AppTheme.HOME_SCREEN -> rememberDynamicPalette(context)
         AppTheme.RGB -> rememberRgbPalette()
         AppTheme.SECRET_RGB -> rememberSecretRgbPalette()
+        AppTheme.CUSTOM -> {
+            val a = CustomThemeColors.accent
+            val b = CustomThemeColors.bg
+            remember(a, b) { customPalette(a, b) }
+        }
         else -> theme.palette()
     }
 }
@@ -529,24 +599,100 @@ fun rememberThemePalette(theme: AppTheme, context: Context): NexusColorPalette {
 object NX {
     var palette by mutableStateOf(BaseThemeColors)
 
-    val bg: Color get() = palette.bg
-    val card: Color get() = palette.card
-    val cardBorder: Color get() = palette.cardBorder
-    val chip: Color get() = palette.chip
-    val iconBtn: Color get() = palette.iconBtn
-    val accent: Color get() = palette.accent
-    val accentDim: Color get() = palette.accentDim
-    val accentLight: Color get() = palette.accentLight
-    val text: Color get() = palette.text
-    val muted: Color get() = palette.muted
-    val muted2: Color get() = palette.muted2
+    /** Visual language (Fluent / Material 3 / Liquid Glass) layered on top of the colour theme. */
+    var style by mutableStateOf(DesignStyle.FLUENT)
+
+    /** MD3 tonal roles for the current palette; recomputed only when the palette changes. */
+    private var tonesFor: NexusColorPalette? = null
+    private var tonesCache: Md3Tones? = null
+    /** Set by NexusTheme for Material You (wallpaper dynamic colour); null = derive from palette. */
+    var md3Override: Md3Tones? by mutableStateOf(null)
+
+    val md3: Md3Tones
+        get() {
+            md3Override?.let { return it }
+            val p = palette
+            if (tonesFor !== p || tonesCache == null) {
+                tonesCache = md3TonesFor(p)
+                tonesFor = p
+            }
+            return tonesCache!!
+        }
+
+    val isLightTheme: Boolean get() = palette.bg.luminance() > 0.5f
+
+    val bg: Color get() = when (style) {
+        DesignStyle.MATERIAL3 -> md3.surface
+        else -> palette.bg
+    }
+    val card: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.card
+        DesignStyle.MATERIAL3 -> md3.surfaceContainerLow
+        DesignStyle.LIQUID_GLASS -> Glass.fill(isLightTheme, 0)
+    }
+    val cardBorder: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.cardBorder
+        DesignStyle.MATERIAL3 -> md3.outlineVariant
+        DesignStyle.LIQUID_GLASS -> Color.White.copy(alpha = if (isLightTheme) 0.7f else 0.16f)
+    }
+    val chip: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.chip
+        DesignStyle.MATERIAL3 -> md3.surfaceContainerHigh
+        DesignStyle.LIQUID_GLASS -> Glass.fill(isLightTheme, 1)
+    }
+    val iconBtn: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.iconBtn
+        DesignStyle.MATERIAL3 -> md3.surfaceContainerHighest
+        DesignStyle.LIQUID_GLASS -> Glass.fill(isLightTheme, 2)
+    }
+    val accent: Color get() = if (style == DesignStyle.MATERIAL3) md3.primary else palette.accent
+
+    /** Fill/outline of a selected list item (server row, option) in the current style. */
+    val selectedFill: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.accentDim
+        DesignStyle.MATERIAL3 -> md3.secondaryContainer
+        DesignStyle.LIQUID_GLASS -> Color.White.copy(alpha = if (isLightTheme) 0.75f else 0.15f)
+    }
+    val selectedBorder: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.accent.copy(alpha = 0.45f)
+        DesignStyle.MATERIAL3 -> Color.Transparent
+        DesignStyle.LIQUID_GLASS -> Color.White.copy(alpha = if (isLightTheme) 0.9f else 0.38f)
+    }
+    /** Content on an accent-filled control (M3: onPrimary; other styles: white as before). */
+    val onAccent: Color get() = if (style == DesignStyle.MATERIAL3) md3.onPrimary else Color.White
+    val accentDim: Color get() = if (style == DesignStyle.MATERIAL3) md3.secondaryContainer else palette.accentDim
+    val accentLight: Color get() = if (style == DesignStyle.MATERIAL3) md3.primary else palette.accentLight
+    val text: Color get() = if (style == DesignStyle.MATERIAL3) md3.onSurface else palette.text
+    val muted: Color get() = when {
+        style == DesignStyle.MATERIAL3 -> md3.onSurfaceVariant
+        // Over saturated glass the palette greys lose contrast; use translucent text colour instead.
+        style == DesignStyle.LIQUID_GLASS && !isLightTheme -> palette.text.copy(alpha = 0.66f)
+        else -> palette.muted
+    }
+    val muted2: Color get() = when {
+        style == DesignStyle.MATERIAL3 -> md3.onSurfaceVariant
+        style == DesignStyle.LIQUID_GLASS && !isLightTheme -> palette.text.copy(alpha = 0.82f)
+        else -> palette.muted2
+    }
     val yellow: Color get() = palette.yellow
     val green: Color get() = palette.green
     val red: Color get() = palette.red
     val purple: Color get() = palette.purple
-    val btnGradTop: Color get() = palette.btnGradTop
-    val btnGradBottom: Color get() = palette.btnGradBottom
-    val sheetBg: Color get() = palette.sheetBg
+    val btnGradTop: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.btnGradTop
+        DesignStyle.MATERIAL3 -> md3.surfaceContainerHigh
+        DesignStyle.LIQUID_GLASS -> Glass.fill(isLightTheme, 3)
+    }
+    val btnGradBottom: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.btnGradBottom
+        DesignStyle.MATERIAL3 -> md3.surfaceContainerHigh
+        DesignStyle.LIQUID_GLASS -> Glass.fill(isLightTheme, 0)
+    }
+    val sheetBg: Color get() = when (style) {
+        DesignStyle.FLUENT -> palette.sheetBg
+        DesignStyle.MATERIAL3 -> md3.surfaceContainerLow
+        DesignStyle.LIQUID_GLASS -> palette.bg.copy(alpha = 0.74f)
+    }
 }
 
 val RussoOneFamily = FontFamily(
@@ -582,10 +728,40 @@ fun NexusTheme(
     fontScale: Float = 0.85f,
     appTheme: AppTheme = AppTheme.BASE,
     appFont: AppFont = AppFont.RUSSO_ONE,
+    designStyle: DesignStyle = DesignStyle.FLUENT,
+    customAccent: Int = 0xFF8B5CF6.toInt(),
+    customBg: Int = 0xFF0A0812.toInt(),
+    amoled: Boolean = false,
+    lightMode: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val ctx = LocalContext.current
-    NX.palette = rememberThemePalette(appTheme, ctx)
+    CustomThemeColors.accent = Color(customAccent)
+    CustomThemeColors.bg = Color(customBg)
+    val basePalette = rememberThemePalette(appTheme, ctx)
+    NX.palette = when {
+        lightMode -> remember(basePalette) { lightVariant(basePalette) }
+        amoled -> remember(basePalette) { amoledVariant(basePalette) }
+        else -> basePalette
+    }
+    // Status-bar icons must be dark on the light theme.
+    val view = androidx.compose.ui.platform.LocalView.current
+    val lightBars = NX.palette.bg.luminance() > 0.5f
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
+            androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = lightBars
+                isAppearanceLightNavigationBars = lightBars
+            }
+        }
+    }
+    NX.style = designStyle
+    // Material You: with the wallpaper colour theme on Android 12+, use the system dynamic scheme.
+    val dynamicScheme = if (designStyle == DesignStyle.MATERIAL3 && appTheme == AppTheme.HOME_SCREEN &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    ) remember(ctx) { runCatching { dynamicDarkColorScheme(ctx) }.getOrNull() } else null
+    NX.md3Override = dynamicScheme?.let { md3TonesFrom(it, light = false) }
     val density = LocalDensity.current
     val customDensity = Density(
         density = density.density,
@@ -605,24 +781,36 @@ fun NexusTheme(
         LocalDensity provides customDensity,
         LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = activeFontFamily)
     ) {
-        MaterialTheme(
-            colorScheme = darkColorScheme(
-                primary = NX.accent,
-                onPrimary = if (appTheme == AppTheme.WHITE_SCREEN) Color.Black else Color.White,
-                background = NX.bg,
-                onBackground = NX.text,
-                surface = NX.card,
-                onSurface = NX.text,
-                surfaceVariant = NX.iconBtn,
-                onSurfaceVariant = NX.muted,
-                outline = NX.cardBorder,
-            ),
-            typography = typography
-        ) {
+        val scheme = if (designStyle == DesignStyle.MATERIAL3) NX.md3.toColorScheme() else darkColorScheme(
+            primary = NX.accent,
+            onPrimary = if (appTheme == AppTheme.WHITE_SCREEN) Color.Black else Color.White,
+            background = NX.bg,
+            onBackground = NX.text,
+            surface = NX.card,
+            onSurface = NX.text,
+            surfaceVariant = NX.iconBtn,
+            onSurfaceVariant = NX.muted,
+            outline = NX.cardBorder,
+        )
+        MaterialTheme(colorScheme = scheme, typography = typography) {
             CompositionLocalProvider(
                 LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = activeFontFamily)
             ) {
-                Surface(color = NX.bg, modifier = Modifier.fillMaxSize()) { content() }
+                // ONE stable tree for every style: content() is always called from the same place,
+                // so switching style/theme keeps the current tab and settings sub-screen.
+                val glass = designStyle == DesignStyle.LIQUID_GLASS
+                val haze = remember { dev.chrisbanes.haze.HazeState() }
+                if (glass) GlassLightSensor()
+                CompositionLocalProvider(LocalGlassHaze provides (if (glass) haze else null)) {
+                    Box(Modifier.fillMaxSize()) {
+                        if (glass) GlassBackdrop(Modifier.glassSource(zIndex = 0f))
+                        Surface(
+                            color = if (glass) Color.Transparent else NX.bg,
+                            contentColor = NX.text,
+                            modifier = Modifier.fillMaxSize(),
+                        ) { content() }
+                    }
+                }
             }
         }
     }

@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import net.nexus.app.ui.glassSource
 import net.nexus.app.ui.*
 import net.nexus.app.vpn.NexusVpnService
 import net.nexus.app.vpn.VpnState
@@ -40,7 +41,12 @@ class MainActivity : AppCompatActivity() {
             NexusTheme(
                 fontScale = settings.fontScale,
                 appTheme = settings.appTheme,
-                appFont = settings.appFont
+                appFont = settings.appFont,
+                designStyle = settings.designStyle,
+                customAccent = settings.customAccent,
+                customBg = settings.customBg,
+                amoled = settings.amoledMode,
+                lightMode = settings.lightMode,
             ) {
                 val ctx = LocalContext.current
                 var tab by rememberSaveable { mutableStateOf(Tab.CONNECT) }
@@ -159,7 +165,7 @@ class MainActivity : AppCompatActivity() {
                                 }.using(SizeTransform(clip = false))
                             },
                             label = "tabTransition",
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize().glassSource(zIndex = 1f)
                         ) { currentTab ->
                             when (currentTab) {
                                 Tab.CONNECT -> ConnectScreen(vm, onToggle = ::toggleVpn, onAddServers = { tab = Tab.SERVERS })
@@ -170,6 +176,7 @@ class MainActivity : AppCompatActivity() {
                         FloatingNavBar(
                             selected = tab, onSelect = { tab = it },
                             modifier = Modifier.align(Alignment.BottomCenter),
+                            onSlideTick = { HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TICK) },
                         )
                     }
                     UpdateDialog(state = updateState, vm = vm)

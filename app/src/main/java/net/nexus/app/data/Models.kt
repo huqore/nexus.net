@@ -103,7 +103,9 @@ enum class AppTheme(val id: String, val title: String) {
     SAKURA("sakura", "sakura"),
     WINTER("winter", "winter"),
     RGB("rgb", "RGB"),
-    SECRET_RGB("secret_rgb", "Crazy RGB");
+    SECRET_RGB("secret_rgb", "Crazy RGB"),
+    /** User-made theme: accent + background chosen in Settings; palette derived from them. */
+    CUSTOM("custom", "custom");
 
     companion object {
         fun fromId(id: String?): AppTheme = entries.firstOrNull { it.id == id } ?: BASE
@@ -120,6 +122,26 @@ enum class AppIcon(val id: String, val title: String, val aliasName: String) {
 
     companion object {
         fun fromId(id: String?): AppIcon = entries.firstOrNull { it.id == id } ?: DEFAULT
+    }
+}
+
+/** Falling particles for the custom theme. */
+enum class CustomParticles(val id: String) {
+    NONE("none"), SAKURA("sakura"), SNOW("snow"), ASH("ash");
+
+    companion object {
+        fun fromId(id: String?): CustomParticles = entries.firstOrNull { it.id == id } ?: NONE
+    }
+}
+
+/** Overall visual language of the app, independent of the colour theme. */
+enum class DesignStyle(val id: String, val titleRes: Int, val subtitleRes: Int) {
+    FLUENT("fluent", net.nexus.app.R.string.style_fluent, net.nexus.app.R.string.style_fluent_sub),
+    MATERIAL3("material3", net.nexus.app.R.string.style_material3, net.nexus.app.R.string.style_material3_sub),
+    LIQUID_GLASS("liquid_glass", net.nexus.app.R.string.style_liquid_glass, net.nexus.app.R.string.style_liquid_glass_sub);
+
+    companion object {
+        fun fromId(id: String?): DesignStyle = entries.firstOrNull { it.id == id } ?: FLUENT
     }
 }
 
@@ -149,4 +171,13 @@ data class Settings(
     val use3dGlobe: Boolean = true,
     val themeGridMode: Boolean = true,
     val appSounds: Boolean = true,
+    val designStyle: DesignStyle = DesignStyle.FLUENT,
+    /** Custom theme colours (ARGB), used when appTheme == CUSTOM. */
+    val customAccent: Int = 0xFF8B5CF6.toInt(),
+    val customBg: Int = 0xFF0A0812.toInt(),
+    val customParticles: CustomParticles = CustomParticles.NONE,
+    /** AMOLED: pure-black background for any colour theme (replaces the old "amoled black" theme). */
+    val amoledMode: Boolean = false,
+    /** Light mode: a light variant of any colour theme. Mutually exclusive with AMOLED. */
+    val lightMode: Boolean = false,
 )

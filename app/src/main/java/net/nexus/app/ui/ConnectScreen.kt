@@ -128,7 +128,7 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
     val allServers = remember(providers) { providers.flatMap { it.servers } }
     val selected = remember(allServers, isAuto, activeId, settings.selectedServerId) {
         if (isAuto) {
-            allServers.firstOrNull { it.id == activeId } ?: Store(ctx).findBestServer()
+            allServers.firstOrNull { it.id == activeId } ?: Store(ctx).peekAutoServer()
         } else {
             allServers.firstOrNull { it.id == settings.selectedServerId }
         }
@@ -226,6 +226,12 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             AppTheme.SAKURA -> SakuraPetalsOverlay()
             AppTheme.WINTER -> WinterSnowOverlay()
             AppTheme.SECRET_RGB -> SecretBunnyCatOverlay()
+            AppTheme.CUSTOM -> when (settings.customParticles) {
+                net.nexus.app.data.CustomParticles.SAKURA -> SakuraPetalsOverlay()
+                net.nexus.app.data.CustomParticles.SNOW -> WinterSnowOverlay()
+                net.nexus.app.data.CustomParticles.ASH -> AshEmbersOverlay()
+                net.nexus.app.data.CustomParticles.NONE -> Unit
+            }
             else -> Unit
         }
 
@@ -233,10 +239,13 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
             Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // Adaptive: shorter phones get a smaller power button so nothing slides under the bottom bar.
+            // Same grid in every style (owner's rule): only materials/colours differ.
+            val buttonSize = 240.dp
             Spacer(Modifier.height(32.dp))
             Header()
             Spacer(Modifier.weight(1f))
-            PowerButton(status = status, isSecretRgb = settings.appTheme == AppTheme.SECRET_RGB) {
+            PowerButton(status = status, isSecretRgb = settings.appTheme == AppTheme.SECRET_RGB, buttonSize = buttonSize) {
                 HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
                 if (settings.appTheme == AppTheme.SECRET_RGB) {
                     SoundManager.playCatPaw(settings.appSounds)
@@ -278,7 +287,9 @@ fun ConnectScreen(vm: MainViewModel, onToggle: () -> Unit, onAddServers: () -> U
                 )
             }
 
-            Spacer(Modifier.height(112.dp)) // room for the bottom bar
+            // Room for the bottom bar. Floating docks (Material You / Liquid Glass) sit higher than
+            // Fluent's edge bar, so they need extra clearance to keep a clean gap above them.
+            Spacer(Modifier.height(if (NX.style == net.nexus.app.data.DesignStyle.FLUENT) 112.dp else 134.dp))
         }
 
         // In-App Expiry Notification floating smoothly from top
@@ -331,7 +342,7 @@ private fun Header() {
 }
 
 @Composable
-private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, onClick: () -> Unit) {
+private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, buttonSize: androidx.compose.ui.unit.Dp = 240.dp, onClick: () -> Unit) {
     val connected = status == VpnStatus.CONNECTED
     val connecting = status == VpnStatus.CONNECTING
     val interactionSource = remember { MutableInteractionSource() }
@@ -343,22 +354,14 @@ private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, onClick
         label = "powerButtonPress"
     )
 
-    val spin = rememberInfiniteTransition(label = "spin")
-    val angle by spin.animateFloat(
-        0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "angle",
-    )
-    val breathePulse by spin.animateFloat(
-        0.75f, 1.0f, infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breathePulse",
-    )
-    val wave1 by spin.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "wave1",
-    )
-    val wave2 by spin.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(2600, delayMillis = 1300, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "wave2",
-    )
-    val rippleProgress by spin.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart), label = "ripple",
-    )
+    // Infinite animations only while they are visible (connected/connecting). When the VPN is
+    // off the button is static, so the screen is not redrawn 60 times a second for nothing.
+    val anim = rememberPowerButtonAnim(active = connected || connecting)
+    val angle by anim.angle
+    val breathePulse by anim.breathe
+    val wave1 by anim.wave1
+    val wave2 by anim.wave2
+    val rippleProgress by anim.ripple
 
     val targetRingAlpha = when {
         connected -> 1f
@@ -378,12 +381,13 @@ private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, onClick
         label = "ringColor"
     )
 
+    val expressive = NX.style == net.nexus.app.data.DesignStyle.MATERIAL3
     val iconTint by animateColorAsState(
         when (status) {
-            VpnStatus.CONNECTED -> Color.White
+            VpnStatus.CONNECTED -> if (expressive) NX.md3.onPrimary else Color.White
             VpnStatus.CONNECTING -> NX.yellow
             VpnStatus.ERROR -> NX.red
-            VpnStatus.DISCONNECTED -> NX.muted2
+            VpnStatus.DISCONNECTED -> if (expressive) NX.md3.onSecondaryContainer else NX.muted2
         },
         tween(350),
         label = "iconTint"
@@ -397,7 +401,7 @@ private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, onClick
 
     Box(
         Modifier
-            .size(240.dp)
+            .size(buttonSize)
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
@@ -409,6 +413,7 @@ private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, onClick
             ),
         contentAlignment = Alignment.Center,
     ) {
+        if (NX.style == net.nexus.app.data.DesignStyle.MATERIAL3 && !isSecretRgb) ExpressivePowerShape(connected, connecting, angle, breathePulse) else
         Canvas(Modifier.fillMaxSize()) {
             val outer = size.minDimension / 2
             val stroke = 7.dp.toPx()
@@ -516,13 +521,16 @@ private fun StatusLabel(status: VpnStatus) {
 
     val animatedColor by animateColorAsState(color, tween(350), label = "statusColor")
 
-    val dotPulseTransition = rememberInfiniteTransition(label = "dotPulse")
-    val dotPulseScale by dotPulseTransition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.35f,
-        animationSpec = infiniteRepeatable(tween(750, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "dotPulseScale"
-    )
+    // Pulse only while connecting; otherwise no infinite animation (and no constant recomposition).
+    val dotPulseScale = if (status == VpnStatus.CONNECTING) {
+        val dotPulseTransition = rememberInfiniteTransition(label = "dotPulse")
+        dotPulseTransition.animateFloat(
+            initialValue = 0.85f,
+            targetValue = 1.35f,
+            animationSpec = infiniteRepeatable(tween(750, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "dotPulseScale"
+        ).value
+    } else 1f
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
@@ -551,12 +559,12 @@ private fun SessionTimerBadge(
     duration: String,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = nxCardShape(16.dp)
     Row(
         modifier = modifier
             .clip(shape)
             .background(NX.card.copy(alpha = 0.85f))
-            .border(1.dp, NX.cardBorder, shape)
+            .nxBorder(shape)
             .padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -602,7 +610,7 @@ private fun ServerCard(
             }
             .clip(shape)
             .background(NX.card)
-            .border(1.dp, NX.cardBorder, shape)
+            .nxBorder(shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -677,7 +685,7 @@ private fun InfoTile(
             }
             .clip(shape)
             .background(NX.card)
-            .border(1.dp, NX.cardBorder, shape)
+            .nxBorder(shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -854,6 +862,97 @@ private fun InAppSubscriptionNotification(
                     contentDescription = "Close",
                     tint = NX.muted2,
                     modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
+}
+
+private class PowerButtonAnim(
+    val angle: androidx.compose.runtime.State<Float>,
+    val breathe: androidx.compose.runtime.State<Float>,
+    val wave1: androidx.compose.runtime.State<Float>,
+    val wave2: androidx.compose.runtime.State<Float>,
+    val ripple: androidx.compose.runtime.State<Float>,
+)
+
+private val StaticPowerButtonAnim = PowerButtonAnim(
+    angle = androidx.compose.runtime.mutableFloatStateOf(0f),
+    breathe = androidx.compose.runtime.mutableFloatStateOf(1f),
+    wave1 = androidx.compose.runtime.mutableFloatStateOf(1f),
+    wave2 = androidx.compose.runtime.mutableFloatStateOf(1f),
+    ripple = androidx.compose.runtime.mutableFloatStateOf(1f),
+)
+
+@Composable
+private fun rememberPowerButtonAnim(active: Boolean): PowerButtonAnim {
+    if (!active) return StaticPowerButtonAnim
+    val spin = rememberInfiniteTransition(label = "spin")
+    return PowerButtonAnim(
+        angle = spin.animateFloat(0f, 360f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "angle"),
+        breathe = spin.animateFloat(0.75f, 1.0f, infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breathePulse"),
+        wave1 = spin.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "wave1"),
+        wave2 = spin.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, delayMillis = 1300, easing = FastOutSlowInEasing), RepeatMode.Restart), label = "wave2"),
+        ripple = spin.animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart), label = "ripple"),
+    )
+}
+
+
+/**
+ * M3 Expressive power button: a 12-lobe "cookie" shape from the Expressive shape library.
+ * Off: calm tonal surface. Connecting: lobes breathe and spin. Connected: primaryContainer,
+ * slow rotation and a soft primary glow.
+ */
+@Composable
+private fun ExpressivePowerShape(connected: Boolean, connecting: Boolean, angle: Float, pulse: Float) {
+    val fill by animateColorAsState(
+        when {
+            connected -> NX.md3.primary
+            connecting -> NX.md3.primaryContainer
+            else -> NX.md3.secondaryContainer
+        },
+        tween(450), label = "cookieFill",
+    )
+    val lobe by animateFloatAsState(if (connected) 0.075f else if (connecting) 0.05f + 0.04f * pulse else 0.06f, tween(400), label = "cookieLobe")
+    // Own continuous rotation (the ring's 1.1 s spinner wraps 360->0, which made the cookie jump).
+    // Slow while connected, faster while connecting, still when off.
+    val spinning = connected || connecting
+    val cookieTurn = if (spinning) {
+        rememberInfiniteTransition(label = "cookieSpin").animateFloat(
+            0f, 360f,
+            infiniteRepeatable(tween(if (connecting) 4_000 else 24_000, easing = LinearEasing), RepeatMode.Restart),
+            label = "cookieTurn",
+        ).value
+    } else 0f
+    val glow = NX.md3.primary
+    Canvas(Modifier.fillMaxSize()) {
+        val outer = size.minDimension / 2
+        val base = outer - 14.dp.toPx()
+        if (connected) {
+            drawCircle(
+                Brush.radialGradient(listOf(glow.copy(alpha = 0.28f * pulse), Color.Transparent), radius = outer * 1.15f),
+                radius = outer * 1.15f,
+            )
+        }
+        val rot = cookieTurn
+        val path = androidx.compose.ui.graphics.Path()
+        val steps = 240
+        for (k in 0..steps) {
+            val t = (k.toFloat() / steps) * (2f * Math.PI.toFloat())
+            val rr = base * (1f + lobe * kotlin.math.cos(12f * t))
+            val x = center.x + rr * kotlin.math.cos(t)
+            val y = center.y + rr * kotlin.math.sin(t)
+            if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        rotate(rot) { drawPath(path, fill) }
+        if (connecting) {
+            rotate(angle) {
+                drawArc(
+                    color = NX.md3.primary, startAngle = 0f, sweepAngle = 90f, useCenter = false,
+                    topLeft = Offset(center.x - outer + 3.dp.toPx(), center.y - outer + 3.dp.toPx()),
+                    size = Size((outer - 3.dp.toPx()) * 2, (outer - 3.dp.toPx()) * 2),
+                    style = Stroke(4.dp.toPx(), cap = StrokeCap.Round),
                 )
             }
         }

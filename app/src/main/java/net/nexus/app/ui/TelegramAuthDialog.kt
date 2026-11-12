@@ -77,9 +77,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(28.dp))
-                .background(NX.card)
-                .border(1.dp, NX.cardBorder, RoundedCornerShape(28.dp))
+                .nxDialogSurface(RoundedCornerShape(28.dp))
                 .padding(24.dp)
         ) {
             Column(
@@ -168,7 +166,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = NX.accent,
-                                contentColor = Color.White
+                                contentColor = NX.onAccent
                             ),
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth().height(50.dp)
@@ -301,7 +299,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                             onClick = { vm.dismissTelegramAuthDialog() },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = NX.accent,
-                                contentColor = Color.White
+                                contentColor = NX.onAccent
                             ),
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -357,7 +355,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                                 colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
                                 shape = RoundedCornerShape(14.dp)
                             ) {
-                                Text("Повторить", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Повторить", color = NX.onAccent, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

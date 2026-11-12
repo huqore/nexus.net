@@ -47,6 +47,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -92,6 +93,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -156,9 +158,9 @@ enum class SettingsSubscreen {
 }
 
 @Composable
-fun SettingsScreen(vm: MainViewModel) {
+fun SettingsScreen(vm: MainViewModel, initialSubscreen: SettingsSubscreen = SettingsSubscreen.MAIN) {
     val s by vm.settings.collectAsState()
-    var subscreen by remember { mutableStateOf(SettingsSubscreen.MAIN) }
+    var subscreen by rememberSaveable { mutableStateOf(initialSubscreen) }
 
     // Hoisted scroll states to preserve exact scroll position across navigation
     val mainListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
@@ -305,7 +307,7 @@ private fun MainSettingsList(
                         Button(
                             onClick = { vm.startTelegramAuth() },
                             colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = nxButtonShape(14.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(
@@ -586,12 +588,12 @@ private fun MainSettingsList(
                             Button(
                                 onClick = { vm.syncTelegramSubscription() },
                                 colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
-                                shape = RoundedCornerShape(14.dp),
+                                shape = nxButtonShape(14.dp),
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !isSyncing && syncCooldown == 0
                             ) {
                                 if (isSyncing) {
-                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NX.onAccent, strokeWidth = 2.dp)
                                     Spacer(Modifier.width(8.dp))
                                 } else {
                                     Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -636,7 +638,7 @@ private fun MainSettingsList(
                 SplitMode.BYPASS -> stringResource(R.string.split_bypass_selected) + ": ${settings.splitApps.size}"
                 SplitMode.ONLY -> stringResource(R.string.split_only_selected) + ": ${settings.splitApps.size}"
             }
-            Section(stringResource(R.string.settings_section_conn)) {
+            Section(stringResource(R.string.settings_section_conn), segmented = true) {
                 LinkRow(
                     icon = Icons.Filled.Dns,
                     title = stringResource(R.string.settings_section_conn),
@@ -653,7 +655,7 @@ private fun MainSettingsList(
                 "en" -> stringResource(R.string.lang_en)
                 else -> stringResource(R.string.lang_system)
             }
-            Section(stringResource(R.string.settings_section_appearance)) {
+            Section(stringResource(R.string.settings_section_appearance), segmented = true) {
                 LinkRow(
                     icon = Icons.Filled.Palette,
                     title = stringResource(R.string.settings_section_appearance),
@@ -665,8 +667,8 @@ private fun MainSettingsList(
 
         // 4) ССЫЛКИ
         item {
-            Section(stringResource(R.string.links_title)) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Section(stringResource(R.string.links_title), segmented = true) {
+                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(8.dp))) {
                     LinkRow(
                         icon = Icons.AutoMirrored.Filled.Send,
                         title = stringResource(R.string.link_bot),
@@ -717,12 +719,7 @@ private fun MainSettingsList(
                         Switch(
                             checked = settings.autoCheckUpdates,
                             onCheckedChange = { vm.setAutoCheckUpdates(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = NX.accent,
-                                uncheckedThumbColor = NX.muted,
-                                uncheckedTrackColor = NX.iconBtn,
-                            )
+                            colors = nxSwitchColors(NX.iconBtn)
                         )
                     }
 
@@ -736,7 +733,7 @@ private fun MainSettingsList(
                         },
                         enabled = updateState !is UpdateState.Checking && updateState !is UpdateState.Downloading,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = nxButtonShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (updateState is UpdateState.Available) NX.accent else NX.chip,
                             contentColor = if (updateState is UpdateState.Available) Color.White else NX.text,
@@ -1112,12 +1109,7 @@ private fun ConnectionSettingsScreen(
                         Switch(
                             checked = settings.autoConnectOnBoot,
                             onCheckedChange = { vm.setAutoConnectOnBoot(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = NX.accent,
-                                uncheckedThumbColor = NX.muted,
-                                uncheckedTrackColor = NX.cardBorder
-                            )
+                            colors = nxSwitchColors(NX.cardBorder)
                         )
                     }
 
@@ -1145,12 +1137,7 @@ private fun ConnectionSettingsScreen(
                         Switch(
                             checked = settings.killSwitch,
                             onCheckedChange = { vm.setKillSwitch(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = NX.accent,
-                                uncheckedThumbColor = NX.muted,
-                                uncheckedTrackColor = NX.cardBorder
-                            )
+                            colors = nxSwitchColors(NX.cardBorder)
                         )
                     }
 
@@ -1181,12 +1168,7 @@ private fun ConnectionSettingsScreen(
                         Switch(
                             checked = settings.blockAds,
                             onCheckedChange = { vm.setBlockAds(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = NX.accent,
-                                uncheckedThumbColor = NX.muted,
-                                uncheckedTrackColor = NX.cardBorder
-                            )
+                            colors = nxSwitchColors(NX.cardBorder)
                         )
                     }
                 }
@@ -1208,6 +1190,20 @@ private fun AppearanceSettingsScreen(
     val ctx = LocalContext.current
     val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags().substringBefore('-')
     var iconExpanded by remember { mutableStateOf(false) }
+    var showCustomEditor by remember { mutableStateOf(false) }
+    if (showCustomEditor) {
+        CustomThemeEditor(
+            initialAccent = settings.customAccent,
+            initialBg = settings.customBg,
+            initialParticles = settings.customParticles,
+            onDismiss = { showCustomEditor = false },
+            onApply = { accent, bg, particles ->
+                HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                vm.setCustomTheme(accent, bg, particles)
+                showCustomEditor = false
+            },
+        )
+    }
 
     LazyColumn(
         state = listState,
@@ -1221,10 +1217,20 @@ private fun AppearanceSettingsScreen(
             SubscreenHeader(title = stringResource(R.string.settings_section_appearance), onBack = onBack)
         }
 
+        // 0: Стиль оформления (Fluent / Material 3 / Liquid Glass)
+        item {
+            Section(stringResource(R.string.appearance_style_title)) {
+                DesignStylePicker(selected = settings.designStyle) { style ->
+                    HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
+                    vm.setDesignStyle(style)
+                }
+            }
+        }
+
         // 1: Язык
         item {
-            Section(stringResource(R.string.settings_language)) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Section(stringResource(R.string.settings_language), segmented = true) {
+                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(6.dp))) {
                     RadioRow(currentLang.isEmpty(), stringResource(R.string.lang_system)) {
                         AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
                         (ctx as? android.app.Activity)?.recreate()
@@ -1243,8 +1249,8 @@ private fun AppearanceSettingsScreen(
 
         // 2: Шрифт приложения
         item {
-            Section(stringResource(R.string.appearance_font_title)) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Section(stringResource(R.string.appearance_font_title), segmented = true) {
+                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(6.dp))) {
                     RadioRow(settings.appFont == AppFont.RUSSO_ONE, stringResource(R.string.font_russo_one)) {
                         HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
                         vm.setAppFont(AppFont.RUSSO_ONE)
@@ -1259,8 +1265,8 @@ private fun AppearanceSettingsScreen(
 
         // 2: Вибрация
         item {
-            Section(stringResource(R.string.settings_haptics_label)) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Section(stringResource(R.string.settings_haptics_label), segmented = true) {
+                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(6.dp))) {
                     RadioRow(settings.hapticIntensity == HapticIntensity.OFF, stringResource(R.string.haptic_off)) {
                         vm.setHapticIntensity(HapticIntensity.OFF)
                     }
@@ -1311,12 +1317,7 @@ private fun AppearanceSettingsScreen(
                             vm.setAppSounds(it)
                             if (it) SoundManager.playConnect(true)
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = NX.accent,
-                            uncheckedThumbColor = NX.muted,
-                            uncheckedTrackColor = NX.iconBtn,
-                        )
+                        colors = nxSwitchColors(NX.iconBtn)
                     )
                 }
             }
@@ -1353,12 +1354,7 @@ private fun AppearanceSettingsScreen(
                                 HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
                                 vm.setThemeGridMode(isChecked)
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = NX.accent,
-                                uncheckedThumbColor = NX.muted,
-                                uncheckedTrackColor = NX.cardBorder
-                            ),
+                            colors = nxSwitchColors(NX.cardBorder),
                             modifier = Modifier.scale(0.8f)
                         )
                         Icon(
@@ -1380,8 +1376,25 @@ private fun AppearanceSettingsScreen(
                     }
                 }
             ) {
+                // Background modes for any colour scheme (AMOLED replaced the old "amoled black" theme).
+                ThemeModeToggle(
+                    title = stringResource(R.string.appearance_amoled_toggle),
+                    subtitle = stringResource(R.string.appearance_amoled_sub),
+                    checked = settings.amoledMode,
+                ) {
+                    HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
+                    vm.setAmoledMode(it)
+                }
+                ThemeModeToggle(
+                    title = stringResource(R.string.appearance_light_toggle),
+                    subtitle = stringResource(R.string.appearance_light_sub),
+                    checked = settings.lightMode,
+                ) {
+                    HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
+                    vm.setLightMode(it)
+                }
                 if (settings.themeGridMode) {
-                    val themes = remember { AppTheme.entries.filter { it != AppTheme.SECRET_RGB } }
+                    val themes = remember { AppTheme.entries.filter { it != AppTheme.SECRET_RGB && it != AppTheme.AMOLED_BLACK } }
                     val rows = remember(themes) { themes.chunked(3) }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         rows.forEach { rowThemes ->
@@ -1397,7 +1410,7 @@ private fun AppearanceSettingsScreen(
                                         selected = settings.appTheme == theme,
                                         onClick = {
                                             HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
-                                            vm.setAppTheme(theme)
+                                            if (theme == AppTheme.CUSTOM) showCustomEditor = true else vm.setAppTheme(theme)
                                         }
                                     )
                                 }
@@ -1408,7 +1421,7 @@ private fun AppearanceSettingsScreen(
                         }
                     }
                 } else {
-                    val listThemes = remember { AppTheme.entries.filter { it != AppTheme.SECRET_RGB } }
+                    val listThemes = remember { AppTheme.entries.filter { it != AppTheme.SECRET_RGB && it != AppTheme.AMOLED_BLACK } }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         listThemes.forEach { theme ->
                             ThemeOptionRow(
@@ -1417,7 +1430,7 @@ private fun AppearanceSettingsScreen(
                                 selected = settings.appTheme == theme,
                                 onClick = {
                                     HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
-                                    vm.setAppTheme(theme)
+                                    if (theme == AppTheme.CUSTOM) showCustomEditor = true else vm.setAppTheme(theme)
                                 }
                             )
                         }
@@ -1543,14 +1556,56 @@ private fun SubscreenHeader(title: String, onBack: () -> Unit) {
 private fun Section(
     title: String,
     headerAction: (@Composable () -> Unit)? = null,
+    segmented: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val m3 = NX.style == net.nexus.app.data.DesignStyle.MATERIAL3
+    if (m3) {
+        // Material 3 Expressive section: group header above the container.
+        Column(Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.1.sp,
+                    color = NX.md3.primary,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                headerAction?.invoke()
+            }
+            if (segmented) {
+                // Segmented list (M3 Expressive): 2dp-spaced segments, 4dp inner / 20dp outer corners.
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))) {
+                    CompositionLocalProvider(LocalSegmentedList provides true) { content() }
+                }
+            } else {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(NX.md3.surfaceContainer)
+                        .border(1.dp, NX.md3.outlineVariant, RoundedCornerShape(24.dp))
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) { content() }
+            }
+        }
+        return
+    }
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
+            .clip(nxCardShape(22.dp))
             .background(NX.card)
-            .border(1.dp, NX.cardBorder, RoundedCornerShape(22.dp))
+            .nxBorder(nxCardShape(22.dp))
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -1561,9 +1616,10 @@ private fun Section(
         ) {
             Text(
                 text = title,
+                // M3 list sub-header: titleSmall in primary.
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = NX.text,
+                color = if (m3) NX.accent else NX.text,
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis,
@@ -1577,6 +1633,7 @@ private fun Section(
 
 @Composable
 private fun RadioRow(selected: Boolean, label: String, onClick: () -> Unit) {
+    val segmentedM3 = LocalSegmentedList.current && NX.style == net.nexus.app.data.DesignStyle.MATERIAL3
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
@@ -1592,29 +1649,40 @@ private fun RadioRow(selected: Boolean, label: String, onClick: () -> Unit) {
                 scaleX = pressScale
                 scaleY = pressScale
             }
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) NX.chip else Color.Transparent)
+            .then(
+                if (segmentedM3) Modifier.m3Segment(selected)
+                else Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (selected) NX.chip else Color.Transparent)
+            )
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = if (NX.style == net.nexus.app.data.DesignStyle.MATERIAL3) androidx.compose.material3.ripple() else null,
                 onClick = onClick,
             )
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .heightIn(min = if (segmentedM3) 56.dp else 0.dp)
+            .padding(horizontal = if (segmentedM3) 16.dp else 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(
             selected = selected,
             onClick = null,
             colors = androidx.compose.material3.RadioButtonDefaults.colors(
-                selectedColor = NX.accent,
-                unselectedColor = NX.muted,
+                selectedColor = if (segmentedM3) NX.md3.onPrimaryContainer else NX.accent,
+                unselectedColor = if (segmentedM3) NX.md3.onSurfaceVariant else NX.muted,
             )
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(if (segmentedM3) 16.dp else 8.dp))
         Text(
             text = label,
-            fontSize = 14.sp,
-            color = if (selected) NX.text else NX.muted2,
+            fontSize = if (segmentedM3) 15.sp else 14.sp,
+            fontWeight = if (segmentedM3 && selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = when {
+                segmentedM3 && selected -> NX.md3.onPrimaryContainer
+                segmentedM3 -> NX.md3.onSurface
+                selected -> NX.text
+                else -> NX.muted2
+            },
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis
@@ -1644,32 +1712,48 @@ private fun LinkRow(
                 scaleX = pressScale
                 scaleY = pressScale
             }
-            .clip(RoundedCornerShape(14.dp))
-            .background(NX.cardBorder.copy(alpha = 0.25f))
+            .then(
+                when (NX.style) {
+                    // M3 list item inside an outlined card: no outline/fill of its own (the card
+                    // already has one), 56dp+ min height, state layer via ripple.
+                    net.nexus.app.data.DesignStyle.MATERIAL3 ->
+                        if (LocalSegmentedList.current) Modifier.m3Segment().heightIn(min = 64.dp)
+                        else Modifier.clip(RoundedCornerShape(14.dp)).background(NX.cardBorder.copy(alpha = 0.25f))
+                    net.nexus.app.data.DesignStyle.LIQUID_GLASS -> Modifier
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Glass.fill(NX.isLightTheme, 1))
+                        .nxBorder(RoundedCornerShape(18.dp), 0.8.dp)
+                    else -> Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(NX.cardBorder.copy(alpha = 0.25f))
+                }
+            )
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = if (NX.style == net.nexus.app.data.DesignStyle.MATERIAL3) androidx.compose.material3.ripple() else null,
                 onClick = onClick,
             )
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val m3 = NX.style == net.nexus.app.data.DesignStyle.MATERIAL3
+        val seg = m3 && LocalSegmentedList.current
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(if (seg) 40.dp else 36.dp)
                 .clip(CircleShape)
-                .background(NX.iconBtn),
+                .background(if (m3) NX.md3.secondaryContainer else NX.iconBtn),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = NX.accentLight,
-                modifier = Modifier.size(18.dp),
+                tint = if (m3) NX.md3.onSecondaryContainer else NX.accentLight,
+                modifier = Modifier.size(if (seg) 22.dp else 18.dp),
             )
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(if (seg) 16.dp else 12.dp))
 
         Column(Modifier.weight(1f)) {
             Text(
@@ -1904,7 +1988,7 @@ private fun ThemeCube(
 
     val shape = RoundedCornerShape(16.dp)
     val borderColor = if (selected) NX.accent else NX.cardBorder.copy(alpha = 0.6f)
-    val bgColor = if (selected) NX.accentDim.copy(alpha = 0.45f) else NX.chip.copy(alpha = 0.35f)
+    val bgColor = if (selected) NX.selectedFill else NX.chip.copy(alpha = 0.35f)
     val isLiveTheme = theme == AppTheme.HOME_SCREEN
 
     Column(
@@ -1972,7 +2056,7 @@ private fun ThemeCube(
                     Icon(
                         imageVector = Icons.Filled.Check,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = NX.onAccent,
                         modifier = Modifier.size(9.dp)
                     )
                 }
@@ -2063,7 +2147,7 @@ private fun LogoutConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val shape = RoundedCornerShape(26.dp)
+    val shape = nxCardShape(26.dp)
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -2076,9 +2160,7 @@ private fun LogoutConfirmationDialog(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
                 .fillMaxWidth()
-                .clip(shape)
-                .background(NX.card)
-                .border(1.dp, NX.cardBorder, shape)
+                .nxDialogSurface(shape)
                 .padding(24.dp)
         ) {
             Column(
@@ -2138,7 +2220,7 @@ private fun LogoutConfirmationDialog(
                     Button(
                         onClick = onConfirm,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = nxButtonShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = NX.red,
                             contentColor = Color.White
@@ -2156,7 +2238,7 @@ private fun LogoutConfirmationDialog(
                     OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = nxButtonShape(14.dp),
                         border = BorderStroke(1.dp, NX.cardBorder),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = NX.text
@@ -2173,5 +2255,123 @@ private fun LogoutConfirmationDialog(
                 }
             }
         }
+    }
+}
+
+/** Three live mini-previews of the design styles; tapping one applies it immediately. */
+@Composable
+private fun DesignStylePicker(selected: net.nexus.app.data.DesignStyle, onSelect: (net.nexus.app.data.DesignStyle) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            net.nexus.app.data.DesignStyle.entries.forEach { style ->
+                val isSel = style == selected
+                val borderColor by androidx.compose.animation.animateColorAsState(
+                    if (isSel) NX.accent else Color.Transparent, label = "stylePickBorder"
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .border(2.dp, borderColor, RoundedCornerShape(18.dp))
+                        .clickable { onSelect(style) }
+                        .padding(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    DesignStylePreview(style, Modifier.fillMaxWidth().height(96.dp))
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(style.titleRes),
+                        fontSize = 12.sp, softWrap = false, overflow = TextOverflow.Visible,
+                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSel) NX.accentLight else NX.text,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+        Text(
+            stringResource(selected.subtitleRes),
+            fontSize = 12.sp,
+            color = NX.muted,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun DesignStylePreview(style: net.nexus.app.data.DesignStyle, modifier: Modifier) {
+    val p = NX.palette
+    val tones = NX.md3
+    val shape = RoundedCornerShape(14.dp)
+    Box(modifier.clip(shape)) {
+        when (style) {
+            net.nexus.app.data.DesignStyle.FLUENT -> {
+                Box(Modifier.fillMaxSize().background(p.bg))
+                Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    repeat(3) { i ->
+                        Box(
+                            Modifier.fillMaxWidth(if (i == 2) 0.7f else 1f).height(18.dp)
+                                .clip(RoundedCornerShape(7.dp)).background(p.card)
+                                .border(1.dp, p.cardBorder, RoundedCornerShape(7.dp))
+                        )
+                    }
+                }
+            }
+            net.nexus.app.data.DesignStyle.MATERIAL3 -> {
+                Box(Modifier.fillMaxSize().background(tones.surface))
+                Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(11.dp)).background(tones.surfaceContainerHigh))
+                    Box(Modifier.fillMaxWidth().height(18.dp).clip(RoundedCornerShape(6.dp)).background(tones.surfaceContainer))
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Box(Modifier.width(30.dp).height(16.dp).clip(RoundedCornerShape(8.dp)).background(tones.primary))
+                        Box(Modifier.width(30.dp).height(16.dp).clip(RoundedCornerShape(8.dp)).background(tones.secondaryContainer))
+                    }
+                }
+            }
+            net.nexus.app.data.DesignStyle.LIQUID_GLASS -> {
+                androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                    drawRect(p.bg)
+                    drawCircle(
+                        androidx.compose.ui.graphics.Brush.radialGradient(listOf(p.accent.copy(alpha = 0.9f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, size.height * 0.25f), radius = size.minDimension * 0.9f),
+                        radius = size.minDimension * 0.9f, center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, size.height * 0.25f),
+                    )
+                    drawCircle(
+                        androidx.compose.ui.graphics.Brush.radialGradient(listOf(p.accentLight.copy(alpha = 0.8f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(size.width * 0.9f, size.height * 0.85f), radius = size.minDimension * 0.8f),
+                        radius = size.minDimension * 0.8f, center = androidx.compose.ui.geometry.Offset(size.width * 0.9f, size.height * 0.85f),
+                    )
+                }
+                Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    repeat(2) {
+                        Box(
+                            Modifier.fillMaxWidth().height(24.dp).clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.16f))
+                                .border(
+                                    1.dp,
+                                    androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f))),
+                                    RoundedCornerShape(12.dp),
+                                )
+                        )
+                    }
+                    Box(Modifier.width(44.dp).height(16.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.28f)))
+                }
+            }
+        }
+    }
+}
+
+
+/** Title + subtitle + switch row used for the AMOLED / light-theme toggles. */
+@Composable
+private fun ThemeModeToggle(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NX.text, maxLines = 1, softWrap = false)
+            Text(text = subtitle, fontSize = 12.sp, color = NX.muted2, lineHeight = 16.sp)
+        }
+        Switch(checked = checked, onCheckedChange = onChange, colors = nxSwitchColors(NX.iconBtn))
     }
 }
