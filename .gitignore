@@ -27,3 +27,6 @@ CODEX_TASK.md
 *.key
 
 
+
+# Promo videos / images (not part of the app)
+/marketing/
