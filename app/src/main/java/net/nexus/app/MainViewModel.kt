@@ -615,7 +615,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val user = telegramUser.value
                 if (user != null) {
                     val hwid = store.getOrCreateHwid()
-                    val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId)
+                    val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
                     if (!isValid) {
                         android.util.Log.w("NexusAuth", "Device was unlinked or kicked remotely! Revoking local session.")
                         revokeSession("Устройство отвязано от аккаунта")
@@ -629,7 +629,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val user = telegramUser.value ?: return
         viewModelScope.launch(Dispatchers.IO) {
             val hwid = store.getOrCreateHwid()
-            val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId)
+            val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
             if (!isValid) {
                 revokeSession("Устройство отвязано от аккаунта")
             } else {
@@ -780,7 +780,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         store.saveTelegramUser(finalUser)
 
         val hwid = store.getOrCreateHwid()
-        val hs = TelegramAuthManager.handshake(hwid, finalUser.cleanUsername, finalUser.telegramId, sessionToken = sessionToken)
+        val hs = TelegramAuthManager.handshake(hwid, finalUser.cleanUsername, finalUser.telegramId, sessionToken = sessionToken, appToken = finalUser.appToken)
         if (hs.success && hs.authenticated) {
             if (hs.user != null) {
                 finalUser = hs.user.copy(appToken = finalUser.appToken)
@@ -872,7 +872,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             isSyncingTelegram.value = true
             try {
                 val hwid = store.getOrCreateHwid()
-                var hs = TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId)
+                var hs = TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
                 if (hs.success && !hs.authenticated) {
                     revokeSession("Устройство отвязано от аккаунта")
                     return@launch

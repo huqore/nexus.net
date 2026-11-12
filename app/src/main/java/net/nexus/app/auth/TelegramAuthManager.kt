@@ -38,7 +38,8 @@ object TelegramAuthManager {
         hwid: String,
         username: String? = null,
         telegramId: Long? = null,
-        sessionToken: String? = null
+        sessionToken: String? = null,
+        appToken: String = ""
     ): HandshakeResult = withContext(Dispatchers.IO) {
         try {
             val cleanName = username?.removePrefix("@")?.removePrefix("nexus_")?.trim()
@@ -54,7 +55,7 @@ object TelegramAuthManager {
                 put("osVersion", "Android ${Build.VERSION.RELEASE ?: ""}".trim())
                 put("userAgent", "NEXUS.net App/${net.nexus.app.BuildConfig.VERSION_NAME} (Android; $deviceModel)")
             }
-            val resp = httpPost("https://nexus-net.xyz/api/v1/client/handshake", payload.toString())
+            val resp = httpPost("https://nexus-net.xyz/api/v1/client/handshake", payload.toString(), appToken = appToken)
                 ?: return@withContext HandshakeResult(success = false, authenticated = false, user = null, servers = emptyList())
             val json = JSONObject(resp)
             if (!json.optBoolean("success", false)) {
@@ -125,7 +126,8 @@ object TelegramAuthManager {
     suspend fun validateDeviceSession(
         hwid: String,
         username: String? = null,
-        telegramId: Long? = null
+        telegramId: Long? = null,
+        appToken: String = ""
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val cleanName = username?.removePrefix("@")?.removePrefix("nexus_")?.trim() ?: ""
@@ -133,7 +135,7 @@ object TelegramAuthManager {
             val encHwid = java.net.URLEncoder.encode(hwid, "UTF-8")
             val encUser = java.net.URLEncoder.encode(cleanName, "UTF-8")
             val url = "https://nexus-net.xyz/api/v1/client/session-check?hwid=$encHwid&username=$encUser&telegramId=$tgIdStr"
-            val resp = httpGet(url)
+            val resp = httpGet(url, appToken = appToken)
             val json = JSONObject(resp)
             if (json.optBoolean("kicked", false)) {
                 return@withContext false

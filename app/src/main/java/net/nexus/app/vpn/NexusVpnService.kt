@@ -252,7 +252,7 @@ class NexusVpnService : VpnService() {
             val hwid = store.getOrCreateHwid()
             if (user != null) {
                 runCatching {
-                    net.nexus.app.auth.TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId)
+                    net.nexus.app.auth.TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
                 }
             }
 
@@ -264,7 +264,8 @@ class NexusVpnService : VpnService() {
                     val valid = net.nexus.app.auth.TelegramAuthManager.validateDeviceSession(
                         hwid,
                         currentUser.cleanUsername,
-                        currentUser.telegramId
+                        currentUser.telegramId,
+                        appToken = currentUser.appToken
                     )
                     if (!valid) {
                         android.util.Log.w("NexusVPN", "Remote session revoked: stopping VPN")
