@@ -185,7 +185,7 @@ object TelegramAuthManager {
                 usedTrafficBytes = subObj?.optLong("usedTrafficBytes", 0L) ?: 0L,
                 trafficLimitBytes = subObj?.optLong("trafficLimitBytes", 0L) ?: 0L,
             )
-            WebLoginResult(success = true, token = token, user = user)
+            WebLoginResult(success = true, token = token, user = user.copy(appToken = json.optString("appToken", "")))
         } catch (e: Exception) {
             WebLoginResult(success = false, error = e.message ?: "Ошибка подключения")
         }
@@ -243,6 +243,7 @@ object TelegramAuthManager {
                 activeDevicesCount = subObj?.optInt("activeDevices", subObj.optInt("activeDevicesCount", 1))?.coerceAtLeast(1) ?: 1,
                 usedTrafficBytes = subObj?.optLong("usedTrafficBytes", 0L) ?: 0L,
                 trafficLimitBytes = subObj?.optLong("trafficLimitBytes", 0L) ?: 0L,
+                appToken = json.optString("appToken", ""),
             )
         }.getOrNull()
     }
@@ -254,7 +255,7 @@ object TelegramAuthManager {
         try {
             val clean = user.cleanUsername
             val url = "$AUTH_BASE_URL?action=refresh_user&username=$clean&telegramId=${user.telegramId}"
-            val resp = httpGet(url)
+            val resp = httpGet(url, appToken = user.appToken)
             val json = JSONObject(resp)
             if (json.optBoolean("success", false)) {
                 val uObj = json.optJSONObject("user") ?: return@withContext user
@@ -294,7 +295,7 @@ object TelegramAuthManager {
                 put("userAgent", "NEXUS.net App/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
             }
 
-            val resp = httpPost(AUTH_BASE_URL, payload.toString())
+            val resp = httpPost(AUTH_BASE_URL, payload.toString(), appToken = user.appToken)
             if (resp != null) {
                 val json = JSONObject(resp)
                 val success = json.optBoolean("success", false)
@@ -328,14 +329,14 @@ object TelegramAuthManager {
                 put("telegramId", user.telegramId)
                 put("hwid", hwid)
             }
-            val resp = httpPost(AUTH_BASE_URL, payload.toString())
+            val resp = httpPost(AUTH_BASE_URL, payload.toString(), appToken = user.appToken)
             resp != null && JSONObject(resp).optBoolean("success", false)
         } catch (_: Exception) {
             false
         }
     }
 
-    private fun httpGet(urlStr: String, timeoutMs: Int = 8_000): String {
+    private fun httpGet(urlStr: String, timeoutMs: Int = 8_000, appToken: String = ""): String {
         if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             connectTimeout = timeoutMs
@@ -343,6 +344,7 @@ object TelegramAuthManager {
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
             setRequestProperty("Accept", "application/json")
+            if (appToken.isNotBlank()) setRequestProperty("X-App-Token", appToken)
         }
         try {
             val code = conn.responseCode
@@ -353,7 +355,7 @@ object TelegramAuthManager {
         }
     }
 
-    private fun httpPost(urlStr: String, jsonBody: String): String? {
+    private fun httpPost(urlStr: String, jsonBody: String, appToken: String = ""): String? {
         if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
         val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -362,6 +364,7 @@ object TelegramAuthManager {
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
+            if (appToken.isNotBlank()) setRequestProperty("X-App-Token", appToken)
             setRequestProperty("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
         }
         return try {

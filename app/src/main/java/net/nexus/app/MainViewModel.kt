@@ -752,6 +752,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     expireAt = expireAt,
                     status = status,
                     devicesCount = devicesCount,
+                    appToken = json.optString("appToken", ""),
                 )
                 applyConfirmedTelegramUser(u)
             } catch (e: Exception) {
@@ -782,7 +783,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val hs = TelegramAuthManager.handshake(hwid, finalUser.cleanUsername, finalUser.telegramId, sessionToken = sessionToken)
         if (hs.success && hs.authenticated) {
             if (hs.user != null) {
-                finalUser = hs.user
+                finalUser = hs.user.copy(appToken = finalUser.appToken)
                 telegramUser.value = finalUser
                 store.saveTelegramUser(finalUser)
             }
@@ -895,7 +896,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
 
                 if (hs.success) {
-                    val activeUser = hs.user ?: user
+                    val activeUser = hs.user?.copy(appToken = user.appToken) ?: user
                     telegramUser.value = activeUser
                     store.saveTelegramUser(activeUser)
                     net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), activeUser)
