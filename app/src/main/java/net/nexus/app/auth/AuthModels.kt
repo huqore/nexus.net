@@ -14,6 +14,8 @@ data class TelegramUser(
     val usedTrafficBytes: Long = 0,
     val trafficLimitBytes: Long = 0,
     val activeDevicesCount: Int = 1,
+    /** Server-signed token proving this device logged in (sent as X-App-Token). */
+    val appToken: String = "",
 ) {
     val cleanUsername: String
         get() = tgUsername.removePrefix("@").trim()
@@ -36,6 +38,7 @@ data class TelegramUser(
         .put("usedTrafficBytes", usedTrafficBytes)
         .put("trafficLimitBytes", trafficLimitBytes)
         .put("activeDevicesCount", activeDevicesCount)
+        .put("appToken", appToken)
 
     companion object {
         fun fromJson(o: JSONObject): TelegramUser = TelegramUser(
@@ -50,6 +53,7 @@ data class TelegramUser(
             usedTrafficBytes = o.optLong("usedTrafficBytes", 0L),
             trafficLimitBytes = o.optLong("trafficLimitBytes", 0L),
             activeDevicesCount = o.optInt("activeDevicesCount", o.optInt("activeDevices", 1)).coerceAtLeast(1),
+            appToken = o.optString("appToken", ""),
         )
     }
 }
