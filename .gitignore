@@ -18,6 +18,12 @@ apks/
 
 # Local AI rules & SSL cert dumps (not for Git)
 GEMINI.md
+CODEX.md
+CODEX_TASK.md
 *.pem
 *.der
+*.jks
+*.keystore
+*.key
+
 

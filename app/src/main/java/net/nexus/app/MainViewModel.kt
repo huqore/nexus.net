@@ -327,6 +327,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var switchJob: Job? = null
 
     fun select(serverId: String) {
+        // Tapping "Auto-select" (again) lets Auto pick a fresh server on the next connect.
+        if (serverId == Store.AUTO_SERVER_ID) store.autoLockedServerId = null
         val oldId = settings.value.selectedServerId
         if (oldId == serverId) return
 
@@ -415,7 +417,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun checkSelected() {
         val selId = settings.value.selectedServerId
         val target = if (selId == Store.AUTO_SERVER_ID) {
-            store.findBestServer()
+            store.peekAutoServer()
         } else {
             allServers().firstOrNull { it.id == selId }
         } ?: return
@@ -439,6 +441,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setBlockAds(enabled: Boolean) = updateSettings { it.copy(blockAds = enabled) }
     fun setAppTheme(theme: net.nexus.app.data.AppTheme) = updateSettings { it.copy(appTheme = theme) }
     fun setAppFont(font: net.nexus.app.data.AppFont) = updateSettings { it.copy(appFont = font) }
+    fun setDesignStyle(style: net.nexus.app.data.DesignStyle) = updateSettings { it.copy(designStyle = style) }
+    fun setAmoledMode(on: Boolean) = updateSettings { it.copy(amoledMode = on, lightMode = if (on) false else it.lightMode) }
+    fun setLightMode(on: Boolean) = updateSettings { it.copy(lightMode = on, amoledMode = if (on) false else it.amoledMode) }
+    fun setCustomTheme(accent: Int, bg: Int, particles: net.nexus.app.data.CustomParticles) = updateSettings {
+        it.copy(customAccent = accent, customBg = bg, customParticles = particles, appTheme = net.nexus.app.data.AppTheme.CUSTOM)
+    }
     fun setAppIcon(icon: net.nexus.app.data.AppIcon) {
         updateSettings { it.copy(appIcon = icon) }
         net.nexus.app.ui.AppIconManager.applyIcon(getApplication(), icon)

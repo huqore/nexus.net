@@ -66,7 +66,7 @@ fun ServersScreen(vm: MainViewModel) {
     val pinging by vm.pinging.collectAsState()
 
     val ctx = LocalContext.current
-    val bestServer = remember(providers) { Store(ctx).findBestServer() }
+    val bestServer = remember(providers) { Store(ctx).peekAutoServer() }
     val allServers = remember(providers) { providers.flatMap { it.servers } }
 
 
@@ -144,7 +144,7 @@ private fun AutoServerButton(
     bestServer: Server?,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = nxCardShape(18.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -153,7 +153,7 @@ private fun AutoServerButton(
         label = "autoBtnPress"
     )
     val bgColor by animateColorAsState(
-        if (selected) NX.accentDim else NX.card,
+        if (selected) NX.selectedFill else NX.card,
         tween(250),
         label = "autoBtnBg"
     )
@@ -216,7 +216,7 @@ private fun PingTestButton(
     isPinging: Boolean,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = nxCardShape(18.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -225,16 +225,18 @@ private fun PingTestButton(
         label = "pingBtnPress"
     )
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pingRotate")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "pingSpin"
-    )
+    // Spin only while a ping is running.
+    val rotationState = if (isPinging) {
+        rememberInfiniteTransition(label = "pingRotate").animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "pingSpin"
+        )
+    } else null
 
     Row(
         modifier
@@ -245,7 +247,7 @@ private fun PingTestButton(
             }
             .clip(shape)
             .background(NX.card)
-            .border(1.dp, NX.cardBorder, shape)
+            .nxBorder(shape)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick, enabled = !isPinging)
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -263,7 +265,7 @@ private fun PingTestButton(
                 tint = NX.accent,
                 modifier = Modifier
                     .size(18.dp)
-                    .graphicsLayer { if (isPinging) rotationZ = rotation }
+                    .graphicsLayer { rotationState?.let { rotationZ = it.value } }
             )
         }
         Spacer(Modifier.width(6.dp))

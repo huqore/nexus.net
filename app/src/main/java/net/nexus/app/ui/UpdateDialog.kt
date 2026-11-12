@@ -133,9 +133,7 @@ private fun AvailableDialog(
             modifier = Modifier
                 .padding(24.dp)
                 .fillMaxWidth()
-                .clip(shape)
-                .background(NX.card)
-                .border(1.dp, NX.cardBorder, shape)
+                .nxDialogSurface(shape)
                 .padding(22.dp)
         ) {
             Column {
@@ -221,7 +219,7 @@ private fun AvailableDialog(
                         .heightIn(min = 60.dp, max = 160.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(NX.bg)
-                        .border(1.dp, NX.cardBorder, RoundedCornerShape(16.dp))
+                        .nxBorder(RoundedCornerShape(16.dp))
                         .padding(14.dp)
                         .verticalScroll(scrollState)
                 ) {
@@ -309,7 +307,7 @@ private fun AvailableDialog(
                             onClick = onUpdate,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = NX.accent,
-                                contentColor = Color.White
+                                contentColor = NX.onAccent
                             ),
                             shape = RoundedCornerShape(16.dp)
                         ) {
@@ -341,9 +339,7 @@ private fun DownloadingDialog(
             modifier = Modifier
                 .padding(24.dp)
                 .fillMaxWidth()
-                .clip(shape)
-                .background(NX.card)
-                .border(1.dp, NX.cardBorder, shape)
+                .nxDialogSurface(shape)
                 .padding(22.dp)
         ) {
             Column {
@@ -466,9 +462,7 @@ private fun ReadyDialog(
             modifier = Modifier
                 .padding(24.dp)
                 .fillMaxWidth()
-                .clip(shape)
-                .background(NX.card)
-                .border(1.dp, NX.cardBorder, shape)
+                .nxDialogSurface(shape)
                 .padding(22.dp)
         ) {
             Column {

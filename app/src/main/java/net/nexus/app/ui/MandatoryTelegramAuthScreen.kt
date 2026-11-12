@@ -81,9 +81,11 @@ fun MandatoryTelegramAuthScreen(vm: MainViewModel) {
     val ctx = LocalContext.current
     var showWebLoginDialog by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize().background(NX.bg)) {
+    val style = NX.style
+    // Liquid Glass keeps the shared glass backdrop visible; M3 uses a flat surface (no neon glow).
+    Box(Modifier.fillMaxSize().then(if (style == net.nexus.app.data.DesignStyle.LIQUID_GLASS) Modifier else Modifier.background(NX.bg))) {
         // Ambient neon purple glow background
-        Canvas(Modifier.fillMaxSize()) {
+        if (style != net.nexus.app.data.DesignStyle.MATERIAL3) Canvas(Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height * 0.35f)
             val radius = size.width * 0.85f
             drawCircle(
@@ -127,7 +129,7 @@ fun MandatoryTelegramAuthScreen(vm: MainViewModel) {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
                     .background(NX.card)
-                    .border(1.dp, NX.cardBorder, RoundedCornerShape(20.dp))
+                    .nxBorder(RoundedCornerShape(20.dp))
                     .padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -160,7 +162,7 @@ fun MandatoryTelegramAuthScreen(vm: MainViewModel) {
                     onClick = { vm.startTelegramAuth() },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = NX.accent,
-                        contentColor = Color.White
+                        contentColor = NX.onAccent
                     ),
                     shape = RoundedCornerShape(18.dp),
                     modifier = Modifier
@@ -280,9 +282,7 @@ fun WebsiteLoginDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(28.dp))
-                .background(NX.card)
-                .border(1.dp, NX.cardBorder, RoundedCornerShape(28.dp))
+                .nxDialogSurface(RoundedCornerShape(28.dp))
                 .padding(24.dp)
         ) {
             Column(
@@ -408,7 +408,7 @@ fun WebsiteLoginDialog(
                         enabled = !isLoggingIn && identifier.isNotBlank() && password.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = NX.accent,
-                            contentColor = Color.White,
+                            contentColor = NX.onAccent,
                             disabledContainerColor = NX.accent.copy(alpha = 0.4f),
                             disabledContentColor = Color.White.copy(alpha = 0.5f)
                         ),
@@ -420,7 +420,7 @@ fun WebsiteLoginDialog(
                         if (isLoggingIn) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = Color.White,
+                                color = NX.onAccent,
                                 strokeWidth = 2.dp
                             )
                         } else {

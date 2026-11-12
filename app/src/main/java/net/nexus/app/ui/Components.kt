@@ -1,5 +1,14 @@
 package net.nexus.app.ui
 
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.unit.TextUnit
 import java.text.SimpleDateFormat
 import java.util.Date
 import androidx.compose.animation.AnimatedVisibility
@@ -19,6 +28,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -32,6 +42,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.shadow
+import androidx.compose.animation.core.animateDpAsState
+import net.nexus.app.data.DesignStyle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -76,6 +89,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalUriHandler
@@ -278,7 +292,7 @@ fun ServerRow(
     server: Server, selected: Boolean, pinging: Boolean,
     onClick: () -> Unit, onDelete: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = nxCardShape(18.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val rowScale by animateFloatAsState(
@@ -287,12 +301,12 @@ fun ServerRow(
         label = "serverRowPress"
     )
     val bgColor by animateColorAsState(
-        if (selected) NX.accentDim else Color.Transparent,
+        if (selected) NX.selectedFill else Color.Transparent,
         tween(250),
         label = "rowBg"
     )
     val borderColor by animateColorAsState(
-        if (selected) NX.accent.copy(alpha = 0.45f) else Color.Transparent,
+        if (selected) NX.selectedBorder else Color.Transparent,
         tween(250),
         label = "rowBorder"
     )
@@ -304,14 +318,17 @@ fun ServerRow(
                 scaleX = rowScale
                 scaleY = rowScale
             }
-            .clip(shape)
-            .background(bgColor)
-            .border(1.dp, borderColor, shape)
+            .then(
+                if (LocalSegmentedList.current && NX.style == DesignStyle.MATERIAL3) Modifier.m3Segment(selected)
+                else Modifier.clip(shape).background(bgColor).border(1.dp, borderColor, shape)
+            )
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = if (NX.style == DesignStyle.MATERIAL3) androidx.compose.material3.ripple() else null,
                 onClick = onClick,
             )
+            // M3 one-line list item with a leading avatar: 56dp minimum.
+            .heightIn(min = 0.dp)
             .padding(horizontal = 10.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -402,7 +419,7 @@ fun ProviderCard(
     onToggle: () -> Unit, onRefresh: () -> Unit, onPingAll: () -> Unit, onDeleteProvider: () -> Unit,
     onSelect: (Server) -> Unit, onDeleteServer: (Server) -> Unit,
 ) {
-    val shape = RoundedCornerShape(28.dp)
+    val shape = nxCardShape(28.dp)
 
     val (wlServers, regularServers) = remember(p.servers) {
         p.servers.partition { Store.isWlBypass(it) }
@@ -410,107 +427,68 @@ fun ProviderCard(
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (regularServers.isNotEmpty()) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(NX.card)
-                    .border(1.dp, NX.cardBorder, shape)
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                // Заголовок карточки WI-FI (домашняя сеть)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Wifi,
-                        contentDescription = null,
-                        tint = NX.accent,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.wifi_category),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NX.muted2,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .height(1.dp)
-                        .background(NX.cardBorder.copy(alpha = 0.6f))
-                )
+            ServerGroup(Icons.Filled.Wifi, R.string.wifi_category, regularServers, selectedId, pinging, onSelect, shape)
+        }
+        if (wlServers.isNotEmpty()) {
+            ServerGroup(Icons.Filled.Shield, R.string.wl_bypass_category, wlServers, selectedId, pinging, onSelect, shape)
+        }
+    }
+}
 
-                regularServers.forEach { s ->
-                    ServerRow(
-                        server = s,
-                        selected = s.id == selectedId,
-                        pinging = s.id in pinging,
-                        onClick = { onSelect(s) },
-                        onDelete = { }
-                    )
+/**
+ * One server section (Wi-Fi / WL bypass).
+ * M3 Expressive: header above, rows as a segmented list (selected row morphs, primaryContainer).
+ * Fluent / Liquid Glass: the classic card with header and divider.
+ */
+@Composable
+private fun ServerGroup(
+    icon: ImageVector, titleRes: Int, servers: List<Server>, selectedId: String?, pinging: Set<String>,
+    onSelect: (Server) -> Unit, shape: androidx.compose.ui.graphics.Shape,
+) {    if (NX.style == DesignStyle.MATERIAL3) {
+        // Material 3 Expressive: header above, servers as a segmented list (selected row morphs).
+        Column(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(icon, null, tint = NX.md3.primary, modifier = Modifier.size(18.dp))
+                Text(stringResource(titleRes), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NX.md3.primary)
+            }
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                CompositionLocalProvider(LocalSegmentedList provides true) {
+                    servers.forEach { s ->
+                        ServerRow(server = s, selected = s.id == selectedId, pinging = s.id in pinging, onClick = { onSelect(s) }, onDelete = { })
+                    }
                 }
             }
         }
+        return
+    }
 
-        if (wlServers.isNotEmpty()) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(NX.card)
-                    .border(1.dp, NX.cardBorder, shape)
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                // Заголовок отдельного "домика" для WL Bypass
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Shield,
-                        contentDescription = null,
-                        tint = NX.accent,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.wl_bypass_category),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NX.muted2,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .height(1.dp)
-                        .background(NX.cardBorder.copy(alpha = 0.6f))
-                )
-
-                wlServers.forEach { s ->
-                    ServerRow(
-                        server = s,
-                        selected = s.id == selectedId,
-                        pinging = s.id in pinging,
-                        onClick = { onSelect(s) },
-                        onDelete = { }
-                    )
-                }
-            }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(NX.card)
+            .nxBorder(shape)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = NX.accent, modifier = Modifier.size(16.dp))
+            Text(text = stringResource(titleRes), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NX.muted2, letterSpacing = 0.5.sp)
+        }
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).height(1.dp)
+                .background(NX.cardBorder.copy(alpha = 0.6f))
+        )
+        servers.forEach { s ->
+            ServerRow(server = s, selected = s.id == selectedId, pinging = s.id in pinging, onClick = { onSelect(s) }, onDelete = { })
         }
     }
 }
@@ -531,34 +509,166 @@ fun BoundProviderCard(vm: MainViewModel, p: Provider, selectedId: String?, refre
 
 // ---------------------------------------------------------------- bottom bar
 
+private val NavTabs = listOf(Tab.CONNECT, Tab.SERVERS, Tab.SETTINGS)
+
+/**
+ * Bottom navigation with a single sliding selection indicator.
+ * Tap selects a tab; press-and-hold then drag makes the indicator follow the finger,
+ * switching tabs as it passes over them ([onSlideTick] fires on each change) and
+ * snapping to the nearest tab on release. Works in all three design styles.
+ */
 @Composable
-fun FloatingNavBar(selected: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = Modifier) {
+fun FloatingNavBar(
+    selected: Tab,
+    onSelect: (Tab) -> Unit,
+    modifier: Modifier = Modifier,
+    onSlideTick: () -> Unit = {},
+) {
+    val style = NX.style
+    val m3 = style == DesignStyle.MATERIAL3
+    val glass = style == DesignStyle.LIQUID_GLASS
+
+    var dragging by remember { mutableStateOf(false) }
+    var dragPos by remember { mutableFloatStateOf(0f) }
+    val selectedIndex = NavTabs.indexOf(selected).coerceAtLeast(0)
+    val currentSelected by rememberUpdatedState(selected)
+    val currentOnSelect by rememberUpdatedState(onSelect)
+    val currentTick by rememberUpdatedState(onSlideTick)
+    val indicatorPos by animateFloatAsState(
+        targetValue = if (dragging) dragPos else selectedIndex.toFloat(),
+        animationSpec = if (dragging) spring(dampingRatio = 1f, stiffness = Spring.StiffnessHigh)
+        else spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
+        label = "navIndicatorPos",
+    )
+    val liftScale by animateFloatAsState(if (dragging) 1.06f else 1f, spring(dampingRatio = 0.6f), label = "navLift")
+
+    val padH = if (glass) 8.dp else 12.dp
+    val padV = when { glass -> 7.dp; else -> 10.dp }
+    val light = NX.isLightTheme
+    val pillColor = when {
+        m3 -> NX.md3.secondaryContainer
+        glass -> Color.White.copy(alpha = if (light) 0.49f else if (dragging) 0.22f else 0.154f)
+        else -> NX.accent.copy(alpha = if (dragging) 0.20f else 0.14f)
+    }
+    val glassRim = Color.White.copy(alpha = if (light) 0.9f else 0.28f)
+
+    val rowModifier = Modifier
+        .fillMaxWidth()
+        .pointerInput(Unit) {
+            val padPx = padH.toPx()
+            fun follow(x: Float) {
+                val itemW = (size.width - 2 * padPx) / NavTabs.size
+                dragPos = ((x - padPx) / itemW - 0.5f).coerceIn(0f, (NavTabs.size - 1).toFloat())
+                val tab = NavTabs[kotlin.math.round(dragPos).toInt()]
+                if (tab != currentSelected) {
+                    currentOnSelect(tab)
+                    currentTick()
+                }
+            }
+            detectDragGesturesAfterLongPress(
+                onDragStart = { o -> dragging = true; currentTick(); follow(o.x) },
+                onDrag = { change, _ -> change.consume(); follow(change.position.x) },
+                onDragEnd = { dragging = false },
+                onDragCancel = { dragging = false },
+            )
+        }
+        .drawBehind {
+            val padPx = padH.toPx()
+            val itemW = (size.width - 2 * padPx) / NavTabs.size
+            val grow = (liftScale - 1f) * itemW / 2
+            val tl = Offset(padPx + indicatorPos * itemW - grow, padV.toPx() - grow / 3)
+            val sz = Size(itemW + 2 * grow, size.height - 2 * padV.toPx() + 2 * grow / 3)
+            val r = when { glass -> 24.dp.toPx(); m3 -> sz.height / 2; else -> 16.dp.toPx() }
+            drawRoundRect(pillColor, topLeft = tl, size = sz, cornerRadius = CornerRadius(r, r))
+            if (glass) {
+                drawRoundRect(
+                    glassRim, topLeft = tl, size = sz, cornerRadius = CornerRadius(r, r),
+                    style = Stroke(width = 0.8.dp.toPx()),
+                )
+            }
+        }
+        .padding(horizontal = padH, vertical = padV)
+
+    // Highlight follows the indicator while sliding, the real selection otherwise.
+    val highlighted = if (dragging) NavTabs[kotlin.math.round(dragPos).toInt().coerceIn(0, NavTabs.size - 1)] else selected
+
+    val items: @Composable RowScope.() -> Unit = {
+        NavItem(Tab.CONNECT, Icons.Filled.Home, R.string.tab_connect, highlighted, onSelect)
+        NavItem(Tab.SERVERS, Icons.Filled.Dns, R.string.tab_servers, highlighted, onSelect)
+        NavItem(Tab.SETTINGS, Icons.Filled.Settings, R.string.tab_settings, highlighted, onSelect)
+    }
+
+    if (glass) {
+        // iOS-style floating glass capsule.
+        val capsule = RoundedCornerShape(32.dp)
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 18.dp, vertical = 10.dp)
+        ) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .shadow(18.dp, capsule, ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.5f))
+                    .clip(capsule)
+                    .glassBlur()
+                    .background(NX.card)
+                    .nxBorder(capsule)
+            )
+            Row(modifier = rowModifier, horizontalArrangement = Arrangement.SpaceAround, content = items)
+        }
+        return
+    }
+    if (m3) {
+        // Material You Expressive dock: floating tonal pill with an outline and soft elevation;
+        // the active indicator is a fully rounded pill that slides with the finger.
+        val dock = RoundedCornerShape(28.dp)
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .shadow(10.dp, dock, ambientColor = Color.Black.copy(alpha = 0.45f), spotColor = Color.Black.copy(alpha = 0.45f))
+                    .clip(dock)
+                    .background(NX.md3.surfaceContainerHigh)
+                    .border(1.dp, NX.md3.outlineVariant, dock)
+            )
+            Row(modifier = rowModifier, horizontalArrangement = Arrangement.SpaceAround, content = items)
+        }
+        return
+    }
     val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     Box(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .clip(shape)
-                .background(NX.bg)
-                .background(NX.sheetBg)
-                .border(1.dp, NX.cardBorder.copy(alpha = 0.85f), shape)
+                .background(if (m3) NX.md3.surfaceContainer else NX.bg)
+                .then(if (m3) Modifier else Modifier.background(NX.sheetBg))
+                // M3 navigation bar has no outline (tonal container only).
+                .then(
+                    if (m3) Modifier.border(1.dp, NX.md3.outlineVariant, shape)
+                    else Modifier.nxBorder(shape, color = NX.cardBorder.copy(alpha = 0.85f))
+                )
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-        ) {
-            NavItem(Tab.CONNECT, Icons.Filled.Home, R.string.tab_connect, selected, onSelect)
-            NavItem(Tab.SERVERS, Icons.Filled.Dns, R.string.tab_servers, selected, onSelect)
-            NavItem(Tab.SETTINGS, Icons.Filled.Settings, R.string.tab_settings, selected, onSelect)
+        Box(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            Row(
+                // M3 navigation bar: 80dp container.
+                modifier = rowModifier,
+                horizontalArrangement = Arrangement.SpaceAround,
+                content = items,
+            )
         }
     }
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.NavItem(
+private fun RowScope.NavItem(
     tab: Tab, icon: ImageVector, label: Int, selected: Tab, onSelect: (Tab) -> Unit,
 ) {
     val sel = tab == selected
@@ -574,20 +684,26 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
         spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium),
         label = "navIconScale"
     )
+    val m3 = NX.style == DesignStyle.MATERIAL3
     val iconColor by animateColorAsState(
-        if (sel) NX.accentLight else NX.muted,
+        when {
+            m3 && sel -> NX.md3.onSecondaryContainer
+            m3 -> NX.md3.onSurfaceVariant
+            sel -> NX.accentLight
+            else -> NX.muted
+        },
         tween(220),
         label = "navIconColor"
     )
     val textColor by animateColorAsState(
-        if (sel) NX.accentLight else NX.muted,
+        when {
+            m3 && sel -> NX.md3.onSurface
+            m3 -> NX.md3.onSurfaceVariant
+            sel -> NX.accentLight
+            else -> NX.muted
+        },
         tween(220),
         label = "navTextColor"
-    )
-    val pillAlpha by animateFloatAsState(
-        if (sel) 0.14f else 0.0f,
-        tween(220),
-        label = "navPillAlpha"
     )
 
     Column(
@@ -597,8 +713,6 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
                 scaleX = pressScale
                 scaleY = pressScale
             }
-            .clip(RoundedCornerShape(16.dp))
-            .background(NX.accent.copy(alpha = pillAlpha))
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -607,15 +721,20 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            icon, null,
-            tint = iconColor,
-            modifier = Modifier
-                .size(26.dp)
-                .scale(iconScale)
-        )
+        // The selection pill is drawn by the bar (one sliding indicator), not per item.
+        Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                icon, null,
+                tint = iconColor,
+                modifier = Modifier
+                    .size(26.dp)
+                    .scale(iconScale)
+            )
+        }
         Text(
-            stringResource(label), fontSize = 12.sp,
+            stringResource(label),
+            // M3: labelMedium (12sp, medium weight, 0.5sp tracking).
+            fontSize = 12.sp,
             fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
             color = textColor, maxLines = 1, softWrap = false,
         )

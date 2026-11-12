@@ -2,6 +2,22 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    // Renders @Preview to PNG for the compose-preview skill (Robolectric, debug variant only).
+    id("ee.schimke.composeai.preview") version "2.89.0"
+}
+
+composePreview {
+    variant.set("debug")
+    sdkVersion.set(35)
+}
+
+// The plugin forces Robolectric's hardware PixelCopy, which crashes the JVM on Windows
+// (EXCEPTION_ACCESS_VIOLATION in libandroid_runtime HardwareRenderer.nSetSurface).
+// Force the software screenshot path there.
+if (System.getProperty("os.name").startsWith("Windows")) {
+    tasks.withType<Test>().matching { it.name == "composePreviewRender" }.configureEach {
+        doFirst { (this as Test).systemProperty("robolectric.pixelCopyRenderMode", "software") }
+    }
 }
 
 // Xray core (gomobile AAR, built by 2dust/AndroidLibXrayLite). Pinned on purpose:
@@ -27,8 +43,8 @@ android {
         applicationId = "net.nexus.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 59
-        versionName = "3.2.1"
+        versionCode = 60
+        versionName = "4.0.0"
     }
 
     splits {
@@ -99,4 +115,8 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    // Real backdrop blur for the Liquid Glass style (Android 12+, tinted fallback below).
+    implementation("dev.chrisbanes.haze:haze:1.5.4")
+    debugImplementation("androidx.compose.ui:ui-tooling")
 }
