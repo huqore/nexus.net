@@ -1,70 +1,79 @@
 <div align="center">
 
-  <img src="app/src/main/res/drawable/app_logo.png" alt="NEXUS.net" width="112" />
+<img src="app/src/main/res/drawable/app_logo.png" alt="NEXUS.net" width="104" />
 
-  # NEXUS.net для Android
+# NEXUS.net
 
-  **Быстрый и удобный VPN-клиент на базе Xray Core**
+**Быстрый VPN-клиент для Android на базе Xray Core**
 
-  <p>
-    <a href="https://github.com/huqore/nexus.net/releases/latest"><img src="https://img.shields.io/badge/релиз-v4.0.0-7657e8?style=for-the-badge" alt="Последний релиз v4.0.0"></a>
-    <a href="https://developer.android.com/about/versions/oreo"><img src="https://img.shields.io/badge/Android-8.0%2B-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Android 8.0 и новее"></a>
-    <a href="https://github.com/XTLS/Xray-core"><img src="https://img.shields.io/badge/Xray_Core-v26.10.29-3478c9?style=for-the-badge" alt="Xray Core v26.10.29"></a>
-  </p>
+<a href="https://github.com/huqore/nexus.net/releases/latest"><img src="https://img.shields.io/github/v/release/huqore/nexus.net?style=for-the-badge&label=релиз&color=7657e8" alt="Последний релиз"></a>
+<a href="https://github.com/huqore/nexus.net/releases"><img src="https://img.shields.io/github/downloads/huqore/nexus.net/total?style=for-the-badge&label=загрузки&color=3478c9" alt="Загрузки"></a>
+<img src="https://img.shields.io/badge/Android-8.0%2B-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Android 8.0+">
 
-  <p>
-    <a href="https://github.com/huqore/nexus.net/releases/latest">Скачать APK</a> ·
-    <a href="https://nexus-net.xyz">Сайт</a> ·
-    <a href="https://t.me/NEXUSnet_robot">Telegram-бот</a> ·
-    <a href="https://t.me/NEXUS_net_support">Поддержка</a>
-  </p>
+<br><br>
+
+<a href="https://github.com/huqore/nexus.net/releases/latest"><img src="https://img.shields.io/badge/⬇_Скачать_APK-7657e8?style=for-the-badge" height="38" alt="Скачать APK"></a>
+
+<br>
+
+[Сайт](https://nexus-net.xyz) · [Telegram-бот](https://t.me/NEXUSnet_robot) · [Поддержка](https://t.me/NEXUS_net_support)
+
+<br>
+
+<img src="docs/screens/fluent.png" width="200" alt="Fluent">&nbsp;
+<img src="docs/screens/material-you.png" width="200" alt="Material You">&nbsp;
+<img src="docs/screens/liquid-glass.png" width="200" alt="Liquid Glass">&nbsp;
+<img src="docs/screens/custom-theme.png" width="200" alt="Своя тема">
+
+<sub>Fluent · Material You · Liquid Glass · Своя тема</sub>
 
 </div>
 
----
+## ✨ Что нового в 4.0
 
-## О приложении
+- 🎨 **Три стиля оформления** — Fluent, Material You Expressive и Liquid Glass с живыми бликами.
+- 🌈 **Своя тема** — цвета и падающие частицы: сакура, снег, пепел с угольками. Плюс AMOLED и светлая тема.
+- 👆 **Живая нижняя панель** — зажмите и ведите пальцем между вкладками.
+- ⚡ **Стабильнее** — автовыбор держит один сервер, подключение быстрее, меньше расход батареи.
 
-NEXUS.net — Android-клиент для подключения к VPN-серверам через Xray. Добавьте серверную ссылку или подписку, выберите нужный режим маршрутизации и подключитесь в одно касание. Подписку также можно синхронизировать через Telegram.
+[Все изменения →](https://github.com/huqore/nexus.net/releases/latest)
 
-**Актуальный релиз: v4.0.0** · Android 8.0+ · `versionCode 60`
+## 🚀 Возможности
 
-## Возможности
-
-| Подключение | Контроль и удобство |
+| 🔌 Подключение | 🎛 Удобство |
 | --- | --- |
-| VLESS, VMess, Trojan и Shadowsocks | Раздельная маршрутизация приложений |
-| Ссылки серверов, Xray JSON и подписки | Проверка задержки и статистика трафика |
-| Синхронизация подписки через Telegram | Виджет и плитка быстрых настроек |
-| Ядро Xray Core | Смена темы оформления и иконки приложения |
+| VLESS, VMess, Trojan, Shadowsocks | Раздельная маршрутизация приложений |
+| Ссылки, Xray JSON и подписки | Пинг серверов и статистика трафика |
+| Вход и синхронизация через Telegram | Виджет и плитка быстрых настроек |
+| Автовыбор лучшего сервера | Темы, стили и смена иконки |
 
-## Установка
+## 📲 Установка
 
-Скачайте APK со [страницы последнего релиза](https://github.com/huqore/nexus.net/releases/latest). После установки добавьте ссылку на сервер или подписку либо войдите через Telegram.
+1. Скачайте APK со [страницы релиза](https://github.com/huqore/nexus.net/releases/latest).
+2. Установите и откройте приложение.
+3. Войдите через Telegram или добавьте ссылку / подписку — и подключайтесь в одно касание.
 
-## Сборка из исходников
+Обновления приходят прямо в приложении.
 
-Понадобятся **JDK 17** и **Android SDK Platform 35**. Укажите путь к SDK в `local.properties` (шаблон — [`local.properties.example`](local.properties.example)), затем запустите:
+<details>
+<summary><b>🛠 Сборка из исходников</b></summary>
+
+<br>
+
+Нужны **JDK 17** и **Android SDK Platform 35**. Укажите путь к SDK в `local.properties` (шаблон — [`local.properties.example`](local.properties.example)):
 
 ```bash
-# Linux / macOS
-./gradlew assembleDebug
-
-# Windows
-gradlew.bat assembleDebug
+./gradlew assembleDebug      # Windows: gradlew.bat assembleDebug
 ```
 
-Чтобы собрать release APK, используйте задачу `assembleRelease`. Для подписи собственным ключом задайте переменные окружения `KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` и `KEY_PASSWORD`. Без них сборка подписывается debug-ключом.
+Release-сборка — `assembleRelease`. Для подписи своим ключом задайте `KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`; без них используется debug-ключ.
 
-Если `app/libs/libv2ray.aar` отсутствует, Gradle скачает Xray Core AAR версии `v26.10.29` из GitHub при конфигурации проекта.
+Если `app/libs/libv2ray.aar` нет, Gradle сам скачает Xray Core AAR `v26.10.29`.
 
-## Технологии
+**Стек:** Kotlin · Jetpack Compose · Material 3 · Android VpnService · Xray Core
 
-`Kotlin` · `Jetpack Compose` · `Material 3` · `Android VpnService` · `Xray Core`
+</details>
 
-## Ссылки
-
-- [Все релизы](https://github.com/huqore/nexus.net/releases)
-- [Сайт NEXUS.net](https://nexus-net.xyz)
-- [Telegram-бот](https://t.me/NEXUSnet_robot)
-- [Поддержка](https://t.me/NEXUS_net_support)
+<div align="center">
+<sub>© NEXUS.net · <a href="https://nexus-net.xyz">nexus-net.xyz</a></sub>
+</div>
