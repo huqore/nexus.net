@@ -71,6 +71,31 @@ class ConfigBuilderTest {
     }
 
     @Test
+    fun `loopback socks inbound requires the session password`() {
+        val cfg = JSONObject(ConfigBuilder.forTunnel(sampleVlessServer(), socksPort = 10808, socksUser = "u1", socksPass = "p1"))
+        val socks = cfg.getJSONArray("inbounds").getJSONObject(0)
+        assertEquals("127.0.0.1", socks.getString("listen"))
+        val settings = socks.getJSONObject("settings")
+        assertEquals("password", settings.getString("auth"))
+        val account = settings.getJSONArray("accounts").getJSONObject(0)
+        assertEquals("u1", account.getString("user"))
+        assertEquals("p1", account.getString("pass"))
+    }
+
+    @Test
+    fun `server supplied config cannot keep its own inbounds`() {
+        val raw = JSONObject()
+            .put("inbounds", JSONArray().put(JSONObject().put("listen", "0.0.0.0").put("port", 1080).put("protocol", "socks")
+                .put("settings", JSONObject().put("auth", "noauth"))))
+            .put("outbounds", JSONArray(sampleVlessServer().outbounds))
+        val server = sampleVlessServer().copy(outbounds = null, fullConfig = raw.toString())
+        val inbounds = JSONObject(ConfigBuilder.forTunnel(server, socksPort = 10808, socksUser = "u", socksPass = "p")).getJSONArray("inbounds")
+        assertEquals(1, inbounds.length())
+        assertEquals("127.0.0.1", inbounds.getJSONObject(0).getString("listen"))
+        assertEquals("password", inbounds.getJSONObject(0).getJSONObject("settings").getString("auth"))
+    }
+
+    @Test
     fun `vless outbound has packetEncoding xudp`() {
         val server = sampleVlessServer()
         val configStr = ConfigBuilder.forTunnel(server, socksPort = 10808)

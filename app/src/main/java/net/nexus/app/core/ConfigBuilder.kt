@@ -12,20 +12,25 @@ object ConfigBuilder {
     /**
      * Loopback-only SOCKS inbound on a random port.
      * Bridged to Android's VpnService Layer-3 TUN via native libhev-socks5-tunnel (lwIP in C).
-     * Also used by the latency/speed test.
+     * Also used by the latency/speed test. Password-protected: see [LocalSocksAuth].
      */
-    private fun socksInbound(port: Int) = JSONObject()
+    private fun socksInbound(port: Int, user: String, pass: String) = JSONObject()
         .put("tag", "socks")
         .put("listen", "127.0.0.1")
         .put("port", port)
         .put("protocol", "socks")
-        .put("settings", JSONObject().put("auth", "noauth").put("udp", true))
+        .put("settings", JSONObject()
+            .put("auth", "password")
+            .put("accounts", JSONArray().put(JSONObject().put("user", user).put("pass", pass)))
+            .put("udp", true)
+            .put("ip", "127.0.0.1"))
         .put("sniffing", JSONObject()
             .put("enabled", true)
             .put("destOverride", JSONArray().put("http").put("tls"))
             .put("routeOnly", false))
 
-    private fun inbounds(socksPort: Int) = JSONArray().put(socksInbound(socksPort))
+    private fun inbounds(socksPort: Int, user: String, pass: String) =
+        JSONArray().put(socksInbound(socksPort, user, pass))
 
     private fun hasTag(outs: JSONArray, tag: String) =
         (0 until outs.length()).any { outs.getJSONObject(it).optString("tag") == tag }
@@ -215,12 +220,18 @@ object ConfigBuilder {
     }
 
     /** Full config used to run the VPN (TUN inbound + local SOCKS inbound for the speed test). */
-    fun forTunnel(server: Server, socksPort: Int, blockAds: Boolean = false): String {
+    fun forTunnel(
+        server: Server,
+        socksPort: Int,
+        blockAds: Boolean = false,
+        socksUser: String = LocalSocksAuth.user,
+        socksPass: String = LocalSocksAuth.pass,
+    ): String {
         val isWl = net.nexus.app.data.Store.isWlBypass(server)
         server.fullConfig?.let { raw ->
             // Server-supplied config: keep its outbounds / routing / dns, but we own the inbounds.
             val cfg = JSONObject(raw)
-            cfg.put("inbounds", inbounds(socksPort))
+            cfg.put("inbounds", inbounds(socksPort, socksUser, socksPass))
             cfg.put("log", JSONObject().put("loglevel", "warning"))
             val outs = cfg.optJSONArray("outbounds") ?: JSONArray().also { cfg.put("outbounds", it) }
             ensureBuiltins(outs)
@@ -304,7 +315,7 @@ object ConfigBuilder {
         val cfg = JSONObject()
             .put("log", JSONObject().put("loglevel", "warning"))
             .put("dns", defaultDns(hostsMap, blockAds, isWl))
-            .put("inbounds", inbounds(socksPort))
+            .put("inbounds", inbounds(socksPort, socksUser, socksPass))
             .put("outbounds", outs)
             .put("routing", JSONObject()
                 .put("domainMatcher", "hybrid")

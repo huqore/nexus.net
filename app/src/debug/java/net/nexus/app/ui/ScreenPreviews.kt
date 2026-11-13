@@ -16,7 +16,7 @@ import net.nexus.app.data.DesignStyle
 
 /** Full-screen harnesses (debug only): real screens with a real ViewModel under Robolectric. */
 @Composable
-private fun ScreenHarness(style: DesignStyle, tab: Tab, theme: AppTheme = AppTheme.BASE, sub: SettingsSubscreen = SettingsSubscreen.MAIN, accent: Int = 0xFF8B5CF6.toInt(), bg: Int = 0xFF0A0812.toInt(), amoled: Boolean = false, light: Boolean = false) {
+private fun ScreenHarness(style: DesignStyle, tab: Tab, theme: AppTheme = AppTheme.BASE, sub: SettingsSubscreen = SettingsSubscreen.MAIN, accent: Int = 0xFF8B5CF6.toInt(), bg: Int = 0xFF0A0812.toInt(), amoled: Boolean = false, light: Boolean = false, particles: net.nexus.app.data.CustomParticles? = null, glassLight: Pair<Float, Float>? = null) {
     val app = LocalContext.current.applicationContext as Application
     val vm = remember {
         // Seed demo servers so the Servers screen is reviewable (WL vs Wi-Fi split included).
@@ -35,8 +35,9 @@ private fun ScreenHarness(style: DesignStyle, tab: Tab, theme: AppTheme = AppThe
                 )
             )
         )
-        MainViewModel(app)
+        MainViewModel(app).also { m -> particles?.let { m.setCustomTheme(accent, bg, it) } }
     }
+    glassLight?.let { (lx, ly) -> GlassLight.x = lx; GlassLight.y = ly }
     NexusTheme(fontScale = 1f, appTheme = theme, designStyle = style, customAccent = accent, customBg = bg, amoled = amoled, lightMode = light) {
         Box(Modifier.fillMaxSize()) {
             when (tab) {
@@ -89,3 +90,25 @@ private fun ScreenHarness(style: DesignStyle, tab: Tab, theme: AppTheme = AppThe
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().androidxBg()) { AshEmbersOverlay() }
 }
 private fun Modifier.androidxBg(): Modifier = this.then(androidx.compose.ui.Modifier.background(androidx.compose.ui.graphics.Color(0xFF120A06)))
+@Preview(name = "V Settings M", widthDp = 400, heightDp = 860) @Composable fun V_Settings_M() = ScreenHarness(DesignStyle.MATERIAL3, Tab.SETTINGS)
+@Preview(name = "V Appear M", widthDp = 400, heightDp = 860) @Composable fun V_Appear_M() = ScreenHarness(DesignStyle.MATERIAL3, Tab.SETTINGS, sub = SettingsSubscreen.APPEARANCE)
+@Preview(name = "V Ash", widthDp = 400, heightDp = 860) @Composable fun V_Ash() = ScreenHarness(DesignStyle.MATERIAL3, Tab.CONNECT, AppTheme.CUSTOM, accent = 0xFFF97316.toInt(), bg = 0xFF120A06.toInt(), particles = net.nexus.app.data.CustomParticles.ASH)
+@Preview(name = "V Ash G", widthDp = 400, heightDp = 860) @Composable fun V_Ash_G() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, AppTheme.CUSTOM, accent = 0xFFF97316.toInt(), bg = 0xFF120A06.toInt(), particles = net.nexus.app.data.CustomParticles.ASH)
+@Preview(name = "V GL 0", widthDp = 400, heightDp = 860) @Composable fun V_GL_0() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = -1.0f to 0.3f)
+@Preview(name = "V GL 1", widthDp = 400, heightDp = 860) @Composable fun V_GL_1() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = -0.75f to 0.237f)
+@Preview(name = "V GL 2", widthDp = 400, heightDp = 860) @Composable fun V_GL_2() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = -0.5f to 0.175f)
+@Preview(name = "V GL 3", widthDp = 400, heightDp = 860) @Composable fun V_GL_3() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = -0.25f to 0.113f)
+@Preview(name = "V GL 4", widthDp = 400, heightDp = 860) @Composable fun V_GL_4() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = 0.0f to 0.05f)
+@Preview(name = "V GL 5", widthDp = 400, heightDp = 860) @Composable fun V_GL_5() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = 0.25f to 0.113f)
+@Preview(name = "V GL 6", widthDp = 400, heightDp = 860) @Composable fun V_GL_6() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = 0.5f to 0.175f)
+@Preview(name = "V GL 7", widthDp = 400, heightDp = 860) @Composable fun V_GL_7() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = 0.75f to 0.237f)
+@Preview(name = "V GL 8", widthDp = 400, heightDp = 860) @Composable fun V_GL_8() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER, glassLight = 1.0f to 0.3f)
+@Preview(name = "V GLC 0", widthDp = 400, heightDp = 860) @Composable fun V_GLC_0() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = -1.0f to 0.3f)
+@Preview(name = "V GLC 1", widthDp = 400, heightDp = 860) @Composable fun V_GLC_1() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = -0.75f to 0.237f)
+@Preview(name = "V GLC 2", widthDp = 400, heightDp = 860) @Composable fun V_GLC_2() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = -0.5f to 0.175f)
+@Preview(name = "V GLC 3", widthDp = 400, heightDp = 860) @Composable fun V_GLC_3() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = -0.25f to 0.113f)
+@Preview(name = "V GLC 4", widthDp = 400, heightDp = 860) @Composable fun V_GLC_4() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = 0.0f to 0.05f)
+@Preview(name = "V GLC 5", widthDp = 400, heightDp = 860) @Composable fun V_GLC_5() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = 0.25f to 0.113f)
+@Preview(name = "V GLC 6", widthDp = 400, heightDp = 860) @Composable fun V_GLC_6() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = 0.5f to 0.175f)
+@Preview(name = "V GLC 7", widthDp = 400, heightDp = 860) @Composable fun V_GLC_7() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = 0.75f to 0.237f)
+@Preview(name = "V GLC 8", widthDp = 400, heightDp = 860) @Composable fun V_GLC_8() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = 1.0f to 0.3f)

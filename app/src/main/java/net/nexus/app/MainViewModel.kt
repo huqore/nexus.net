@@ -754,7 +754,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     devicesCount = devicesCount,
                     appToken = json.optString("appToken", ""),
                 )
-                applyConfirmedTelegramUser(u)
+                // The payload arrives via a deep link that any web page can fire, so nothing in it is
+                // trusted on its own: a server-signed appToken is mandatory and the account is only
+                // committed after the server confirms it. The subscription URL always comes from the server.
+                if (u.appToken.isBlank() || u.telegramId <= 0) {
+                    emit(R.string.status_error)
+                    return@launch
+                }
+                applyConfirmedTelegramUser(u.copy(subscriptionUrl = ""), requireServerAuth = true)
             } catch (e: Exception) {
                 emit(R.string.status_error)
             }
@@ -772,15 +779,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun applyConfirmedTelegramUser(confirmedUser: TelegramUser, sessionToken: String? = null) {
+    private suspend fun applyConfirmedTelegramUser(
+        confirmedUser: TelegramUser,
+        sessionToken: String? = null,
+        requireServerAuth: Boolean = false,
+    ) {
         var serverCount = 0
         var finalUser = confirmedUser
 
-        telegramUser.value = finalUser
-        store.saveTelegramUser(finalUser)
-
         val hwid = store.getOrCreateHwid()
+        if (!requireServerAuth) {
+            telegramUser.value = finalUser
+            store.saveTelegramUser(finalUser)
+        }
         val hs = TelegramAuthManager.handshake(hwid, finalUser.cleanUsername, finalUser.telegramId, sessionToken = sessionToken, appToken = finalUser.appToken)
+        if (requireServerAuth) {
+            if (!(hs.success && hs.authenticated)) {
+                emit(R.string.status_error)
+                return
+            }
+            telegramUser.value = finalUser
+            store.saveTelegramUser(finalUser)
+        }
         if (hs.success && hs.authenticated) {
             if (hs.user != null) {
                 finalUser = hs.user.copy(appToken = finalUser.appToken)

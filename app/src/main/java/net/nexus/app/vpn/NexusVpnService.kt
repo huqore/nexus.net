@@ -107,7 +107,8 @@ class NexusVpnService : VpnService() {
             val socksPort = java.net.ServerSocket(0).use { it.localPort }
             VpnState.socksPort = socksPort
             val settings = store.loadSettings()
-            val config = ConfigBuilder.forTunnel(server, socksPort, blockAds = settings.blockAds)
+            val (socksUser, socksPass) = net.nexus.app.core.LocalSocksAuth.rotate(socksPort)
+            val config = ConfigBuilder.forTunnel(server, socksPort, blockAds = settings.blockAds, socksUser = socksUser, socksPass = socksPass)
 
             val pfd = buildTun(store) ?: error("VPN permission was revoked")
             tun = pfd
@@ -123,6 +124,8 @@ class NexusVpnService : VpnService() {
                 socks5:
                   port: $socksPort
                   address: 127.0.0.1
+                  username: '$socksUser'
+                  password: '$socksPass'
                   udp: 'udp'
                   udp-address: 127.0.0.1
 

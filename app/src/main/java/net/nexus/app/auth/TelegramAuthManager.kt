@@ -3,14 +3,19 @@ package net.nexus.app.auth
 import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Dns
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.dnsoverhttps.DnsOverHttps
 import org.json.JSONArray
 import org.json.JSONObject
 import net.nexus.app.data.Server
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
+import java.net.InetAddress
+import java.net.UnknownHostException
+import java.util.concurrent.TimeUnit
 
 data class HandshakeResult(
     val success: Boolean,
@@ -30,6 +35,52 @@ data class DeviceRegisterResult(
 object TelegramAuthManager {
 
     private const val AUTH_BASE_URL = "https://nexus-net.xyz/api/auth/telegram"
+    private val authHttpClient: OkHttpClient by lazy {
+        val cloudflareDoh = createDohResolver(
+            "https://cloudflare-dns.com/dns-query",
+            "cloudflare-dns.com",
+            listOf("1.1.1.1", "1.0.0.1")
+        )
+        val googleDoh = createDohResolver(
+            "https://dns.google/dns-query",
+            "dns.google",
+            listOf("8.8.8.8", "8.8.4.4")
+        )
+        val fallbackDns = object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> {
+                try {
+                    return Dns.SYSTEM.lookup(hostname).ifEmpty { throw UnknownHostException("No addresses for $hostname") }
+                } catch (systemDnsError: UnknownHostException) {
+                    if (!hostname.equals("nexus-net.xyz", ignoreCase = true)) throw systemDnsError
+                    return runCatching { cloudflareDoh.lookup(hostname) }
+                        .getOrElse { runCatching { googleDoh.lookup(hostname) }.getOrElse { throw systemDnsError } }
+                }
+            }
+        }
+        OkHttpClient.Builder()
+            .dns(fallbackDns)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(12, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .build()
+    }
+
+    private fun createDohResolver(url: String, resolverHost: String, bootstrapIps: List<String>): DnsOverHttps {
+        val bootstrapAddresses = bootstrapIps.map { InetAddress.getByName(it) }
+        val bootstrapClient = OkHttpClient.Builder()
+            .dns(object : Dns {
+                override fun lookup(hostname: String): List<InetAddress> =
+                    if (hostname.equals(resolverHost, ignoreCase = true)) bootstrapAddresses
+                    else Dns.SYSTEM.lookup(hostname)
+            })
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .build()
+        return DnsOverHttps.Builder()
+            .client(bootstrapClient)
+            .url(url.toHttpUrl())
+            .build()
+    }
 
     /**
      * Single BFF call to sync user status and obtain clean server outbounds.
@@ -340,44 +391,35 @@ object TelegramAuthManager {
 
     private fun httpGet(urlStr: String, timeoutMs: Int = 8_000, appToken: String = ""): String {
         if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
-        val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-            connectTimeout = timeoutMs
-            readTimeout = timeoutMs
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
-            setRequestProperty("Accept", "application/json")
-            if (appToken.isNotBlank()) setRequestProperty("X-App-Token", appToken)
-        }
-        try {
-            val code = conn.responseCode
-            if (code !in 200..299) error("Server error HTTP $code")
-            return BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8)).use { it.readText() }
-        } finally {
-            conn.disconnect()
+        val request = Request.Builder()
+            .url(urlStr)
+            .header("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
+            .header("Accept", "application/json")
+            .apply { if (appToken.isNotBlank()) header("X-App-Token", appToken) }
+            .get()
+            .build()
+        authHttpClient.newBuilder().readTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS).build().newCall(request).execute().use { response ->
+            if (!response.isSuccessful) error("Server error HTTP ${response.code}")
+            return response.body?.string() ?: ""
         }
     }
 
     private fun httpPost(urlStr: String, jsonBody: String, appToken: String = ""): String? {
         if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
-        val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 10_000
-            readTimeout = 12_000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Accept", "application/json")
-            if (appToken.isNotBlank()) setRequestProperty("X-App-Token", appToken)
-            setRequestProperty("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
-        }
         return try {
-            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(jsonBody) }
-            if (conn.responseCode in 200..299) {
-                BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8)).use { it.readText() }
-            } else null
+            val request = Request.Builder()
+                .url(urlStr)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .header("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
+                .apply { if (appToken.isNotBlank()) header("X-App-Token", appToken) }
+                .post(jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                .build()
+            authHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) response.body?.string() else null
+            }
         } catch (_: Exception) {
             null
-        } finally {
-            conn.disconnect()
         }
     }
 }
