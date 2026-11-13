@@ -1,26 +1,6 @@
 {
   "releases": [
     {
-      "tag": "v4.0.1",
-      "name": "v4.0.1",
-      "versionName": "4.0.1",
-      "draft": false,
-      "markdown": "NEXUS.net v4.0.1 - Обновление безопасности: вход и привязка устройств подтверждаются подписанным токеном, ссылки nexus:// больше не могут подменить аккаунт или тихо добавить чужой сервер, локальный прокси закрыт паролем от других приложений; резервный DNS для входа, если провайдер блокирует сайт.",
-      "publishedAt": "2026-11-13T11:00:00Z",
-      "assets": [
-        {
-          "name": "nexus-net-v4.0.1.apk",
-          "downloadUrl": "https://nexus-net.xyz/downloads/nexus-net-v4.0.1.apk",
-          "size": 72177638
-        },
-        {
-          "name": "app-universal-release.apk",
-          "downloadUrl": "https://nexus-net.xyz/downloads/app-universal-release.apk",
-          "size": 72177638
-        }
-      ]
-    },
-    {
       "tag": "v4.0.0",
       "name": "v4.0.0",
       "versionName": "4.0.0",
