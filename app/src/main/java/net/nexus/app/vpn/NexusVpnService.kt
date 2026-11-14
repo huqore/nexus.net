@@ -28,6 +28,7 @@ import net.nexus.app.core.ConfigBuilder
 import net.nexus.app.core.XrayCore
 import net.nexus.app.data.SplitMode
 import net.nexus.app.data.AppIcon
+import net.nexus.app.data.NexusSync
 import net.nexus.app.data.Store
 import java.io.File
 
@@ -91,6 +92,10 @@ class NexusVpnService : VpnService() {
         runCatching { tun?.close() }; tun = null
 
         val store = Store(this)
+        // Tile, widget and boot start the service directly: never connect without a logged-in account.
+        if (store.loadTelegramUser() == null) {
+            fail(getString(R.string.vpn_login_required)); return
+        }
         val isAuto = (serverId == Store.AUTO_SERVER_ID || serverId == null)
         isAutoMode = isAuto
         val server = if (isAuto) store.resolveAutoServer() else store.findServer(serverId)
@@ -259,9 +264,16 @@ class NexusVpnService : VpnService() {
                 }
             }
 
+            var ticks = 0
             while (isActive) {
                 delay(15_000L)
                 if (!XrayCore.isRunning || tun == null) break
+                // Every 30 min: pick up server changes (new keys after a link rotation, removed nodes,
+                // an expired subscription) even while the app itself is closed.
+                if (++ticks % BACKGROUND_SYNC_TICKS == 0) {
+                    store.loadTelegramUser()?.let { u -> runCatching { backgroundSync(store, u, hwid) } }
+                    if (!XrayCore.isRunning || tun == null) break
+                }
                 val currentUser = store.loadTelegramUser()
                 if (currentUser != null) {
                     val valid = net.nexus.app.auth.TelegramAuthManager.validateDeviceSession(
@@ -287,6 +299,48 @@ class NexusVpnService : VpnService() {
                 }
             }
         }
+    }
+
+    /**
+     * Refreshes the account's NEXUS servers in storage. Stops the tunnel when the subscription is over,
+     * and reconnects when the running server's config changed (or, in Auto, when it disappeared).
+     */
+    private suspend fun backgroundSync(store: Store, user: net.nexus.app.auth.TelegramUser, hwid: String) {
+        val hs = net.nexus.app.auth.TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
+        if (!hs.success || !hs.authenticated) return // a kicked device is handled by the session check
+        val fresh = hs.user?.copy(appToken = user.appToken)
+        if (fresh != null) store.saveTelegramUser(fresh)
+        val before = store.loadProviders()
+
+        if (fresh != null && !fresh.isSubscribed) {
+            store.saveProviders(NexusSync.withoutNexus(before))
+            net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(this, fresh)
+            withContext(Dispatchers.Main) { stopVpn() }
+            return
+        }
+        if (hs.servers.isEmpty()) return
+
+        val exp = runCatching {
+            val e = fresh?.expireAt.orEmpty()
+            if (e.isNotBlank()) java.time.Instant.parse(e).epochSecond else 0L
+        }.getOrDefault(0L)
+        val after = NexusSync.withNexus(
+            before, hs.servers,
+            upload = fresh?.usedTrafficBytes ?: 0L, download = 0L, total = fresh?.trafficLimitBytes ?: 0L, expireAt = exp,
+        )
+        store.saveProviders(after)
+
+        val id = activeServerId ?: return
+        val old = before.flatMap { it.servers }.firstOrNull { it.id == id }
+        val new = after.flatMap { it.servers }.firstOrNull { it.id == id }
+        val reconnectTo = when {
+            new == null && isAutoMode -> Store.AUTO_SERVER_ID.also { store.autoLockedServerId = null }
+            new != null && (old?.outbounds != new.outbounds || old?.fullConfig != new.fullConfig) ->
+                if (isAutoMode) Store.AUTO_SERVER_ID else id
+            else -> null
+        } ?: return
+        android.util.Log.i("NexusVPN", "Server config changed in the background: reconnecting")
+        withContext(Dispatchers.Main) { start(this@NexusVpnService, reconnectTo) }
     }
 
     fun stopVpn() {
@@ -530,6 +584,9 @@ class NexusVpnService : VpnService() {
         const val EXTRA_SERVER_ID = "server_id"
         private const val CHANNEL = "vpn_status"
         private const val NOTIF_ID = 1
+
+        /** Session-check ticks are 15 s apart: 120 ticks = 30 min between background server syncs. */
+        private const val BACKGROUND_SYNC_TICKS = 120
 
         private const val TUN_IPV4 = "198.18.0.1"
         private const val TUN_IPV6 = "fdfe:dcba:9876::1"
