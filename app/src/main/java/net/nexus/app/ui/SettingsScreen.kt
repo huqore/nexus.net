@@ -678,20 +678,20 @@ private fun MainSettingsList(
                     LinkRow(
                         icon = Icons.Filled.Language,
                         title = stringResource(R.string.link_site),
-                        subtitle = "nexus-net.xyz",
-                        onClick = { openUrl("https://nexus-net.xyz") }
+                        subtitle = net.nexus.app.data.ApiHosts.primary(),
+                        onClick = { openUrl(net.nexus.app.data.ApiHosts.siteUrl()) }
                     )
                     LinkRow(
                         icon = Icons.AutoMirrored.Outlined.HelpOutline,
                         title = stringResource(R.string.link_support),
-                        subtitle = "@huqore",
-                        onClick = { openUrl("https://t.me/huqore") }
+                        subtitle = "@NEXUS_net_support",
+                        onClick = { openUrl("https://t.me/NEXUS_net_support") }
                     )
                     LinkRow(
                         icon = Icons.Filled.Campaign,
                         title = stringResource(R.string.link_channel),
-                        subtitle = "@nexus_net_channel",
-                        onClick = { openUrl("https://t.me/nexus_net_channel") }
+                        subtitle = "@NEXUSnet_news",
+                        onClick = { openUrl("https://t.me/NEXUSnet_news") }
                     )
                 }
             }

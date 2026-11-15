@@ -227,7 +227,7 @@ fun MandatoryTelegramAuthScreen(vm: MainViewModel) {
                 TextButton(
                     onClick = {
                         runCatching {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://nexus-net.xyz")).apply {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(net.nexus.app.data.ApiHosts.siteUrl())).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
                             ctx.startActivity(intent)
@@ -314,7 +314,7 @@ fun WebsiteLoginDialog(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Личный кабинет nexus-net.xyz",
+                    text = "Личный кабинет ${net.nexus.app.data.ApiHosts.primary()}",
                     fontSize = 13.sp,
                     color = NX.muted2,
                     textAlign = TextAlign.Center

@@ -43,14 +43,14 @@ object UpdateDownloader {
         // 1. Direct release download URL provided by UpdateChecker (e.g. from nexus-net.xyz or GitHub)
         candidateUrls.add(release.downloadUrl)
 
-        // 2. High-speed direct Cloudflare CDN from nexus-net.xyz (always unblocked, fast, no 502/504 errors)
-        val directCdnUrl = "https://nexus-net.xyz/downloads/$fileName"
-        if (!candidateUrls.contains(directCdnUrl)) {
-            candidateUrls.add(directCdnUrl)
+        // 2. Our own /downloads on every NEXUS domain (working one first; nexus-net.xyz is blocked in Russia)
+        for (host in net.nexus.app.data.ApiHosts.candidates()) {
+            val directCdnUrl = "https://$host/downloads/$fileName"
+            if (!candidateUrls.contains(directCdnUrl)) candidateUrls.add(directCdnUrl)
         }
-        val latestCdnUrl = "https://nexus-net.xyz/downloads/nexus-net-latest.apk"
-        if (!candidateUrls.contains(latestCdnUrl)) {
-            candidateUrls.add(latestCdnUrl)
+        for (host in net.nexus.app.data.ApiHosts.candidates()) {
+            val latestCdnUrl = "https://$host/downloads/nexus-net-latest.apk"
+            if (!candidateUrls.contains(latestCdnUrl)) candidateUrls.add(latestCdnUrl)
         }
 
         // 3. Fallback proxy mirror if upstream GitHub is slow/throttled

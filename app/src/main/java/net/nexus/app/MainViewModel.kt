@@ -22,6 +22,7 @@ import net.nexus.app.data.Provider
 import net.nexus.app.data.Server
 import net.nexus.app.data.Settings
 import net.nexus.app.data.SplitMode
+import net.nexus.app.data.NexusSync
 import net.nexus.app.data.Store
 import net.nexus.app.data.SubscriptionFetcher
 import kotlinx.coroutines.Job
@@ -119,6 +120,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     init {
         net.nexus.app.ui.AppIconManager.applyIcon(app, settings.value.appIcon)
         cleanupDuplicateNexusProviders()
+        // Logged out (also by an older build that left them behind): no account servers on the device.
+        if (telegramUser.value == null) mutate { NexusSync.withoutNexus(it) }
         ensureSelection()
         refreshAllSubscriptions(quiet = true)
         startPeriodicHourlyRefresh()
@@ -175,7 +178,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val tgSub = telegramUser.value?.subscriptionUrl?.takeIf { it.isNotBlank() }
         mutate { list ->
             val nexusList = list.filter {
-                it.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
+                net.nexus.app.data.ApiHosts.isNexusSubUrl(it.url) ||
                 (it.name.contains("NEXUS", ignoreCase = true) && !it.isLocal)
             }
             if (nexusList.size <= 1) return@mutate list
@@ -195,7 +198,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             adding.value = true
             try {
                 val t = text.trim()
-                if (t.startsWith("http://", true) || t.startsWith("https://", true) || t.startsWith("chad.nexus-net.xyz", true)) {
+                if (t.startsWith("http://", true) || t.startsWith("https://", true) || net.nexus.app.data.ApiHosts.isNexusSubUrl(t)) {
                     emit(R.string.error_manual_sub_disabled)
                     return@launch
                 }
@@ -225,21 +228,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Keeps ids (and therefore the selected server and ping values) stable across refreshes. */
-    private fun mergeServers(old: List<Server>, new: List<Server>): List<Server> {
-        val byName = old.groupBy { it.name }.mapValues { it.value.toMutableList() }
-        return new.map { n ->
-            val match = byName[n.name]?.removeFirstOrNull()
-            if (match != null) n.copy(id = match.id, pingMs = match.pingMs) else n
+    private fun mergeServers(old: List<Server>, new: List<Server>): List<Server> = NexusSync.mergeServers(old, new)
+
+    /** Replaces the account's NEXUS servers, keeping ids, selection and pings of the ones still there. */
+    private fun setNexusServers(servers: List<Server>, upload: Long, download: Long, total: Long, expireAt: Long) {
+        mutate { NexusSync.withNexus(it, servers, upload, download, total, expireAt) }
+        ensureSelection()
+    }
+
+    /** Subscription is over: no servers to connect to, and a running tunnel would carry nothing. */
+    private fun dropNexusServers() {
+        mutate { NexusSync.withoutNexus(it) }
+        ensureSelection()
+        if (VpnState.status.value == VpnStatus.CONNECTED || VpnState.status.value == VpnStatus.CONNECTING) {
+            viewModelScope.launch(Dispatchers.Main) { NexusVpnService.stop(getApplication()) }
         }
     }
 
+    private fun expSecondsOf(user: TelegramUser): Long = runCatching {
+        if (user.expireAt.isNotBlank()) java.time.Instant.parse(user.expireAt).epochSecond else 0L
+    }.getOrDefault(0L)
+
     private fun upsertSubscription(url: String, r: FetchResult) {
         mutate { list ->
-            val isNexus = url.contains("chad.nexus-net.xyz", ignoreCase = true) || r.name.contains("NEXUS", ignoreCase = true)
+            val isNexus = net.nexus.app.data.ApiHosts.isNexusSubUrl(url) || r.name.contains("NEXUS", ignoreCase = true)
             val existing = list.firstOrNull { it.url == url }
             val baseList = if (isNexus) {
                 list.filterNot {
-                    it.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
+                    net.nexus.app.data.ApiHosts.isNexusSubUrl(it.url) ||
                     (it.name.contains("NEXUS", ignoreCase = true) && !it.isLocal)
                 }
             } else {
@@ -311,6 +327,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (settings.value.autoCheckUpdates) {
                     checkForUpdates(manual = false)
                 }
+                // NEXUS servers come from the handshake, not from a subscription URL: refresh them too.
+                if (telegramUser.value != null) syncTelegramSubscription(quiet = true)
                 refreshAllSubscriptions(quiet = true)
             }
         }
@@ -363,6 +381,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- latency ----------
 
     fun silentUpdateSubscriptions() {
+        // The VPN service may have refreshed the servers in the background: start from what is stored.
+        if (pinging.value.isEmpty()) providers.value = store.loadProviders()
         viewModelScope.launch(Dispatchers.IO) {
             if (telegramUser.value != null) {
                 syncTelegramSubscription(quiet = true)
@@ -615,7 +635,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val user = telegramUser.value
                 if (user != null) {
                     val hwid = store.getOrCreateHwid()
-                    val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId)
+                    val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
                     if (!isValid) {
                         android.util.Log.w("NexusAuth", "Device was unlinked or kicked remotely! Revoking local session.")
                         revokeSession("Устройство отвязано от аккаунта")
@@ -629,7 +649,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val user = telegramUser.value ?: return
         viewModelScope.launch(Dispatchers.IO) {
             val hwid = store.getOrCreateHwid()
-            val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId)
+            val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
             if (!isValid) {
                 revokeSession("Устройство отвязано от аккаунта")
             } else {
@@ -754,7 +774,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     devicesCount = devicesCount,
                     appToken = json.optString("appToken", ""),
                 )
-                applyConfirmedTelegramUser(u)
+                // The payload arrives via a deep link that any web page can fire, so nothing in it is
+                // trusted on its own: a server-signed appToken is mandatory and the account is only
+                // committed after the server confirms it. The subscription URL always comes from the server.
+                if (u.appToken.isBlank() || u.telegramId <= 0) {
+                    emit(R.string.status_error)
+                    return@launch
+                }
+                applyConfirmedTelegramUser(u.copy(subscriptionUrl = ""), requireServerAuth = true)
             } catch (e: Exception) {
                 emit(R.string.status_error)
             }
@@ -772,15 +799,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun applyConfirmedTelegramUser(confirmedUser: TelegramUser, sessionToken: String? = null) {
+    private suspend fun applyConfirmedTelegramUser(
+        confirmedUser: TelegramUser,
+        sessionToken: String? = null,
+        requireServerAuth: Boolean = false,
+    ) {
         var serverCount = 0
         var finalUser = confirmedUser
 
-        telegramUser.value = finalUser
-        store.saveTelegramUser(finalUser)
-
         val hwid = store.getOrCreateHwid()
-        val hs = TelegramAuthManager.handshake(hwid, finalUser.cleanUsername, finalUser.telegramId, sessionToken = sessionToken)
+        if (!requireServerAuth) {
+            telegramUser.value = finalUser
+            store.saveTelegramUser(finalUser)
+        }
+        val hs = TelegramAuthManager.handshake(hwid, finalUser.cleanUsername, finalUser.telegramId, sessionToken = sessionToken, appToken = finalUser.appToken)
+        if (requireServerAuth) {
+            if (!(hs.success && hs.authenticated)) {
+                emit(R.string.status_error)
+                return
+            }
+            telegramUser.value = finalUser
+            store.saveTelegramUser(finalUser)
+        }
         if (hs.success && hs.authenticated) {
             if (hs.user != null) {
                 finalUser = hs.user.copy(appToken = finalUser.appToken)
@@ -788,29 +828,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 store.saveTelegramUser(finalUser)
             }
             if (hs.servers.isNotEmpty()) {
-                val expSeconds = runCatching {
-                    if (finalUser.expireAt.isNotBlank()) java.time.Instant.parse(finalUser.expireAt).epochSecond else 0L
-                }.getOrDefault(0L)
-                val provider = Provider(
-                    id = "nexus_provider",
-                    name = "NEXUS",
-                    servers = hs.servers,
-                    upload = finalUser.usedTrafficBytes,
-                    download = 0,
-                    total = finalUser.trafficLimitBytes,
-                    expireAt = expSeconds,
-                    updatedAt = System.currentTimeMillis()
-                )
-                store.saveProviders(listOf(provider))
-                providers.value = listOf(provider)
+                setNexusServers(hs.servers, finalUser.usedTrafficBytes, 0, finalUser.trafficLimitBytes, expSecondsOf(finalUser))
                 serverCount = hs.servers.size
-                ensureSelection()
+            } else if (hs.user != null && !hs.user.isSubscribed) {
+                dropNexusServers()
             }
         }
+        // The server says the subscription is not active: nothing to fetch from its link.
+        val knownInactive = hs.success && hs.authenticated && hs.user != null && !hs.user.isSubscribed
 
         // Direct fallback during login if handshake returned no servers:
         // Fetch directly from subscription URL so serverCount is immediately populated!
-        if (serverCount == 0) {
+        if (serverCount == 0 && !knownInactive) {
             val refreshedUser = TelegramAuthManager.refreshFromRemnaWave(finalUser)
             val effectiveUrl = refreshedUser.subscriptionUrl.ifBlank { finalUser.subscriptionUrl }
             if (effectiveUrl.isNotBlank() && (effectiveUrl.startsWith("http://") || effectiveUrl.startsWith("https://"))) {
@@ -822,20 +851,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     telegramUser.value = finalUser
                     store.saveTelegramUser(finalUser)
-                    val provider = Provider(
-                        id = "nexus_provider",
-                        name = "NEXUS",
-                        servers = fetchResult.servers,
-                        upload = fetchResult.upload,
-                        download = fetchResult.download,
-                        total = fetchResult.total,
-                        expireAt = fetchResult.expireAt,
-                        updatedAt = System.currentTimeMillis()
-                    )
-                    store.saveProviders(listOf(provider))
-                    providers.value = listOf(provider)
+                    setNexusServers(fetchResult.servers, fetchResult.upload, fetchResult.download, fetchResult.total, fetchResult.expireAt)
                     serverCount = fetchResult.servers.size
-                    ensureSelection()
                 }
             }
         }
@@ -872,9 +889,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             isSyncingTelegram.value = true
             try {
                 val hwid = store.getOrCreateHwid()
-                var hs = TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId)
+                var hs = TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
                 if (hs.success && !hs.authenticated) {
                     revokeSession("Устройство отвязано от аккаунта")
+                    return@launch
+                }
+
+                // Subscription not active (expired / disabled): its servers no longer carry traffic.
+                if (hs.success && hs.authenticated && hs.user != null && !hs.user.isSubscribed) {
+                    val inactiveUser = hs.user.copy(appToken = user.appToken)
+                    telegramUser.value = inactiveUser
+                    store.saveTelegramUser(inactiveUser)
+                    dropNexusServers()
+                    net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), inactiveUser)
+                    if (!quiet) emit(R.string.tg_no_active_sub)
                     return@launch
                 }
 
@@ -902,22 +930,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     net.nexus.app.auth.SubscriptionNotifier.checkAndNotify(getApplication(), activeUser)
 
                     if (hs.servers.isNotEmpty()) {
-                        val expSeconds = runCatching {
-                            if (activeUser.expireAt.isNotBlank()) java.time.Instant.parse(activeUser.expireAt).epochSecond else 0L
-                        }.getOrDefault(0L)
-                        val provider = Provider(
-                            id = "nexus_provider",
-                            name = "NEXUS",
-                            servers = hs.servers,
-                            upload = activeUser.usedTrafficBytes,
-                            download = 0,
-                            total = activeUser.trafficLimitBytes,
-                            expireAt = expSeconds,
-                            updatedAt = System.currentTimeMillis()
-                        )
-                        store.saveProviders(listOf(provider))
-                        providers.value = listOf(provider)
-                        ensureSelection()
+                        setNexusServers(hs.servers, activeUser.usedTrafficBytes, 0, activeUser.trafficLimitBytes, expSecondsOf(activeUser))
                         if (!quiet) {
                             emit(R.string.tg_sync_success, hs.servers.size)
                         }
@@ -934,7 +947,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (effectiveUrl.isNotBlank() && (effectiveUrl.startsWith("http://") || effectiveUrl.startsWith("https://"))) {
                         val fetchResult = runCatching { SubscriptionFetcher.fetch(effectiveUrl, hwid) }.getOrNull()
                         if (fetchResult != null && fetchResult.servers.isNotEmpty()) {
-                            upsertSubscription(effectiveUrl, fetchResult)
+                            // Same NEXUS group as the handshake fills: no second copy of the servers.
+                            setNexusServers(fetchResult.servers, fetchResult.upload, fetchResult.download, fetchResult.total, fetchResult.expireAt)
                             fallbackSuccess = true
                             if (!quiet) emit(R.string.tg_sync_success, fetchResult.servers.size)
                         }
@@ -964,11 +978,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             TelegramAuthManager.unregisterDevice(user, hwid)
         }
         mutate { list ->
-            list.filterNot {
-                it.url == user.subscriptionUrl ||
-                it.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
-                (it.name.contains("NEXUS", ignoreCase = true) && !it.isLocal)
-            }
+            NexusSync.withoutNexus(list).filterNot { it.url != null && it.url == user.subscriptionUrl }
         }
         ensureSelection()
         telegramUser.value = null

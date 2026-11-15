@@ -212,14 +212,8 @@ class MainActivity : AppCompatActivity() {
             } else if (!sessionParam.isNullOrBlank()) {
                 vm.checkAndApplyTelegramSession(sessionParam)
             }
-
-            // Direct subscription import URL
-            val subUrl = uri.getQueryParameter("url")
-                ?: uri.getQueryParameter("sub")
-                ?: uri.getQueryParameter("link")
-            if (!subUrl.isNullOrBlank()) {
-                vm.addInput(subUrl.trim())
-            }
+            // No server/subscription import from deep links: any web page can fire nexus://,
+            // so a silent import would let a third party route the user's traffic through its server.
         }
     }
 }
