@@ -10,7 +10,7 @@ import java.io.IOException
  * needs a new domain on the server, not a new app build.
  */
 object ApiHosts {
-    val DEFAULT_HOSTS = listOf("nexus-net.xyz", "nexusnet.click")
+    val DEFAULT_HOSTS = listOf("nexusnet.click", "nexus-net.xyz")
 
     private const val PREFS = "nexus_api_hosts"
     private const val KEY_PREFERRED = "preferred"

@@ -17,6 +17,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -145,6 +148,20 @@ fun md3TonesFor(p: NexusColorPalette): Md3Tones {
 }
 
 /** Material You: tones straight from a (wallpaper-based) dynamic ColorScheme. */
+/** The same dark tones on a pure-black base (AMOLED): surfaces go black, containers stay just visible. */
+fun Md3Tones.onAmoledBlack(): Md3Tones {
+    fun deepen(c: Color, k: Float) = androidx.compose.ui.graphics.lerp(c, Color.Black, k)
+    return copy(
+        surface = Color.Black,
+        surfaceContainerLowest = Color.Black,
+        surfaceContainerLow = deepen(surfaceContainerLow, 0.55f),
+        surfaceContainer = deepen(surfaceContainer, 0.45f),
+        surfaceContainerHigh = deepen(surfaceContainerHigh, 0.38f),
+        surfaceContainerHighest = deepen(surfaceContainerHighest, 0.32f),
+        outlineVariant = deepen(outlineVariant, 0.25f),
+    )
+}
+
 fun md3TonesFrom(cs: ColorScheme, light: Boolean): Md3Tones = Md3Tones(
     isLight = light,
     surface = cs.surface,
@@ -238,6 +255,7 @@ fun Modifier.glassSource(zIndex: Float = 0f): Modifier {
 fun Modifier.glassBlur(): Modifier {
     val haze = LocalGlassHaze.current ?: return this
     if (NX.style != DesignStyle.LIQUID_GLASS) return this
+    if (LiquidBackdrop.supported) return this // the refracting glass blurs the backdrop itself
     val light = NX.isLightTheme
     val base = NX.palette.bg
     return this.then(
@@ -264,8 +282,11 @@ fun Modifier.nxBorder(shape: Shape, width: Dp = 1.dp, color: Color = NX.cardBord
     DesignStyle.FLUENT -> this.border(width, color, shape)
     // Material You: same geometry as Fluent; 1dp outlineVariant contour on tonal containers.
     DesignStyle.MATERIAL3 -> this.border(width, NX.md3.outlineVariant, shape)
-    // Liquid Glass: six live layers, speculars follow device tilt (see LiquidGlass.kt).
-    DesignStyle.LIQUID_GLASS -> this.liquidGlassLayers(shape, width, NX.isLightTheme)
+    // Liquid Glass: real refracting glass on Android 13+ (LiquidGlassEngine.kt); older Android
+    // keeps the drawn layers (LiquidGlass.kt). Speculars follow device tilt either way.
+    DesignStyle.LIQUID_GLASS ->
+        if (LiquidBackdrop.supported) this.liquidGlass(shape, GlassSpec.Card)
+        else this.liquidGlassLayers(shape, width, NX.isLightTheme)
 }
 
 /**
@@ -277,11 +298,20 @@ fun GlassBackdrop(modifier: Modifier = Modifier) {
     val p = NX.palette
     val h = hueOf(p.accent)
     val light = NX.isLightTheme
-    val t by rememberInfiniteTransition(label = "glassBackdrop").animateFloat(
-        initialValue = 0f, targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween(40_000, easing = LinearEasing), RepeatMode.Restart),
-        label = "glassPhase",
-    )
+    // The colour fields drift once per 40 s. Real glass re-renders on every backdrop frame, so the
+    // phase is stepped at ~15 fps (indistinguishable at this speed) instead of 60-120 fps.
+    var t by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val start = System.nanoTime()
+        while (true) {
+            // withFrameNanos suspends while no frames are drawn (app in background / screen off),
+            // so this never wakes the CPU when nobody can see it.
+            val now = androidx.compose.runtime.withFrameNanos { it }
+            val sec = (now - start) / 1_000_000_000.0
+            t = (((sec % 40.0) / 40.0) * 2 * Math.PI).toFloat()
+            kotlinx.coroutines.delay(66)
+        }
+    }
     // Darker, calmer field built ONLY from the theme accent (two depths of it), so the colour
     // source is obvious: blue theme -> blue glow, red -> red, etc.
     val a = if (light) 0.40f else 0.42f
@@ -319,7 +349,8 @@ fun GlassBackdrop(modifier: Modifier = Modifier) {
                 )
             }
             // Veil keeps white text readable over saturated colour.
-            drawRect(Color.Black.copy(alpha = 0.48f))
+            // Real glass needs colour behind it to refract: a lighter veil on Android 13+.
+            drawRect(Color.Black.copy(alpha = if (LiquidBackdrop.supported) 0.38f else 0.48f))
         }
     }
 }

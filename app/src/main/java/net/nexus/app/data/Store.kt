@@ -20,7 +20,11 @@ class Store(context: Context) {
     }
 
     fun loadSettings(): Settings = runCatching {
-        val o = JSONObject(prefs.getString("settings", "{}") ?: "{}")
+        settingsFromJson(JSONObject(prefs.getString("settings", "{}") ?: "{}"))
+    }.getOrDefault(Settings())
+
+    /** Settings from their JSON form (stored prefs and the export file share it). */
+    fun settingsFromJson(o: JSONObject): Settings = run {
         val apps = o.optJSONArray("splitApps") ?: JSONArray()
         Settings(
             splitMode = runCatching { SplitMode.valueOf(o.optString("splitMode", "OFF")) }.getOrDefault(SplitMode.OFF),
@@ -46,10 +50,17 @@ class Store(context: Context) {
             customAccent = o.optInt("customAccent", Settings().customAccent),
             customBg = o.optInt("customBg", Settings().customBg),
             customParticles = CustomParticles.fromId(o.optString("customParticles", "none")),
+            bypassRussianApps = o.optBoolean("bypassRussianApps", false),
+            autoNetworkSwitch = o.optBoolean("autoNetworkSwitch", true),
         )
-    }.getOrDefault(Settings())
+    }
 
     fun saveSettings(s: Settings) {
+        prefs.edit().putString("settings", settingsToJson(s).toString()).apply()
+    }
+
+    /** JSON form of [Settings] (stored prefs and the export file share it). */
+    fun settingsToJson(s: Settings): JSONObject {
         val o = JSONObject()
             .put("splitMode", s.splitMode.name)
             .put("splitApps", JSONArray(s.splitApps.toList()))
@@ -73,10 +84,15 @@ class Store(context: Context) {
             .put("customParticles", s.customParticles.id)
             .put("amoledMode", s.amoledMode)
             .put("lightMode", s.lightMode)
-        prefs.edit().putString("settings", o.toString()).apply()
+            .put("bypassRussianApps", s.bypassRussianApps)
+            .put("autoNetworkSwitch", s.autoNetworkSwitch)
+        return o
     }
 
     fun isWlBypass(server: Server): Boolean = Companion.isWlBypass(server)
+
+    /** Best server for the current network: Wi-Fi -> regular servers, mobile data -> whitelist bypass. */
+    fun pickForNetwork(servers: List<Server>, onWifi: Boolean): Server? = Companion.pickForNetwork(servers, onWifi)
 
     /** Finds the best server by lowest positive ping, or falls back to the first available server.
      * Excludes WL bypass servers if other servers have a valid ping. */
@@ -120,8 +136,9 @@ class Store(context: Context) {
      */
     fun resolveAutoServer(): Server? {
         val all = connectableServers()
-        autoLockedServerId?.let { id -> all.firstOrNull { it.id == id }?.let { return it } }
-        val best = findBestServer()
+        autoLockedServerId?.let { id -> all.firstOrNull { it.id == id }?.takeIf { lockStillFits(it) }?.let { return it } }
+        val best = if (loadSettings().autoNetworkSwitch) pickForNetwork(all, onWifiOrEthernet()) ?: findBestServer()
+        else findBestServer()
         autoLockedServerId = best?.id
         return best
     }
@@ -129,9 +146,34 @@ class Store(context: Context) {
     /** What Auto would connect to, without locking anything (for UI labels / ping target). */
     fun peekAutoServer(): Server? {
         val all = connectableServers()
-        autoLockedServerId?.let { id -> all.firstOrNull { it.id == id }?.let { return it } }
+        autoLockedServerId?.let { id -> all.firstOrNull { it.id == id }?.takeIf { lockStillFits(it) }?.let { return it } }
         return findBestServer()
     }
+
+    /**
+     * A WL-bypass (LTE / CDN) server is slow by design and only needed on mobile data under
+     * whitelists. Once locked on mobile, Auto used to keep it on home Wi-Fi forever; now the lock
+     * is dropped on Wi-Fi/Ethernet and Auto re-picks a regular server.
+     */
+    private fun lockStillFits(s: Server): Boolean {
+        val wifi = onWifiOrEthernet()
+        // Following the network: the lock must belong to this network's group (Wi-Fi vs mobile)
+        if (loadSettings().autoNetworkSwitch && connectableServers().any { isWlBypass(it) }) return isWlBypass(s) != wifi
+        return !isWlBypass(s) || !wifi
+    }
+
+    /** True when a non-VPN Wi-Fi or Ethernet network with internet is up (works while our VPN is on). */
+    fun onWifiOrEthernet(): Boolean = runCatching {
+        val cm = prefsContext.getSystemService(android.net.ConnectivityManager::class.java) ?: return false
+        @Suppress("DEPRECATION")
+        cm.allNetworks.any { n ->
+            val c = cm.getNetworkCapabilities(n) ?: return@any false
+            !c.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) &&
+                c.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                (c.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
+                    c.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET))
+        }
+    }.getOrDefault(false)
 
     /** Looks a server up by id across all providers (used by the VPN service). Supports AUTO_SERVER_ID. */
     fun findServer(id: String?): Server? = when (id) {
@@ -181,6 +223,12 @@ class Store(context: Context) {
         set(value) = prefs.edit().putString("last_expiry_notified_day", value).apply()
 
     companion object {
+        /** Wi-Fi -> regular servers, mobile data -> whitelist-bypass servers; lowest ping first. Null if that group is empty. */
+        fun pickForNetwork(servers: List<Server>, onWifi: Boolean): Server? {
+            val pool = servers.filter { isWlBypass(it) != onWifi }
+            return pool.filter { it.pingMs > 0 }.minByOrNull { it.pingMs } ?: pool.firstOrNull()
+        }
+
         const val AUTO_SERVER_ID = "__auto__"
 
         private val WL_WORD = Regex("""(^|[^\p{L}\p{N}])wl([^\p{L}\p{N}]|$)""", RegexOption.IGNORE_CASE)

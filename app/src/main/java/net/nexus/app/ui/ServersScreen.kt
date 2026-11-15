@@ -79,7 +79,7 @@ fun ServersScreen(vm: MainViewModel) {
         item {
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(stringResource(R.string.servers_title), fontSize = 34.sp, fontWeight = FontWeight.Bold)
@@ -166,13 +166,18 @@ private fun AutoServerButton(
     Row(
         modifier
             .height(66.dp)
+            .liquidJelly()
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
             .clip(shape)
-            .background(bgColor)
-            .border(1.dp, borderColor, shape)
+            // Liquid Glass: the tile is real glass like every other card, the selection tints it on top
+            .then(
+                if (NX.style == net.nexus.app.data.DesignStyle.LIQUID_GLASS)
+                    Modifier.nxBorder(shape).background(if (selected) NX.accent.copy(alpha = 0.16f) else Color.Transparent)
+                else Modifier.background(bgColor).border(1.dp, borderColor, shape)
+            )
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -241,6 +246,7 @@ private fun PingTestButton(
     Row(
         modifier
             .height(66.dp)
+            .liquidJelly()
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale

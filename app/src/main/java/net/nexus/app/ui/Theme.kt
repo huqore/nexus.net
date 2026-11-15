@@ -760,19 +760,24 @@ fun NexusTheme(
     // Material You: with the wallpaper colour theme on Android 12+, use the system dynamic scheme.
     val dynamicScheme = if (designStyle == DesignStyle.MATERIAL3 && appTheme == AppTheme.HOME_SCREEN &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    ) remember(ctx) { runCatching { dynamicDarkColorScheme(ctx) }.getOrNull() } else null
-    NX.md3Override = dynamicScheme?.let { md3TonesFrom(it, light = false) }
+    ) remember(ctx, lightMode) {
+        runCatching {
+            if (lightMode) androidx.compose.material3.dynamicLightColorScheme(ctx) else dynamicDarkColorScheme(ctx)
+        }.getOrNull()
+    } else null
+    // Light mode -> the light system scheme; AMOLED -> the dark one on pure-black surfaces.
+    NX.md3Override = dynamicScheme?.let { cs ->
+        val tones = md3TonesFrom(cs, light = lightMode)
+        if (amoled && !lightMode) tones.onAmoledBlack() else tones
+    }
     val density = LocalDensity.current
     val customDensity = Density(
         density = density.density,
         fontScale = density.fontScale * fontScale
     )
-    val activeFontFamily = remember(appFont) {
-        when (appFont) {
-            AppFont.RUSSO_ONE -> RussoOneFamily
-            AppFont.SYSTEM -> FontFamily.Default
-        }
-    }
+    // Always the brand font (Russo One); the old "system font" choice is ignored on purpose.
+    @Suppress("UNUSED_VARIABLE") val ignoredFontChoice = appFont
+    val activeFontFamily = RussoOneFamily
     val typography = remember(activeFontFamily) {
         createTypography(activeFontFamily)
     }
@@ -803,7 +808,7 @@ fun NexusTheme(
                 if (glass) GlassLightSensor()
                 CompositionLocalProvider(LocalGlassHaze provides (if (glass) haze else null)) {
                     Box(Modifier.fillMaxSize()) {
-                        if (glass) GlassBackdrop(Modifier.glassSource(zIndex = 0f))
+                        if (glass) GlassBackdrop(Modifier.glassSource(zIndex = 0f).liquidBackgroundSource())
                         Surface(
                             color = if (glass) Color.Transparent else NX.bg,
                             contentColor = NX.text,

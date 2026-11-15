@@ -89,12 +89,15 @@ class NexusVpnService : VpnService() {
     private fun startVpn(serverId: String?) {
         runCatching { TProxyService.TProxyStopService() }
         XrayCore.stopQuietly()
-        runCatching { tun?.close() }; tun = null
+        // The previous tunnel (a live one or the kill-switch block) stays up until the new one is
+        // established, so reconnecting never leaves a gap where traffic goes around the VPN.
+        val previousTun = tun
 
         val store = Store(this)
         // Tile, widget and boot start the service directly: never connect without a logged-in account.
         if (store.loadTelegramUser() == null) {
-            fail(getString(R.string.vpn_login_required)); return
+            runCatching { previousTun?.close() }; tun = null
+            fail(getString(R.string.vpn_login_required), allowBlock = false); return
         }
         val isAuto = (serverId == Store.AUTO_SERVER_ID || serverId == null)
         isAutoMode = isAuto
@@ -117,6 +120,7 @@ class NexusVpnService : VpnService() {
 
             val pfd = buildTun(store) ?: error("VPN permission was revoked")
             tun = pfd
+            if (previousTun != null && previousTun !== pfd) runCatching { previousTun.close() }
 
             val yamlFile = File(filesDir, "hev-tunnel.yaml")
             val yamlContent = """
@@ -146,7 +150,8 @@ class NexusVpnService : VpnService() {
             yamlFile.writeText(yamlContent)
 
             // Start Xray in SOCKS mode (tunFd = 0)
-            XrayCore.start(config, 0) { line -> android.util.Log.i("NexusVPN", "Xray: $line") }
+            // Core log lines can name visited sites: keep them out of release logcat
+            XrayCore.start(config, 0) { line -> if (net.nexus.app.BuildConfig.DEBUG) android.util.Log.i("NexusVPN", "Xray: $line") }
 
             // Bridge Android TUN to Xray SOCKS5 via high-performance lwIP native stack (same engine as INCY and Happ)
             val started = TProxyService.TProxyStartService(yamlFile.absolutePath, pfd.fd)
@@ -165,6 +170,7 @@ class NexusVpnService : VpnService() {
             updateTileState()
             NexusAppWidgetProvider.updateAllWidgets(this)
             startSessionWatchdog()
+            startNetworkWatch()
 
             if (isAuto) {
                 startWatchdog(socksPort)
@@ -172,7 +178,7 @@ class NexusVpnService : VpnService() {
         } catch (t: Throwable) {
             runCatching { TProxyService.TProxyStopService() }
             XrayCore.stopQuietly()
-            runCatching { tun?.close() }; tun = null
+            // fail() keeps the tunnel as a block when the kill switch is on, closes it otherwise
             fail(t.message ?: t.javaClass.simpleName)
             updateTileState()
             NexusAppWidgetProvider.updateAllWidgets(this)
@@ -211,15 +217,15 @@ class NexusVpnService : VpnService() {
         }
 
         if (Build.VERSION.SDK_INT >= 29) b.setMetered(false)
-        if (settings.killSwitch) {
-            b.setBlocking(true)
-        }
+
+        // "Russian apps direct": banks, Gosuslugi, Yandex, VK, marketplaces... never see the VPN.
+        val ruApps = if (settings.bypassRussianApps) net.nexus.app.data.RussianApps.installed(packageManager, packageName) else emptyList()
 
         // The app itself always stays outside the tunnel: the core's own sockets to the proxy server
         // must not loop back into the TUN, and subscription updates must work while connected.
         when (settings.splitMode) {
             SplitMode.ONLY -> {
-                val apps = settings.splitApps - packageName
+                val apps = settings.splitApps - packageName - ruApps.toSet()
                 if (apps.isEmpty()) {
                     android.util.Log.w("NexusVPN", "SplitMode.ONLY selected with 0 apps, routing all traffic")
                 } else {
@@ -227,21 +233,30 @@ class NexusVpnService : VpnService() {
                 }
             }
             SplitMode.BYPASS -> {
-                settings.splitApps.forEach { runCatching { b.addDisallowedApplication(it) } }
+                (settings.splitApps + ruApps).forEach { runCatching { b.addDisallowedApplication(it) } }
                 b.addDisallowedApplication(packageName)
             }
-            SplitMode.OFF -> b.addDisallowedApplication(packageName)
+            SplitMode.OFF -> {
+                ruApps.forEach { runCatching { b.addDisallowedApplication(it) } }
+                b.addDisallowedApplication(packageName)
+            }
         }
         return b.establish()
     }
 
-    private fun fail(message: String) {
+    /**
+     * Connection failed or dropped. With the kill switch on (and an account logged in) the tunnel
+     * is kept up with nothing reading it: every app's traffic goes into it and is dropped, so
+     * nothing leaks around the VPN until the user reconnects or presses Disconnect.
+     */
+    private fun fail(message: String, allowBlock: Boolean = true) {
         speedTickerJob?.cancel()
         speedTickerJob = null
         watchdogJob?.cancel()
         watchdogJob = null
         runCatching { TProxyService.TProxyStopService() }
         XrayCore.stopQuietly()
+        if (allowBlock && engageKillSwitch(message)) return
         runCatching { tun?.close() }; tun = null
         VpnState.failed(message)
         updateTileState()
@@ -250,6 +265,20 @@ class NexusVpnService : VpnService() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIF_ID)
         stopSelf()
+    }
+
+    private fun engageKillSwitch(message: String): Boolean {
+        val store = Store(this)
+        val enabled = runCatching { store.loadSettings().killSwitch }.getOrDefault(false)
+        if (!enabled || store.loadTelegramUser() == null) return false
+        if (tun == null) tun = runCatching { buildTun(store) }.getOrNull()
+        if (tun == null) return false // no VPN permission: nothing to block with
+        VpnState.failed(message)
+        showNotification(getString(R.string.kill_switch_blocking))
+        updateTileState()
+        NexusAppWidgetProvider.updateAllWidgets(this)
+        android.util.Log.w("NexusVPN", "Kill switch: traffic blocked after failure: $message")
+        return true
     }
 
     private fun startSessionWatchdog() {
@@ -266,7 +295,9 @@ class NexusVpnService : VpnService() {
 
             var ticks = 0
             while (isActive) {
-                delay(15_000L)
+                // Session check once a minute (was every 15 s): a kicked device still drops within a minute,
+                // with 4x fewer wake-ups and requests while the VPN is on.
+                delay(SESSION_CHECK_MS)
                 if (!XrayCore.isRunning || tun == null) break
                 // Every 30 min: pick up server changes (new keys after a link rotation, removed nodes,
                 // an expired subscription) even while the app itself is closed.
@@ -288,7 +319,7 @@ class NexusVpnService : VpnService() {
                         store.saveProviders(emptyList())
                         withContext(Dispatchers.Main) {
                             stopVpn()
-                            showNotification("Устройство отвязано от аккаунта")
+                            showNotification(getString(R.string.device_unlinked))
                             val intent = Intent("net.nexus.app.ACTION_SESSION_REVOKED").apply {
                                 setPackage(packageName)
                             }
@@ -343,7 +374,55 @@ class NexusVpnService : VpnService() {
         withContext(Dispatchers.Main) { start(this@NexusVpnService, reconnectTo) }
     }
 
+    // ---- Auto mode follows the network: Wi-Fi servers on Wi-Fi, whitelist-bypass servers on mobile
+    private var netCallback: android.net.ConnectivityManager.NetworkCallback? = null
+    private var netCheckJob: kotlinx.coroutines.Job? = null
+    private var lastOnWifi: Boolean? = null
+
+    private fun startNetworkWatch() {
+        stopNetworkWatch()
+        val cm = getSystemService(android.net.ConnectivityManager::class.java) ?: return
+        lastOnWifi = Store(this).onWifiOrEthernet()
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) = scheduleNetworkCheck()
+            override fun onLost(network: android.net.Network) = scheduleNetworkCheck()
+            override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) = scheduleNetworkCheck()
+        }
+        val req = android.net.NetworkRequest.Builder()
+            .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            .build()
+        runCatching { cm.registerNetworkCallback(req, cb); netCallback = cb }
+    }
+
+    private fun stopNetworkWatch() {
+        netCheckJob?.cancel(); netCheckJob = null
+        val cb = netCallback ?: return
+        netCallback = null
+        runCatching { getSystemService(android.net.ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) }
+    }
+
+    private fun scheduleNetworkCheck() {
+        netCheckJob?.cancel()
+        netCheckJob = scope.launch(Dispatchers.IO) {
+            delay(3_000L) // let the switch settle (Wi-Fi drops, mobile takes over)
+            val store = Store(this@NexusVpnService)
+            if (!isAutoMode || !XrayCore.isRunning || !store.loadSettings().autoNetworkSwitch) return@launch
+            val wifi = store.onWifiOrEthernet()
+            if (wifi == lastOnWifi) return@launch
+            lastOnWifi = wifi
+            val current = activeServerId?.let { id -> store.loadProviders().flatMap { it.servers }.firstOrNull { it.id == id } } ?: return@launch
+            val all = store.loadProviders().flatMap { it.servers }
+            if (all.none { Store.isWlBypass(it) }) return@launch // no mobile servers to switch to
+            if (Store.isWlBypass(current) != wifi) return@launch // already the right kind for this network
+            android.util.Log.i("NexusVPN", "Network changed (wifi=$wifi): Auto switches server group")
+            store.autoLockedServerId = null
+            withContext(Dispatchers.Main) { start(this@NexusVpnService, Store.AUTO_SERVER_ID) }
+        }
+    }
+
     fun stopVpn() {
+        stopNetworkWatch()
         sessionWatchdogJob?.cancel()
         sessionWatchdogJob = null
         vpnJob?.cancel()
@@ -370,6 +449,7 @@ class NexusVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        stopNetworkWatch()
         if (screenReceiverRegistered) {
             runCatching { unregisterReceiver(screenReceiver) }
             screenReceiverRegistered = false
@@ -527,9 +607,7 @@ class NexusVpnService : VpnService() {
 
     private fun formatSpeed(bytesPerSec: Long): String {
         return when {
-            bytesPerSec < 1024 -> "$bytesPerSec Б/с"
-            bytesPerSec < 1024 * 1024 -> String.format(java.util.Locale.US, "%.0f КБ/с", bytesPerSec / 1024f)
-            else -> String.format(java.util.Locale.US, "%.1f МБ/с", bytesPerSec / (1024f * 1024f))
+            else -> net.nexus.app.ui.AppLang.speed(bytesPerSec)
         }
     }
 
@@ -586,7 +664,8 @@ class NexusVpnService : VpnService() {
         private const val NOTIF_ID = 1
 
         /** Session-check ticks are 15 s apart: 120 ticks = 30 min between background server syncs. */
-        private const val BACKGROUND_SYNC_TICKS = 120
+        private const val SESSION_CHECK_MS = 60_000L
+        private const val BACKGROUND_SYNC_TICKS = 30 // x 60 s = every 30 min
 
         private const val TUN_IPV4 = "198.18.0.1"
         private const val TUN_IPV6 = "fdfe:dcba:9876::1"

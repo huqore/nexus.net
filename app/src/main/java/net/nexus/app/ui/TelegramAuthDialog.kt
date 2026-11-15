@@ -108,7 +108,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Подготовка защищенной сессии входа…",
+                            text = stringResource(R.string.tg_auth_preparing),
                             fontSize = 14.sp,
                             color = NX.muted,
                             textAlign = TextAlign.Center
@@ -202,7 +202,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Я подтвердил в боте",
+                                text = stringResource(R.string.tg_auth_confirmed_btn),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp
                             )
@@ -254,7 +254,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                         }
                         Spacer(Modifier.height(18.dp))
                         Text(
-                            text = "Успешный вход!",
+                            text = stringResource(R.string.tg_auth_success_title),
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = NX.text
@@ -274,14 +274,14 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
 
                         if (state.serverCount > 0) {
                             Text(
-                                text = "Подписка активна • Загружено серверов: ${state.serverCount}",
+                                text = stringResource(R.string.tg_auth_success_servers, state.serverCount),
                                 fontSize = 14.sp,
                                 color = NX.green,
                                 textAlign = TextAlign.Center
                             )
                         } else if (hasSub) {
                             Text(
-                                text = "Подписка активна • Серверы обновляются…",
+                                text = stringResource(R.string.tg_auth_success_loading),
                                 fontSize = 14.sp,
                                 color = NX.green,
                                 textAlign = TextAlign.Center
@@ -304,7 +304,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Отлично", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(stringResource(R.string.tg_auth_great), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
                     }
 
@@ -325,7 +325,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                         }
                         Spacer(Modifier.height(18.dp))
                         Text(
-                            text = "Ошибка авторизации",
+                            text = stringResource(R.string.tg_auth_error_title),
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = NX.text
@@ -347,7 +347,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(14.dp)
                             ) {
-                                Text("Закрыть", color = NX.muted2)
+                                Text(stringResource(R.string.close), color = NX.muted2)
                             }
                             Button(
                                 onClick = { vm.startTelegramAuth() },
@@ -355,7 +355,7 @@ fun TelegramAuthDialog(state: TelegramAuthState, vm: MainViewModel) {
                                 colors = ButtonDefaults.buttonColors(containerColor = NX.accent),
                                 shape = RoundedCornerShape(14.dp)
                             ) {
-                                Text("Повторить", color = NX.onAccent, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.retry), color = NX.onAccent, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

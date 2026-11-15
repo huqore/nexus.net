@@ -78,7 +78,50 @@ fun cleanServerName(name: String): String {
 
     // 2. Strip redundant "WI-FI", "Wi-Fi", "wifi" suffix/prefix and separators
     val strippedWifi = base.replace(Regex("""(?i)\s*[|\-–—]?\s*wi-?fi\b"""), "").trim()
-    return if (strippedWifi.isNotEmpty()) strippedWifi else base
+    val name = if (strippedWifi.isNotEmpty()) strippedWifi else base
+    // Server names come from the panel in Russian: translate country names for the English UI.
+    return if (AppLang.isRu()) name else COUNTRY_EN.entries.fold(name) { acc, (ru, en) -> acc.replace(ru, en, ignoreCase = true) }
+}
+
+private val COUNTRY_EN = linkedMapOf(
+    "Германия" to "Germany", "Финляндия" to "Finland", "Нидерланды" to "Netherlands", "Швеция" to "Sweden",
+    "Польша" to "Poland", "Франция" to "France", "Великобритания" to "United Kingdom", "США" to "USA",
+    "Турция" to "Turkey", "Казахстан" to "Kazakhstan", "Латвия" to "Latvia", "Эстония" to "Estonia",
+    "Литва" to "Lithuania", "Австрия" to "Austria", "Швейцария" to "Switzerland", "Россия" to "Russia",
+    "Япония" to "Japan", "Сингапур" to "Singapore", "Канада" to "Canada", "Испания" to "Spain", "Италия" to "Italy",
+)
+
+/**
+ * App language for text built in code: the in-app choice, else the system language.
+ * Used where there is no Context (formatters, managers); UI text should use string resources.
+ */
+object AppLang {
+    fun isRu(): Boolean = runCatching {
+        val tags = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags()
+        if (tags.isNotBlank()) tags.startsWith("ru", ignoreCase = true) else Locale.getDefault().language == "ru"
+    }.getOrDefault(true)
+
+    fun t(ru: String, en: String): String = if (isRu()) ru else en
+
+    /** "1.25 GB" / "1.25 ГБ" with the given decimals for GB and up. */
+    fun bytes(bytes: Long, gbDecimals: Int = 2): String {
+        val ru = isRu()
+        val units = if (ru) listOf("Б", "КБ", "МБ", "ГБ", "ТБ") else listOf("B", "KB", "MB", "GB", "TB")
+        if (bytes <= 0L) return "0 " + units[2]
+        var v = bytes.toDouble(); var i = 0
+        while (v >= 1024 && i < units.lastIndex) { v /= 1024; i++ }
+        val digits = when { i >= 3 -> gbDecimals; i == 2 -> 1; else -> 0 }
+        return String.format(Locale.US, "%." + digits + "f %s", v, units[i])
+    }
+
+    fun speed(bytesPerSec: Long): String {
+        val ru = isRu()
+        return when {
+            bytesPerSec < 1024 -> "$bytesPerSec " + (if (ru) "Б/с" else "B/s")
+            bytesPerSec < 1024 * 1024 -> String.format(Locale.US, "%.0f %s", bytesPerSec / 1024f, if (ru) "КБ/с" else "KB/s")
+            else -> String.format(Locale.US, "%.1f %s", bytesPerSec / (1024f * 1024f), if (ru) "МБ/с" else "MB/s")
+        }
+    }
 }
 
 fun fmtBytes(bytes: Long, ru: Boolean, locale: Locale): String {

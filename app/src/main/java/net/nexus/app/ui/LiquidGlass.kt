@@ -59,8 +59,8 @@ fun GlassLightSensor() {
                 val ty = (1f - (e.values[1] / g)).coerceIn(0f, 1f) * 0.6f
                 sx += (tx - sx) * 0.12f
                 sy += (ty - sy) * 0.12f
-                if (abs(sx - GlassLight.x) > 0.004f) GlassLight.x = sx
-                if (abs(sy - GlassLight.y) > 0.004f) GlassLight.y = sy
+                if (abs(sx - GlassLight.x) > 0.012f) GlassLight.x = sx
+                if (abs(sy - GlassLight.y) > 0.012f) GlassLight.y = sy
             }
             override fun onAccuracyChanged(s: Sensor?, a: Int) = Unit
         }

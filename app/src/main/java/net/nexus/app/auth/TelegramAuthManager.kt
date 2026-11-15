@@ -235,17 +235,17 @@ object TelegramAuthManager {
                 put("password", pass)
             }
             val resp = httpPost("/api/auth/login", payload.toString())
-                ?: return@withContext WebLoginResult(success = false, error = "Нет ответа от сервера")
+                ?: return@withContext WebLoginResult(success = false, error = net.nexus.app.ui.AppLang.t("Нет ответа от сервера", "No response from the server"))
             val json = JSONObject(resp)
             if (!json.optBoolean("success", false)) {
                 return@withContext WebLoginResult(
                     success = false,
-                    error = json.optString("message", "Неверный логин или пароль")
+                    error = json.optString("message", net.nexus.app.ui.AppLang.t("Неверный логин или пароль", "Wrong login or password"))
                 )
             }
             val token = json.optString("token", "")
             val uObj = json.optJSONObject("user")
-                ?: return@withContext WebLoginResult(success = false, error = "Некорректный ответ сервера")
+                ?: return@withContext WebLoginResult(success = false, error = net.nexus.app.ui.AppLang.t("Некорректный ответ сервера", "Invalid server response"))
 
             val subObj = uObj.optJSONObject("subscription")
             val rawName = uObj.optString("siteName", "").ifBlank { uObj.optString("tgUsername", identifier) }
@@ -264,7 +264,7 @@ object TelegramAuthManager {
             )
             WebLoginResult(success = true, token = token, user = user.copy(appToken = json.optString("appToken", "")))
         } catch (e: Exception) {
-            WebLoginResult(success = false, error = e.message ?: "Ошибка подключения")
+            WebLoginResult(success = false, error = e.message ?: net.nexus.app.ui.AppLang.t("Ошибка подключения", "Connection error"))
         }
     }
 

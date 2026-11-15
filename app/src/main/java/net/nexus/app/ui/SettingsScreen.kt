@@ -1,5 +1,9 @@
 package net.nexus.app.ui
 
+import androidx.compose.material.icons.filled.FileDownload
+
+import androidx.compose.material.icons.filled.FileUpload
+
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -285,7 +289,11 @@ private fun MainSettingsList(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Text(stringResource(R.string.settings_title), fontSize = 34.sp, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.settings_title), fontSize = 34.sp, fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
 
         // 1) ДАННЫЕ О ПОДПИСКЕ И ПОЛЬЗОВАТЕЛЕ
@@ -359,7 +367,7 @@ private fun MainSettingsList(
                                     .padding(horizontal = 10.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = if (user.isSubscribed) "Активна" else "Истекла",
+                                    text = stringResource(if (user.isSubscribed) R.string.sub_status_active else R.string.sub_status_expired),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (user.isSubscribed) NX.green else NX.red,
@@ -392,12 +400,12 @@ private fun MainSettingsList(
                         }.getOrNull()
 
                         val daysText = when {
-                            formattedDate != null && daysLeft != null && daysLeft > 365 -> "до $formattedDate"
+                            formattedDate != null && daysLeft != null && daysLeft > 365 -> stringResource(R.string.sub_until_plain, formattedDate)
                             formattedDate != null && daysLeft != null && daysLeft in 1..365 -> stringResource(R.string.sub_until_date, formattedDate, daysLeft)
                             formattedDate != null && daysLeft == 0L -> stringResource(R.string.sub_until_today, formattedDate)
                             formattedDate != null && daysLeft != null && daysLeft < 0 -> stringResource(R.string.sub_expired_on, formattedDate)
-                            formattedDate != null -> "до $formattedDate"
-                            daysLeft != null && daysLeft in 1..365 -> "Осталось: $daysLeft дн."
+                            formattedDate != null -> stringResource(R.string.sub_until_plain, formattedDate)
+                            daysLeft != null && daysLeft in 1..365 -> stringResource(R.string.sub_days_left, daysLeft)
                             else -> stringResource(R.string.sub_unlimited)
                         }
 
@@ -407,14 +415,10 @@ private fun MainSettingsList(
                         val trafficText = run {
                             val usedGb = usedBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
                             val totalGb = totalBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
-                            val usedStr = when {
-                                usedBytes == 0L -> "0.0 ГБ"
-                                usedBytes < 1024L * 1024L -> "%.0f КБ".format(Locale.US, usedBytes.toDouble() / 1024.0)
-                                usedBytes < 1024L * 1024L * 1024L -> "%.1f МБ".format(Locale.US, usedBytes.toDouble() / (1024.0 * 1024.0))
-                                else -> "%.1f ГБ".format(Locale.US, usedGb)
-                            }
+                            @Suppress("UNUSED_VARIABLE") val unusedGb = usedGb + totalGb
+                            val usedStr = AppLang.bytes(usedBytes, gbDecimals = 1)
                             if (totalBytes > 0) {
-                                "$usedStr / %.1f ГБ".format(Locale.US, totalGb)
+                                "$usedStr / " + AppLang.bytes(totalBytes, gbDecimals = 1)
                             } else {
                                 "$usedStr / ∞"
                             }
@@ -812,6 +816,62 @@ private fun MainSettingsList(
                         }
                         Text(cleanCore, fontFamily = FontFamily.Monospace, color = NX.text, fontSize = 13.sp, maxLines = 1)
                     }
+
+                    // Move settings between phones: theme, connection, split tunnelling, launch options
+                    val ioCtx = LocalContext.current
+                    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
+                    ) { uri ->
+                        if (uri != null) {
+                            val ok = runCatching {
+                                ioCtx.contentResolver.openOutputStream(uri)?.use { it.write(vm.exportSettingsJson().toByteArray(Charsets.UTF_8)) } != null
+                            }.getOrDefault(false)
+                            Toast.makeText(ioCtx, ioCtx.getString(if (ok) R.string.settings_export_done else R.string.settings_export_failed), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+                    ) { uri ->
+                        if (uri != null) {
+                            val text = runCatching {
+                                ioCtx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                            }.getOrNull()
+                            val lang = text?.let { vm.importSettingsJson(it) }
+                            if (lang == null) {
+                                Toast.makeText(ioCtx, ioCtx.getString(R.string.settings_import_failed), Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(ioCtx, ioCtx.getString(R.string.settings_import_done), Toast.LENGTH_SHORT).show()
+                                val current = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+                                if (lang.isNotBlank() && lang != current) {
+                                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(lang))
+                                    (ioCtx as? android.app.Activity)?.recreate()
+                                }
+                            }
+                        }
+                    }
+                    Text(stringResource(R.string.settings_transfer_hint), color = NX.muted, fontSize = 12.sp, lineHeight = 16.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            onClick = { exportLauncher.launch("nexus-settings.json") },
+                            modifier = Modifier.weight(1f),
+                            shape = nxButtonShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = NX.chip, contentColor = NX.text),
+                        ) {
+                            Icon(Icons.Filled.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.settings_export), maxLines = 1, softWrap = false)
+                        }
+                        Button(
+                            onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                            modifier = Modifier.weight(1f),
+                            shape = nxButtonShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = NX.chip, contentColor = NX.text),
+                        ) {
+                            Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.settings_import), maxLines = 1, softWrap = false)
+                        }
+                    }
                 }
             }
         }
@@ -1133,10 +1193,93 @@ private fun ConnectionSettingsScreen(
                                 fontSize = 12.sp,
                                 color = NX.muted
                             )
+                            if (settings.killSwitch) {
+                                val linkCtx = LocalContext.current
+                                // Strongest protection is Android's own "Always-on + block without VPN":
+                                // apps can't switch it on themselves, so link straight to it.
+                                Text(
+                                    text = stringResource(R.string.kill_switch_system_link),
+                                    fontSize = 12.sp,
+                                    color = NX.accentLight,
+                                    lineHeight = 16.sp,
+                                    modifier = Modifier
+                                        .padding(top = 4.dp)
+                                        .clickable {
+                                            runCatching {
+                                                linkCtx.startActivity(
+                                                    android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS)
+                                                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                )
+                                            }
+                                        }
+                                )
+                            }
                         }
                         Switch(
                             checked = settings.killSwitch,
                             onCheckedChange = { vm.setKillSwitch(it) },
+                            colors = nxSwitchColors(NX.cardBorder)
+                        )
+                    }
+
+                    // Russian apps direct: banks, Gosuslugi, Yandex, VK, marketplaces... go around the VPN
+                    val ruCtx = LocalContext.current
+                    val ruFound = remember { net.nexus.app.data.RussianApps.installed(ruCtx.packageManager, ruCtx.packageName).size }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(
+                                text = stringResource(R.string.settings_ru_apps),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = NX.text,
+                                maxLines = 2,
+                                lineHeight = 18.sp
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(R.string.settings_ru_apps_desc, ruFound),
+                                fontSize = 12.sp,
+                                color = NX.muted,
+                                lineHeight = 16.sp
+                            )
+                        }
+                        Switch(
+                            checked = settings.bypassRussianApps,
+                            onCheckedChange = { vm.setBypassRussianApps(it) },
+                            colors = nxSwitchColors(NX.cardBorder)
+                        )
+                    }
+
+                    // Auto follows the network: Wi-Fi servers on Wi-Fi, whitelist-bypass servers on mobile data
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(
+                                text = stringResource(R.string.settings_auto_network),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = NX.text,
+                                maxLines = 2,
+                                lineHeight = 18.sp
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(R.string.settings_auto_network_desc),
+                                fontSize = 12.sp,
+                                color = NX.muted,
+                                lineHeight = 16.sp
+                            )
+                        }
+                        Switch(
+                            checked = settings.autoNetworkSwitch,
+                            onCheckedChange = { vm.setAutoNetworkSwitch(it) },
                             colors = nxSwitchColors(NX.cardBorder)
                         )
                     }
@@ -1223,102 +1366,6 @@ private fun AppearanceSettingsScreen(
                 DesignStylePicker(selected = settings.designStyle) { style ->
                     HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
                     vm.setDesignStyle(style)
-                }
-            }
-        }
-
-        // 1: Язык
-        item {
-            Section(stringResource(R.string.settings_language), segmented = true) {
-                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(6.dp))) {
-                    RadioRow(currentLang.isEmpty(), stringResource(R.string.lang_system)) {
-                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
-                        (ctx as? android.app.Activity)?.recreate()
-                    }
-                    RadioRow(currentLang == "ru", stringResource(R.string.lang_ru)) {
-                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("ru"))
-                        (ctx as? android.app.Activity)?.recreate()
-                    }
-                    RadioRow(currentLang == "en", stringResource(R.string.lang_en)) {
-                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en"))
-                        (ctx as? android.app.Activity)?.recreate()
-                    }
-                }
-            }
-        }
-
-        // 2: Шрифт приложения
-        item {
-            Section(stringResource(R.string.appearance_font_title), segmented = true) {
-                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(6.dp))) {
-                    RadioRow(settings.appFont == AppFont.RUSSO_ONE, stringResource(R.string.font_russo_one)) {
-                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
-                        vm.setAppFont(AppFont.RUSSO_ONE)
-                    }
-                    RadioRow(settings.appFont == AppFont.SYSTEM, stringResource(R.string.font_system)) {
-                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.CLICK)
-                        vm.setAppFont(AppFont.SYSTEM)
-                    }
-                }
-            }
-        }
-
-        // 2: Вибрация
-        item {
-            Section(stringResource(R.string.settings_haptics_label), segmented = true) {
-                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(6.dp))) {
-                    RadioRow(settings.hapticIntensity == HapticIntensity.OFF, stringResource(R.string.haptic_off)) {
-                        vm.setHapticIntensity(HapticIntensity.OFF)
-                    }
-                    RadioRow(settings.hapticIntensity == HapticIntensity.LIGHT, stringResource(R.string.haptic_light)) {
-                        HapticManager.trigger(ctx, HapticIntensity.LIGHT, HapticType.CLICK)
-                        vm.setHapticIntensity(HapticIntensity.LIGHT)
-                    }
-                    RadioRow(settings.hapticIntensity == HapticIntensity.MEDIUM, stringResource(R.string.haptic_medium)) {
-                        HapticManager.trigger(ctx, HapticIntensity.MEDIUM, HapticType.CLICK)
-                        vm.setHapticIntensity(HapticIntensity.MEDIUM)
-                    }
-                    RadioRow(settings.hapticIntensity == HapticIntensity.STRONG, stringResource(R.string.haptic_strong)) {
-                        HapticManager.trigger(ctx, HapticIntensity.STRONG, HapticType.CLICK)
-                        vm.setHapticIntensity(HapticIntensity.STRONG)
-                    }
-                }
-            }
-        }
-
-        // 2.5: Звуки приложения
-        item {
-            Section(stringResource(R.string.appearance_sounds_title)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text(
-                            text = stringResource(R.string.appearance_sounds_toggle),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = NX.text,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Text(
-                            text = stringResource(R.string.appearance_sounds_subtitle),
-                            fontSize = 12.sp,
-                            color = NX.muted2,
-                            lineHeight = 16.sp
-                        )
-                    }
-                    Switch(
-                        checked = settings.appSounds,
-                        onCheckedChange = {
-                            HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
-                            vm.setAppSounds(it)
-                            if (it) SoundManager.playConnect(true)
-                        },
-                        colors = nxSwitchColors(NX.iconBtn)
-                    )
                 }
             }
         }
@@ -1435,6 +1482,88 @@ private fun AppearanceSettingsScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+
+        // 1: Язык
+        item {
+            Section(stringResource(R.string.settings_language), segmented = true) {
+                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(6.dp))) {
+                    RadioRow(currentLang.isEmpty(), stringResource(R.string.lang_system)) {
+                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
+                        (ctx as? android.app.Activity)?.recreate()
+                    }
+                    RadioRow(currentLang == "ru", stringResource(R.string.lang_ru)) {
+                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("ru"))
+                        (ctx as? android.app.Activity)?.recreate()
+                    }
+                    RadioRow(currentLang == "en", stringResource(R.string.lang_en)) {
+                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en"))
+                        (ctx as? android.app.Activity)?.recreate()
+                    }
+                }
+            }
+        }
+
+        // Font is fixed to the brand font (Russo One): no picker.
+
+        // 2: Вибрация
+        item {
+            Section(stringResource(R.string.settings_haptics_label), segmented = true) {
+                Column(verticalArrangement = Arrangement.spacedBy(nxListGap(6.dp))) {
+                    RadioRow(settings.hapticIntensity == HapticIntensity.OFF, stringResource(R.string.haptic_off)) {
+                        vm.setHapticIntensity(HapticIntensity.OFF)
+                    }
+                    RadioRow(settings.hapticIntensity == HapticIntensity.LIGHT, stringResource(R.string.haptic_light)) {
+                        HapticManager.trigger(ctx, HapticIntensity.LIGHT, HapticType.CLICK)
+                        vm.setHapticIntensity(HapticIntensity.LIGHT)
+                    }
+                    RadioRow(settings.hapticIntensity == HapticIntensity.MEDIUM, stringResource(R.string.haptic_medium)) {
+                        HapticManager.trigger(ctx, HapticIntensity.MEDIUM, HapticType.CLICK)
+                        vm.setHapticIntensity(HapticIntensity.MEDIUM)
+                    }
+                    RadioRow(settings.hapticIntensity == HapticIntensity.STRONG, stringResource(R.string.haptic_strong)) {
+                        HapticManager.trigger(ctx, HapticIntensity.STRONG, HapticType.CLICK)
+                        vm.setHapticIntensity(HapticIntensity.STRONG)
+                    }
+                }
+            }
+        }
+
+        // 2.5: Звуки приложения
+        item {
+            Section(stringResource(R.string.appearance_sounds_title)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = stringResource(R.string.appearance_sounds_toggle),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NX.text,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = stringResource(R.string.appearance_sounds_subtitle),
+                            fontSize = 12.sp,
+                            color = NX.muted2,
+                            lineHeight = 16.sp
+                        )
+                    }
+                    Switch(
+                        checked = settings.appSounds,
+                        onCheckedChange = {
+                            HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
+                            vm.setAppSounds(it)
+                            if (it) SoundManager.playConnect(true)
+                        },
+                        colors = nxSwitchColors(NX.iconBtn)
+                    )
                 }
             }
         }

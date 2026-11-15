@@ -201,7 +201,7 @@ fun MandatoryTelegramAuthScreen(vm: MainViewModel) {
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        text = "Войти через сайт",
+                        text = stringResource(R.string.login_via_site),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp
                     )
@@ -236,7 +236,7 @@ fun MandatoryTelegramAuthScreen(vm: MainViewModel) {
                     colors = ButtonDefaults.textButtonColors(contentColor = NX.muted2)
                 ) {
                     Text(
-                        text = "Открыть сайт",
+                        text = stringResource(R.string.open_site),
                         fontSize = 14.sp
                     )
                 }
@@ -307,14 +307,14 @@ fun WebsiteLoginDialog(
                 Spacer(Modifier.height(14.dp))
 
                 Text(
-                    text = "Вход через сайт",
+                    text = stringResource(R.string.login_via_site_title),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = NX.text
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Личный кабинет ${net.nexus.app.data.ApiHosts.primary()}",
+                    text = stringResource(R.string.login_cabinet, net.nexus.app.data.ApiHosts.primary()),
                     fontSize = 13.sp,
                     color = NX.muted2,
                     textAlign = TextAlign.Center
@@ -325,7 +325,7 @@ fun WebsiteLoginDialog(
                 OutlinedTextField(
                     value = identifier,
                     onValueChange = { identifier = it },
-                    label = { Text("Логин или Telegram") },
+                    label = { Text(stringResource(R.string.login_field_user)) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = NX.accentLight,
@@ -345,7 +345,7 @@ fun WebsiteLoginDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Пароль") },
+                    label = { Text(stringResource(R.string.login_field_password)) },
                     singleLine = true,
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -396,7 +396,7 @@ fun WebsiteLoginDialog(
                             .weight(1f)
                             .height(48.dp)
                     ) {
-                        Text("Отмена", color = NX.muted2, fontSize = 15.sp)
+                        Text(stringResource(R.string.cancel), color = NX.muted2, fontSize = 15.sp)
                     }
 
                     Button(
@@ -424,7 +424,7 @@ fun WebsiteLoginDialog(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Войти", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(stringResource(R.string.login_submit), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
                     }
                 }
