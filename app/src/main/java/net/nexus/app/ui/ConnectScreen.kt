@@ -402,6 +402,7 @@ private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, buttonS
     Box(
         Modifier
             .size(buttonSize)
+            .liquidJelly()
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
@@ -413,6 +414,11 @@ private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, buttonS
             ),
         contentAlignment = Alignment.Center,
     ) {
+        // Liquid Glass on Android 13+: the button face is a thick refracting lens instead of a gradient disc
+        val glassFace = NX.style == net.nexus.app.data.DesignStyle.LIQUID_GLASS && LiquidBackdrop.supported && !isSecretRgb
+        if (glassFace) {
+            Box(Modifier.size(buttonSize - (22.dp + 7.dp * 1.3f) * 2 + 2.dp).liquidGlass(CircleShape, GlassSpec.Lens))
+        }
         if (NX.style == net.nexus.app.data.DesignStyle.MATERIAL3 && !isSecretRgb) ExpressivePowerShape(connected, connecting, angle, breathePulse) else
         Canvas(Modifier.fillMaxSize()) {
             val outer = size.minDimension / 2
@@ -473,10 +479,23 @@ private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, buttonS
                     )
                 }
             }
-            drawCircle(
-                Brush.verticalGradient(listOf(NX.btnGradTop, NX.btnGradBottom)),
-                radius = r - stroke * 1.3f,
-            )
+            if (!glassFace) {
+                drawCircle(
+                    Brush.verticalGradient(listOf(NX.btnGradTop, NX.btnGradBottom)),
+                    radius = r - stroke * 1.3f,
+                )
+            } else {
+                // Glass button sheen: a soft highlight across the top of the lens (iOS glass buttons)
+                val faceR = r - stroke * 1.3f
+                drawCircle(
+                    Brush.verticalGradient(
+                        0f to Color.White.copy(alpha = if (NX.isLightTheme) 0.55f else 0.20f),
+                        0.42f to Color.White.copy(alpha = 0f),
+                        startY = center.y - faceR, endY = center.y + faceR,
+                    ),
+                    radius = faceR * 0.94f,
+                )
+            }
             if (connected) {
                 // Soft inner glow inside button in theme accent
                 drawCircle(
@@ -604,6 +623,7 @@ private fun ServerCard(
     Row(
         Modifier
             .fillMaxWidth()
+            .liquidJelly()
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
@@ -679,6 +699,7 @@ private fun InfoTile(
 
     Row(
         modifier
+            .liquidJelly()
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale

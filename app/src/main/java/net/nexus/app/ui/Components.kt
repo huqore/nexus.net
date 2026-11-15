@@ -1,5 +1,18 @@
 package net.nexus.app.ui
 
+import androidx.compose.runtime.SideEffect
+import kotlinx.coroutines.flow.collectLatest
+
+import androidx.compose.runtime.LaunchedEffect
+
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+
+import androidx.compose.foundation.gestures.awaitFirstDown
+
+import androidx.compose.foundation.gestures.awaitEachGesture
+
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.drawBehind
@@ -42,6 +55,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.shadow
 import androidx.compose.animation.core.animateDpAsState
 import net.nexus.app.data.DesignStyle
@@ -483,10 +498,15 @@ private fun ServerGroup(
             Icon(imageVector = icon, contentDescription = null, tint = NX.accent, modifier = Modifier.size(16.dp))
             Text(text = stringResource(titleRes), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NX.muted2, letterSpacing = 0.5.sp)
         }
-        Box(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).height(1.dp)
-                .background(NX.cardBorder.copy(alpha = 0.6f))
-        )
+        // Liquid Glass separates by depth, not by lines (iOS 26): no divider under the group title
+        if (NX.style != DesignStyle.LIQUID_GLASS) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).height(1.dp)
+                    .background(NX.cardBorder.copy(alpha = 0.6f))
+            )
+        } else {
+            Spacer(Modifier.height(4.dp))
+        }
         servers.forEach { s ->
             ServerRow(server = s, selected = s.id == selectedId, pinging = s.id in pinging, onClick = { onSelect(s) }, onDelete = { })
         }
@@ -511,6 +531,11 @@ fun BoundProviderCard(vm: MainViewModel, p: Provider, selectedId: String?, refre
 
 private val NavTabs = listOf(Tab.CONNECT, Tab.SERVERS, Tab.SETTINGS)
 
+/** 0 = the tab drop is at rest, 1 = it is moving / held. The screen uses it for a tiny blur. */
+object NavMotion {
+    var amount by androidx.compose.runtime.mutableFloatStateOf(0f)
+}
+
 /**
  * Bottom navigation with a single sliding selection indicator.
  * Tap selects a tab; press-and-hold then drag makes the indicator follow the finger,
@@ -534,13 +559,47 @@ fun FloatingNavBar(
     val currentSelected by rememberUpdatedState(selected)
     val currentOnSelect by rememberUpdatedState(onSelect)
     val currentTick by rememberUpdatedState(onSlideTick)
-    val indicatorPos by animateFloatAsState(
-        targetValue = if (dragging) dragPos else selectedIndex.toFloat(),
-        animationSpec = if (dragging) spring(dampingRatio = 1f, stiffness = Spring.StiffnessHigh)
-        else spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
-        label = "navIndicatorPos",
+    var pressed by remember { mutableStateOf(false) }
+    // The indicator is a liquid drop: it springs to the target, stretches with its speed and
+    // swells while the finger is on the bar (iOS 26 tab bar).
+    val indicator = remember { androidx.compose.animation.core.Animatable(selectedIndex.toFloat()) }
+    // While dragging the drop sits exactly under the finger (no animation to restart = no jitter);
+    // after release it springs to the selected tab.
+    // Drag: ONE continuous spring, stepped every frame, pulls the drop towards the finger and keeps
+    // its own velocity (restarting an animation per touch event froze the drop).
+    var dragVelocity by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(dragging) {
+        if (!dragging) return@LaunchedEffect
+        val k = 900f
+        val c = 2f * 0.8f * kotlin.math.sqrt(k)
+        var v = 0f
+        var last = 0L
+        while (true) {
+            val now = androidx.compose.runtime.withFrameNanos { it }
+            val dt = if (last == 0L) 0.016f else ((now - last) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
+            last = now
+            val x = indicator.value
+            v += (k * (dragPos - x) - c * v) * dt
+            indicator.snapTo(x + v * dt)
+            dragVelocity = v
+        }
+    }
+    // Release / tap: an under-damped spring (starting with the finger's speed) overshoots a little
+    // and wobbles in place, like jelly.
+    LaunchedEffect(selectedIndex, dragging) {
+        if (!dragging) {
+            val v0 = dragVelocity
+            dragVelocity = 0f
+            indicator.animateTo(selectedIndex.toFloat(), spring(dampingRatio = 0.74f, stiffness = 210f), initialVelocity = v0)
+        }
+    }
+    // Overshoot stays inside the dock: the drop may lean past the end tab only a little
+    val indicatorPos = indicator.value.coerceIn(-0.08f, NavTabs.size - 1 + 0.08f)
+    val stretch = ((kotlin.math.abs(indicator.velocity) + kotlin.math.abs(dragVelocity)) * 0.028f).coerceAtMost(0.18f)
+    val liftScale by animateFloatAsState(
+        when { dragging -> 1.2f; pressed -> 1.12f; else -> 1f },
+        spring(dampingRatio = 0.55f, stiffness = 320f), label = "navLift",
     )
-    val liftScale by animateFloatAsState(if (dragging) 1.06f else 1f, spring(dampingRatio = 0.6f), label = "navLift")
 
     val padH = if (glass) 8.dp else 12.dp
     val padV = when { glass -> 7.dp; else -> 10.dp }
@@ -556,23 +615,42 @@ fun FloatingNavBar(
         .fillMaxWidth()
         .pointerInput(Unit) {
             val padPx = padH.toPx()
+            var hoverIndex = -1
             fun follow(x: Float) {
                 val itemW = (size.width - 2 * padPx) / NavTabs.size
                 dragPos = ((x - padPx) / itemW - 0.5f).coerceIn(0f, (NavTabs.size - 1).toFloat())
-                val tab = NavTabs[kotlin.math.round(dragPos).toInt()]
-                if (tab != currentSelected) {
-                    currentOnSelect(tab)
-                    currentTick()
+                // Only a light tick while passing over tabs; the screen does not change under the finger
+                val idx = kotlin.math.round(dragPos).toInt()
+                if (idx != hoverIndex) {
+                    if (hoverIndex != -1) currentTick()
+                    hoverIndex = idx
                 }
             }
-            detectDragGesturesAfterLongPress(
-                onDragStart = { o -> dragging = true; currentTick(); follow(o.x) },
-                onDrag = { change, _ -> change.consume(); follow(change.position.x) },
-                onDragEnd = { dragging = false },
+            // One touch: the drop follows the finger as soon as it moves (no long press needed)
+            detectHorizontalDragGestures(
+                onDragStart = { o -> hoverIndex = -1; dragging = true; follow(o.x) },
+                onHorizontalDrag = { change, _ -> change.consume(); follow(change.position.x) },
+                onDragEnd = {
+                    // The tab switches only when the finger is lifted
+                    val tab = NavTabs[kotlin.math.round(dragPos).toInt().coerceIn(0, NavTabs.size - 1)]
+                    dragging = false
+                    if (tab != currentSelected) currentOnSelect(tab)
+                },
                 onDragCancel = { dragging = false },
             )
         }
+        .pointerInput(Unit) {
+            // Swell the drop the moment the finger lands, like pressing iOS glass
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                pressed = true
+                waitForUpOrCancellation(pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                pressed = false
+            }
+        }
         .drawBehind {
+            // Real glass draws its indicator as a separate lens drop (see the glass branch below)
+            if (glass && LiquidBackdrop.supported) return@drawBehind
             val padPx = padH.toPx()
             val itemW = (size.width - 2 * padPx) / NavTabs.size
             val grow = (liftScale - 1f) * itemW / 2
@@ -599,24 +677,72 @@ fun FloatingNavBar(
     }
 
     if (glass) {
-        // iOS-style floating glass capsule.
-        val capsule = RoundedCornerShape(32.dp)
+        // iOS-style floating glass capsule: fully round ends.
+        val capsule = RoundedCornerShape(percent = 50)
         Box(
             modifier = modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 18.dp, vertical = 10.dp)
+                .liquidJelly(amount = 0.3f)
         ) {
+            val realGlass = LiquidBackdrop.supported
+            // Shadow on its own layer so recording the bar for the drop never clips it
             Box(
                 Modifier
                     .matchParentSize()
-                    .shadow(18.dp, capsule, ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.5f))
-                    .clip(capsule)
-                    .glassBlur()
-                    .background(NX.card)
-                    .nxBorder(capsule)
+                    .shadow(
+                        if (light) 12.dp else 18.dp, capsule,
+                        ambientColor = Color.Black.copy(alpha = if (light) 0.12f else 0.5f),
+                        spotColor = Color.Black.copy(alpha = if (light) 0.16f else 0.5f),
+                    )
             )
-            Row(modifier = rowModifier, horizontalArrangement = Arrangement.SpaceAround, content = items)
+            // The bar (glass + icons + labels) is recorded so the drop on top can refract the icons
+            Box(if (realGlass) Modifier.liquidDockSource() else Modifier) {
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .then(
+                            // Android 13+: the bar refracts the screen content scrolling under it
+                            if (realGlass) Modifier.liquidGlass(capsule, GlassSpec.Bar, LiquidBackdrop.scene)
+                            else Modifier.clip(capsule).glassBlur().background(NX.card).nxBorder(capsule)
+                        )
+                )
+                Row(modifier = rowModifier, horizontalArrangement = Arrangement.SpaceAround, content = items)
+            }
+            if (realGlass) {
+                // Selection indicator. At rest: a plain light pill, the tab stays perfectly clear.
+                // While it moves or is held: a glass drop OVER the icons that bends them (iOS 26),
+                // fading in and out smoothly.
+                val moving = dragging || pressed || kotlin.math.abs(indicator.velocity) > 0.08f
+                val motion by animateFloatAsState(
+                    if (moving) 1f else 0f,
+                    spring(dampingRatio = 1f, stiffness = if (moving) 600f else 180f), label = "dropMotion",
+                )
+                SideEffect { NavMotion.amount = motion }
+                val dropSpec = GlassSpec.Drop.copy(
+                    strength = GlassSpec.Drop.strength * (0.4f + 0.6f * motion),
+                    dispersion = GlassSpec.Drop.dispersion * (0.5f + 0.5f * motion),
+                    blur = 0.8f * motion,
+                    // no white wash: the tab under the drop keeps its real colours
+                    tintDark = 0f,
+                    tintLight = 0.04f * motion,
+                    saturation = 1.0f + 0.15f * motion,
+                )
+                BoxWithConstraints(Modifier.matchParentSize().padding(horizontal = padH, vertical = padV)) {
+                    val itemW = maxWidth / NavTabs.size
+                    val grow = itemW * ((liftScale - 1f) / 2f)
+                    val extra = itemW * stretch           // stretches along the motion...
+                    val squash = maxHeight * (stretch * 0.24f) // ...and thins a little, like a liquid drop
+                    Box(
+                        Modifier
+                            .offset(x = itemW * indicatorPos - grow - extra / 2, y = -grow / 3 + squash / 2)
+                            .width(itemW + grow * 2 + extra)
+                            .height(maxHeight + grow * 2 / 3 - squash)
+                            .liquidGlass(RoundedCornerShape(percent = 50), dropSpec, LiquidBackdrop.dock)
+                    )
+                }
+            }
         }
         return
     }

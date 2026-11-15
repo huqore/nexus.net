@@ -55,12 +55,7 @@ object TrafficStatsManager {
     }
 
     fun formatTraffic(bytes: Long): String {
-        return when {
-            bytes <= 0L -> "0.0 МБ"
-            bytes < 1024L * 1024L -> "%.0f КБ".format(Locale.US, bytes.toDouble() / 1024.0)
-            bytes < 1024L * 1024L * 1024L -> "%.1f МБ".format(Locale.US, bytes.toDouble() / (1024.0 * 1024.0))
-            else -> "%.2f ГБ".format(Locale.US, bytes.toDouble() / (1024.0 * 1024.0 * 1024.0))
-        }
+        return net.nexus.app.ui.AppLang.bytes(bytes, gbDecimals = 2)
     }
 }
 

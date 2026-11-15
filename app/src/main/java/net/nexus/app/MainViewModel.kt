@@ -50,6 +50,8 @@ import kotlinx.coroutines.CancellationException
 /** A message for the UI, resolved to text in the activity so it follows the app language. */
 data class UiText(@StringRes val id: Int, val args: List<Any> = emptyList())
 
+private const val SETTINGS_FILE_TYPE = "nexus.net-settings"
+
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val store = Store(app)
 
@@ -458,6 +460,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setHapticIntensity(intensity: net.nexus.app.data.HapticIntensity) = updateSettings { it.copy(hapticIntensity = intensity) }
     fun setAppSounds(enabled: Boolean) = updateSettings { it.copy(appSounds = enabled) }
     fun setKillSwitch(enabled: Boolean) = updateSettings { it.copy(killSwitch = enabled) }
+    fun setBypassRussianApps(enabled: Boolean) = updateSettings { it.copy(bypassRussianApps = enabled) }
+    fun setAutoNetworkSwitch(enabled: Boolean) {
+        updateSettings { it.copy(autoNetworkSwitch = enabled) }
+        store.autoLockedServerId = null // re-pick for the current network next time Auto connects
+    }
     fun setBlockAds(enabled: Boolean) = updateSettings { it.copy(blockAds = enabled) }
     fun setAppTheme(theme: net.nexus.app.data.AppTheme) = updateSettings { it.copy(appTheme = theme) }
     fun setAppFont(font: net.nexus.app.data.AppFont) = updateSettings { it.copy(appFont = font) }
@@ -474,6 +481,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setUse3dGlobe(enabled: Boolean) = updateSettings { it.copy(use3dGlobe = enabled) }
+
+    /**
+     * Settings file for moving to another phone: theme and style, connection options (kill switch,
+     * ad block, test URL), split-tunnel apps and launch options. Account, servers and the selected
+     * server are not included (they belong to the account, not to the device).
+     */
+    fun exportSettingsJson(): String {
+        val s = settings.value.copy(selectedServerId = null)
+        return org.json.JSONObject()
+            .put("type", SETTINGS_FILE_TYPE)
+            .put("version", 1)
+            .put("app", net.nexus.app.BuildConfig.VERSION_NAME)
+            .put("language", androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags())
+            .put("settings", store.settingsToJson(s))
+            .toString(2)
+    }
+
+    /** Applies an exported settings file. Returns null on a broken/foreign file, else the language tag to apply ("" = keep). */
+    fun importSettingsJson(text: String): String? = runCatching {
+        val root = org.json.JSONObject(text)
+        require(root.optString("type") == SETTINGS_FILE_TYPE)
+        val imported = store.settingsFromJson(root.getJSONObject("settings"))
+        val before = settings.value
+        updateSettings { imported.copy(selectedServerId = before.selectedServerId) }
+        if (imported.appIcon != before.appIcon) setAppIcon(imported.appIcon)
+        root.optString("language", "")
+    }.getOrNull()
     fun setThemeGridMode(grid: Boolean) = updateSettings { it.copy(themeGridMode = grid) }
 
     // ---------- updates ----------
@@ -638,7 +672,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
                     if (!isValid) {
                         android.util.Log.w("NexusAuth", "Device was unlinked or kicked remotely! Revoking local session.")
-                        revokeSession("Устройство отвязано от аккаунта")
+                        revokeSession(getApplication<android.app.Application>().getString(R.string.device_unlinked))
                     }
                 }
             }
@@ -651,14 +685,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val hwid = store.getOrCreateHwid()
             val isValid = TelegramAuthManager.validateDeviceSession(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
             if (!isValid) {
-                revokeSession("Устройство отвязано от аккаунта")
+                revokeSession(getApplication<android.app.Application>().getString(R.string.device_unlinked))
             } else {
                 syncTelegramSubscription(quiet = true)
             }
         }
     }
 
-    fun revokeSession(reason: String = "Устройство отвязано от аккаунта") {
+    fun revokeSession(reason: String = getApplication<android.app.Application>().getString(R.string.device_unlinked)) {
         viewModelScope.launch(Dispatchers.Main) {
             NexusVpnService.stop(getApplication())
             telegramUser.value = null
@@ -672,7 +706,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun loginWithWebsite(identifier: String, pass: String, onSuccess: () -> Unit) {
         if (identifier.isBlank() || pass.isBlank()) {
-            webLoginError.value = "Заполните все поля"
+            webLoginError.value = getApplication<android.app.Application>().getString(R.string.login_fill_all)
             return
         }
         webLoginError.value = null
@@ -689,11 +723,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     applyConfirmedTelegramUser(res.user, sessionToken = res.token)
                 } else {
                     isWebLoggingIn.value = false
-                    webLoginError.value = res.error ?: "Неверный логин или пароль"
+                    webLoginError.value = res.error ?: getApplication<android.app.Application>().getString(R.string.login_wrong)
                 }
             } catch (e: Exception) {
                 isWebLoggingIn.value = false
-                webLoginError.value = e.message ?: "Ошибка подключения"
+                webLoginError.value = e.message ?: getApplication<android.app.Application>().getString(R.string.login_conn_error)
             }
         }
     }
@@ -723,7 +757,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
                 if (confirmedUser == null) {
                     activeTelegramSessionId = null
-                    telegramAuthState.value = TelegramAuthState.Error("Время ожидания подтверждения истекло")
+                    telegramAuthState.value = TelegramAuthState.Error(getApplication<android.app.Application>().getString(R.string.tg_auth_timeout))
                     return@launch
                 }
 
@@ -733,7 +767,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // User cancelled or dismissed
             } catch (e: Exception) {
                 activeTelegramSessionId = null
-                telegramAuthState.value = TelegramAuthState.Error(e.message ?: "Ошибка авторизации")
+                telegramAuthState.value = TelegramAuthState.Error(e.message ?: getApplication<android.app.Application>().getString(R.string.tg_auth_error_title))
             }
         }
     }
@@ -747,6 +781,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 applyConfirmedTelegramUser(u, sessionToken = sId)
             }
         }
+    }
+
+    /**
+     * nexus://auth?session=…&user=… can be fired by any web page or app. It is accepted only when it
+     * belongs to the Telegram login THIS app started (same session id); otherwise a link carrying
+     * someone else's valid account would silently switch this phone onto their account.
+     */
+    fun handleAuthDeepLink(userBase64: String?, sessionParam: String?) {
+        val pending = activeTelegramSessionId ?: return
+        if (sessionParam.isNullOrBlank()) return
+        val same = sessionParam == pending || sessionParam.removePrefix("app_") == pending.removePrefix("app_")
+        if (!same) return
+        if (!userBase64.isNullOrBlank()) applyTelegramAuthBase64(userBase64) else checkAndApplyTelegramSession(sessionParam)
     }
 
     fun applyTelegramAuthBase64(base64Str: String) {
@@ -891,7 +938,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val hwid = store.getOrCreateHwid()
                 var hs = TelegramAuthManager.handshake(hwid, user.cleanUsername, user.telegramId, appToken = user.appToken)
                 if (hs.success && !hs.authenticated) {
-                    revokeSession("Устройство отвязано от аккаунта")
+                    revokeSession(getApplication<android.app.Application>().getString(R.string.device_unlinked))
                     return@launch
                 }
 
@@ -954,12 +1001,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                     if (!fallbackSuccess && !quiet) {
-                        emit(R.string.tg_sync_failed, "Ошибка соединения с сервером")
+                        emit(R.string.tg_sync_failed, getApplication<android.app.Application>().getString(R.string.sync_server_error))
                     }
                 }
             } catch (e: Exception) {
                 if (!quiet) {
-                    emit(R.string.tg_sync_failed, e.message ?: "Ошибка синхронизации")
+                    emit(R.string.tg_sync_failed, e.message ?: getApplication<android.app.Application>().getString(R.string.sync_error))
                 }
             } finally {
                 isSyncingTelegram.value = false

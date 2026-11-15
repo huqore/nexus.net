@@ -180,4 +180,8 @@ data class Settings(
     val amoledMode: Boolean = false,
     /** Light mode: a light variant of any colour theme. Mutually exclusive with AMOLED. */
     val lightMode: Boolean = false,
+    /** Russian apps (banks, Gosuslugi, Yandex, VK, marketplaces...) go around the VPN. */
+    val bypassRussianApps: Boolean = false,
+    /** Auto mode follows the network: Wi-Fi servers on Wi-Fi, whitelist-bypass servers on mobile data. */
+    val autoNetworkSwitch: Boolean = true,
 )

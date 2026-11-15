@@ -1,5 +1,6 @@
 package net.nexus.app
 
+import androidx.compose.ui.graphics.graphicsLayer
 import android.Manifest
 import android.content.Intent
 import android.net.VpnService
@@ -79,7 +80,7 @@ class MainActivity : AppCompatActivity() {
                     val filter = android.content.IntentFilter("net.nexus.app.ACTION_SESSION_REVOKED")
                     val receiver = object : android.content.BroadcastReceiver() {
                         override fun onReceive(context: android.content.Context?, intent: Intent?) {
-                            vm.revokeSession("Устройство отвязано от аккаунта")
+                            vm.revokeSession(getString(R.string.device_unlinked))
                         }
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -165,7 +166,8 @@ class MainActivity : AppCompatActivity() {
                                 }.using(SizeTransform(clip = false))
                             },
                             label = "tabTransition",
-                            modifier = Modifier.fillMaxSize().glassSource(zIndex = 1f)
+                            modifier = Modifier.fillMaxSize().glassSource(zIndex = 1f).liquidSceneSource()
+
                         ) { currentTab ->
                             when (currentTab) {
                                 Tab.CONNECT -> ConnectScreen(vm, onToggle = ::toggleVpn, onAddServers = { tab = Tab.SERVERS })
@@ -207,11 +209,8 @@ class MainActivity : AppCompatActivity() {
                 ?: uri.getQueryParameter("tg_auth")
             val sessionParam = uri.getQueryParameter("session")
 
-            if (!userBase64.isNullOrBlank()) {
-                vm.applyTelegramAuthBase64(userBase64)
-            } else if (!sessionParam.isNullOrBlank()) {
-                vm.checkAndApplyTelegramSession(sessionParam)
-            }
+            // Any page or app can fire nexus://auth, so it only finishes a login this app started
+            vm.handleAuthDeepLink(userBase64, sessionParam)
             // No server/subscription import from deep links: any web page can fire nexus://,
             // so a silent import would let a third party route the user's traffic through its server.
         }

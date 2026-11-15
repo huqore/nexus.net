@@ -594,6 +594,5 @@ private fun ReadyDialog(
 }
 
 private fun formatMb(bytes: Long): String {
-    val mb = bytes.toDouble() / (1024 * 1024)
-    return String.format(Locale.US, "%.1f MB", mb)
+    return AppLang.bytes(bytes, gbDecimals = 1)
 }
