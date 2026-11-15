@@ -48,9 +48,9 @@ object UpdateChecker {
         }
 
         // 2. Direct or Fallback mirrors (Cloudflare/CDN backed - bypasses Russian ISP DPI blocks)
-        val endpoints = listOf(
-            // Nexus BFF proxy route (real-time, hosted on our fast Cloudflare-backed infrastructure)
-            "https://nexus-net.xyz/api/v1/client/releases",
+        val endpoints =
+            // Nexus BFF route on every NEXUS domain (the working one first; nexus-net.xyz is blocked in Russia)
+            net.nexus.app.data.ApiHosts.candidates().map { "https://$it/api/v1/client/releases" } + listOf(
             // jsDelivr global CDN mirrors for static releases manifest
             "https://cdn.jsdelivr.net/gh/$repo@v3-pure/releases.json",
             "https://cdn.jsdelivr.net/gh/$repo@main/releases.json",

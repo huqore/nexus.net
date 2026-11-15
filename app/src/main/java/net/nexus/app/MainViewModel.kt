@@ -178,7 +178,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val tgSub = telegramUser.value?.subscriptionUrl?.takeIf { it.isNotBlank() }
         mutate { list ->
             val nexusList = list.filter {
-                it.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
+                net.nexus.app.data.ApiHosts.isNexusSubUrl(it.url) ||
                 (it.name.contains("NEXUS", ignoreCase = true) && !it.isLocal)
             }
             if (nexusList.size <= 1) return@mutate list
@@ -198,7 +198,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             adding.value = true
             try {
                 val t = text.trim()
-                if (t.startsWith("http://", true) || t.startsWith("https://", true) || t.startsWith("chad.nexus-net.xyz", true)) {
+                if (t.startsWith("http://", true) || t.startsWith("https://", true) || net.nexus.app.data.ApiHosts.isNexusSubUrl(t)) {
                     emit(R.string.error_manual_sub_disabled)
                     return@launch
                 }
@@ -251,11 +251,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun upsertSubscription(url: String, r: FetchResult) {
         mutate { list ->
-            val isNexus = url.contains("chad.nexus-net.xyz", ignoreCase = true) || r.name.contains("NEXUS", ignoreCase = true)
+            val isNexus = net.nexus.app.data.ApiHosts.isNexusSubUrl(url) || r.name.contains("NEXUS", ignoreCase = true)
             val existing = list.firstOrNull { it.url == url }
             val baseList = if (isNexus) {
                 list.filterNot {
-                    it.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
+                    net.nexus.app.data.ApiHosts.isNexusSubUrl(it.url) ||
                     (it.name.contains("NEXUS", ignoreCase = true) && !it.isLocal)
                 }
             } else {

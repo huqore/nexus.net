@@ -11,7 +11,7 @@ object NexusSync {
 
     /** The account's own provider, or a subscription-URL provider that belongs to NEXUS. */
     fun isNexus(p: Provider): Boolean =
-        p.id == PROVIDER_ID || p.url?.contains("chad.nexus-net.xyz", ignoreCase = true) == true ||
+        p.id == PROVIDER_ID || ApiHosts.isNexusSubUrl(p.url) ||
             (!p.isLocal && p.name.contains("NEXUS", ignoreCase = true))
 
     /** Keeps ids (and therefore the selected server) and ping values of servers that are still there. */

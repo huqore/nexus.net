@@ -12,6 +12,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.dnsoverhttps.DnsOverHttps
 import org.json.JSONArray
 import org.json.JSONObject
+import net.nexus.app.data.ApiHosts
 import net.nexus.app.data.Server
 import java.net.InetAddress
 import java.net.UnknownHostException
@@ -34,7 +35,8 @@ data class DeviceRegisterResult(
 
 object TelegramAuthManager {
 
-    private const val AUTH_BASE_URL = "https://nexus-net.xyz/api/auth/telegram"
+    // Paths only: the domain comes from ApiHosts (nexus-net.xyz, nexusnet.click, server-provided list)
+    private const val AUTH_PATH = "/api/auth/telegram"
     private val authHttpClient: OkHttpClient by lazy {
         val cloudflareDoh = createDohResolver(
             "https://cloudflare-dns.com/dns-query",
@@ -51,7 +53,7 @@ object TelegramAuthManager {
                 try {
                     return Dns.SYSTEM.lookup(hostname).ifEmpty { throw UnknownHostException("No addresses for $hostname") }
                 } catch (systemDnsError: UnknownHostException) {
-                    if (!hostname.equals("nexus-net.xyz", ignoreCase = true)) throw systemDnsError
+                    if (!ApiHosts.isOurHost(hostname)) throw systemDnsError
                     return runCatching { cloudflareDoh.lookup(hostname) }
                         .getOrElse { runCatching { googleDoh.lookup(hostname) }.getOrElse { throw systemDnsError } }
                 }
@@ -59,10 +61,28 @@ object TelegramAuthManager {
         }
         OkHttpClient.Builder()
             .dns(fallbackDns)
-            .connectTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(12, TimeUnit.SECONDS)
             .followRedirects(true)
             .build()
+    }
+
+    /** Quick reachability check used by the domain race (any HTTP answer = reachable). */
+    private val probeClient: OkHttpClient by lazy {
+        authHttpClient.newBuilder()
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .readTimeout(3, TimeUnit.SECONDS)
+            .callTimeout(4, TimeUnit.SECONDS)
+            .build()
+    }
+
+    private fun probeHost(host: String): Boolean {
+        val request = Request.Builder()
+            .url("https://$host/api/version")
+            .header("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
+            .get()
+            .build()
+        return probeClient.newCall(request).execute().use { it.code in 200..499 }
     }
 
     private fun createDohResolver(url: String, resolverHost: String, bootstrapIps: List<String>): DnsOverHttps {
@@ -106,9 +126,13 @@ object TelegramAuthManager {
                 put("osVersion", "Android ${Build.VERSION.RELEASE ?: ""}".trim())
                 put("userAgent", "NEXUS.net App/${net.nexus.app.BuildConfig.VERSION_NAME} (Android; $deviceModel)")
             }
-            val resp = httpPost("https://nexus-net.xyz/api/v1/client/handshake", payload.toString(), appToken = appToken)
+            val resp = httpPost("/api/v1/client/handshake", payload.toString(), appToken = appToken)
                 ?: return@withContext HandshakeResult(success = false, authenticated = false, user = null, servers = emptyList())
             val json = JSONObject(resp)
+            // Fresh domain list from the server: a future block needs a new domain there, not a new build
+            json.optJSONObject("appConfig")?.optJSONArray("apiHosts")?.let { arr ->
+                ApiHosts.applyRemote((0 until arr.length()).map { arr.optString(it) })
+            }
             if (!json.optBoolean("success", false)) {
                 return@withContext HandshakeResult(success = false, authenticated = false, user = null, servers = emptyList())
             }
@@ -123,7 +147,7 @@ object TelegramAuthManager {
                     tgUsername = uObj.optString("username", "").removePrefix("@").removePrefix("nexus_").trim(),
                     siteName = uObj.optString("username", ""),
                     telegramId = uObj.optLong("telegramId", 0L),
-                    subscriptionUrl = uObj.optString("subscriptionUrl", "").ifBlank { "https://nexus-net.xyz" },
+                    subscriptionUrl = uObj.optString("subscriptionUrl", "").ifBlank { ApiHosts.siteUrl() },
                     expireAt = uObj.optString("expireAt", ""),
                     status = uObj.optString("status", "none"),
                     devicesCount = uObj.optInt("deviceLimit", 3),
@@ -185,7 +209,7 @@ object TelegramAuthManager {
             val tgIdStr = if (telegramId != null && telegramId > 0) telegramId.toString() else ""
             val encHwid = java.net.URLEncoder.encode(hwid, "UTF-8")
             val encUser = java.net.URLEncoder.encode(cleanName, "UTF-8")
-            val url = "https://nexus-net.xyz/api/v1/client/session-check?hwid=$encHwid&username=$encUser&telegramId=$tgIdStr"
+            val url = "/api/v1/client/session-check?hwid=$encHwid&username=$encUser&telegramId=$tgIdStr"
             val resp = httpGet(url, appToken = appToken)
             val json = JSONObject(resp)
             if (json.optBoolean("kicked", false)) {
@@ -210,7 +234,7 @@ object TelegramAuthManager {
                 put("identifier", identifier.trim())
                 put("password", pass)
             }
-            val resp = httpPost("https://nexus-net.xyz/api/auth/login", payload.toString())
+            val resp = httpPost("/api/auth/login", payload.toString())
                 ?: return@withContext WebLoginResult(success = false, error = "Нет ответа от сервера")
             val json = JSONObject(resp)
             if (!json.optBoolean("success", false)) {
@@ -250,7 +274,7 @@ object TelegramAuthManager {
      * Returns Pair(sessionId, botUrl).
      */
     suspend fun createLoginSession(): Pair<String, String> = withContext(Dispatchers.IO) {
-        val jsonStr = httpGet("$AUTH_BASE_URL?action=create&app=true")
+        val jsonStr = httpGet("$AUTH_PATH?action=create&app=true")
         val json = JSONObject(jsonStr)
         if (!json.optBoolean("success", false)) {
             error(json.optString("message", "Failed to create session"))
@@ -269,7 +293,7 @@ object TelegramAuthManager {
      */
     suspend fun checkLoginSession(sessionId: String): TelegramUser? = withContext(Dispatchers.IO) {
         runCatching {
-            val jsonStr = httpGet("$AUTH_BASE_URL?action=check&session=$sessionId", timeoutMs = 5000)
+            val jsonStr = httpGet("$AUTH_PATH?action=check&session=$sessionId", timeoutMs = 5000)
             val json = JSONObject(jsonStr)
 
             if (!json.optBoolean("success", false) || !json.optBoolean("confirmed", false)) {
@@ -307,7 +331,7 @@ object TelegramAuthManager {
     suspend fun refreshFromRemnaWave(user: TelegramUser): TelegramUser = withContext(Dispatchers.IO) {
         try {
             val clean = user.cleanUsername
-            val url = "$AUTH_BASE_URL?action=refresh_user&username=$clean&telegramId=${user.telegramId}"
+            val url = "$AUTH_PATH?action=refresh_user&username=$clean&telegramId=${user.telegramId}"
             val resp = httpGet(url, appToken = user.appToken)
             val json = JSONObject(resp)
             if (json.optBoolean("success", false)) {
@@ -348,7 +372,7 @@ object TelegramAuthManager {
                 put("userAgent", "NEXUS.net App/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
             }
 
-            val resp = httpPost(AUTH_BASE_URL, payload.toString(), appToken = user.appToken)
+            val resp = httpPost(AUTH_PATH, payload.toString(), appToken = user.appToken)
             if (resp != null) {
                 val json = JSONObject(resp)
                 val success = json.optBoolean("success", false)
@@ -382,41 +406,51 @@ object TelegramAuthManager {
                 put("telegramId", user.telegramId)
                 put("hwid", hwid)
             }
-            val resp = httpPost(AUTH_BASE_URL, payload.toString(), appToken = user.appToken)
+            val resp = httpPost(AUTH_PATH, payload.toString(), appToken = user.appToken)
             resp != null && JSONObject(resp).optBoolean("success", false)
         } catch (_: Exception) {
             false
         }
     }
 
-    private fun httpGet(urlStr: String, timeoutMs: Int = 8_000, appToken: String = ""): String {
-        if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
-        val request = Request.Builder()
-            .url(urlStr)
-            .header("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
-            .header("Accept", "application/json")
-            .apply { if (appToken.isNotBlank()) header("X-App-Token", appToken) }
-            .get()
-            .build()
-        authHttpClient.newBuilder().readTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS).build().newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("Server error HTTP ${response.code}")
-            return response.body?.string() ?: ""
+    /** GET [path] on the first reachable NEXUS domain; an HTTP error from a reachable domain is final. */
+    private fun httpGet(path: String, timeoutMs: Int = 8_000, appToken: String = ""): String {
+        ApiHosts.ensureFastest(::probeHost)
+        return ApiHosts.withFallback { host ->
+            val urlStr = "https://$host$path"
+            if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
+            val request = Request.Builder()
+                .url(urlStr)
+                .header("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
+                .header("Accept", "application/json")
+                .apply { if (appToken.isNotBlank()) header("X-App-Token", appToken) }
+                .get()
+                .build()
+            authHttpClient.newBuilder().readTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS).build().newCall(request).execute().use { response ->
+                if (!response.isSuccessful) error("Server error HTTP ${response.code}")
+                response.body?.string() ?: ""
+            }
         }
     }
 
-    private fun httpPost(urlStr: String, jsonBody: String, appToken: String = ""): String? {
-        if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
+    /** POST to [path] on the first reachable NEXUS domain; null on HTTP error or when no domain answers. */
+    private fun httpPost(path: String, jsonBody: String, appToken: String = ""): String? {
         return try {
-            val request = Request.Builder()
-                .url(urlStr)
-                .header("Content-Type", "application/json")
-                .header("Accept", "application/json")
-                .header("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
-                .apply { if (appToken.isNotBlank()) header("X-App-Token", appToken) }
-                .post(jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType()))
-                .build()
-            authHttpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) response.body?.string() else null
+            ApiHosts.ensureFastest(::probeHost)
+            ApiHosts.withFallback { host ->
+                val urlStr = "https://$host$path"
+                if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
+                val request = Request.Builder()
+                    .url(urlStr)
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                    .header("User-Agent", "nexus.net-app/${net.nexus.app.BuildConfig.VERSION_NAME} (Android)")
+                    .apply { if (appToken.isNotBlank()) header("X-App-Token", appToken) }
+                    .post(jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                    .build()
+                authHttpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) response.body?.string() else null
+                }
             }
         } catch (_: Exception) {
             null

@@ -25,7 +25,24 @@ object SubscriptionFetcher {
 
     private const val MAX_BYTES = 8 * 1024 * 1024
 
+    /**
+     * NEXUS links (chad.<our domain>/…) are tried on every NEXUS domain, the working one first, so a
+     * blocked domain falls back to the mirror. Other subscriptions are fetched exactly as given.
+     */
     fun fetch(url: String, hwid: String? = null): FetchResult {
+        val variants = ApiHosts.subscriptionUrlVariants(url.trim())
+        var last: java.io.IOException? = null
+        for (variant in variants) {
+            try {
+                return fetchOne(variant, hwid)
+            } catch (e: java.io.IOException) {
+                last = e
+            }
+        }
+        throw last ?: java.io.IOException("Subscription unreachable")
+    }
+
+    private fun fetchOne(url: String, hwid: String? = null): FetchResult {
         val trimmed = url.trim()
         if (!net.nexus.app.security.UrlValidator.isSecureUrl(trimmed, allowLoopback = true)) {
             error("Insecure subscription URL: HTTPS is required to protect credentials")

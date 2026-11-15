@@ -678,8 +678,8 @@ private fun MainSettingsList(
                     LinkRow(
                         icon = Icons.Filled.Language,
                         title = stringResource(R.string.link_site),
-                        subtitle = "nexus-net.xyz",
-                        onClick = { openUrl("https://nexus-net.xyz") }
+                        subtitle = net.nexus.app.data.ApiHosts.primary(),
+                        onClick = { openUrl(net.nexus.app.data.ApiHosts.siteUrl()) }
                     )
                     LinkRow(
                         icon = Icons.AutoMirrored.Outlined.HelpOutline,
