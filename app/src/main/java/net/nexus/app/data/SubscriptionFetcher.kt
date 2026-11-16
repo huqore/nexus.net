@@ -31,23 +31,26 @@ object SubscriptionFetcher {
      */
     fun fetch(url: String, hwid: String? = null): FetchResult {
         val variants = ApiHosts.subscriptionUrlVariants(url.trim())
-        var last: java.io.IOException? = null
-        for (variant in variants) {
-            try {
-                return fetchOne(variant, hwid)
-            } catch (e: java.io.IOException) {
-                last = e
+        // Direct first; on a whitelist-only network retry through the running VPN tunnel
+        return net.nexus.app.vpn.TunnelRoute.directThenTunnel { proxy ->
+            var last: java.io.IOException? = null
+            for (variant in variants) {
+                try {
+                    return@directThenTunnel fetchOne(variant, hwid, proxy)
+                } catch (e: java.io.IOException) {
+                    last = e
+                }
             }
+            throw last ?: java.io.IOException("Subscription unreachable")
         }
-        throw last ?: java.io.IOException("Subscription unreachable")
     }
 
-    private fun fetchOne(url: String, hwid: String? = null): FetchResult {
+    private fun fetchOne(url: String, hwid: String? = null, proxy: java.net.Proxy? = null): FetchResult {
         val trimmed = url.trim()
         if (!net.nexus.app.security.UrlValidator.isSecureUrl(trimmed, allowLoopback = true)) {
             error("Insecure subscription URL: HTTPS is required to protect credentials")
         }
-        val conn = (URL(trimmed).openConnection() as HttpURLConnection).apply {
+        val conn = ((if (proxy != null) URL(trimmed).openConnection(proxy) else URL(trimmed).openConnection()) as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 20_000
             instanceFollowRedirects = true

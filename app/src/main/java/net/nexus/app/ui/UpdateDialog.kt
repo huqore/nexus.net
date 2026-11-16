@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,10 +65,13 @@ import java.util.Locale
 fun UpdateDialog(
     state: UpdateState,
     vm: MainViewModel,
+    onConnect: () -> Unit = {},
 ) {
     when (state) {
         is UpdateState.Available -> {
-            if (state.autoPrompt) {
+            if (state.autoPrompt && net.nexus.app.update.UpdateChecker.isEmergency(state.release.versionName, BuildConfig.VERSION_NAME)) {
+                EmergencyUpdateDialog(release = state.release, onConnect = onConnect, onLater = { vm.dismissUpdateDialog() })
+            } else if (state.autoPrompt) {
                 AvailableDialog(
                     release = state.release,
                     onUpdate = { vm.startDownloadUpdate(state.release) },
@@ -595,4 +599,85 @@ private fun ReadyDialog(
 
 private fun formatMb(bytes: Long): String {
     return AppLang.bytes(bytes, gbDecimals = 1)
+}
+
+/** Channel where every release APK is posted. */
+private const val APK_CHANNEL_URL = "https://t.me/NEXUSnet_news"
+
+/**
+ * Emergency update (X of X.Y.Z went up). Telegram is often unreachable without the VPN, so the
+ * dialog lets the user connect first and then opens the channel with the new APK by itself.
+ * It can only be put off once the VPN is up (the user has a working way to the channel).
+ */
+@Composable
+private fun EmergencyUpdateDialog(release: AppReleaseInfo, onConnect: () -> Unit, onLater: () -> Unit) {
+    val ctx = LocalContext.current
+    val status by net.nexus.app.vpn.VpnState.status.collectAsState()
+    val connected = status == net.nexus.app.vpn.VpnStatus.CONNECTED
+    val connecting = status == net.nexus.app.vpn.VpnStatus.CONNECTING
+    var opened by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    fun openChannel() {
+        runCatching {
+            ctx.startActivity(
+                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(APK_CHANNEL_URL))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+        opened = true
+    }
+    LaunchedEffect(connected) { if (connected && !opened) openChannel() }
+
+    val shape = RoundedCornerShape(28.dp)
+    Dialog(
+        onDismissRequest = { if (connected) onLater() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = connected, dismissOnClickOutside = connected),
+    ) {
+        Box(Modifier.padding(24.dp).fillMaxWidth().nxDialogSurface(shape).padding(22.dp)) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Box(
+                        Modifier.size(48.dp).clip(CircleShape).background(NX.red.copy(alpha = 0.18f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.SystemUpdate, null, tint = NX.red, modifier = Modifier.size(26.dp))
+                    }
+                    Column {
+                        Text(stringResource(R.string.update_emergency_title), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = NX.text)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "v${BuildConfig.VERSION_NAME} → v${release.versionName}",
+                            fontSize = 13.sp, color = NX.muted, fontFamily = FontFamily.Monospace,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.update_emergency_text), fontSize = 14.sp, color = NX.text, lineHeight = 20.sp)
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = { if (connected) openChannel() else if (!connecting) onConnect() },
+                    enabled = !connecting,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = NX.accent, contentColor = Color.White),
+                ) {
+                    Text(
+                        stringResource(
+                            when {
+                                connected -> R.string.update_emergency_open
+                                connecting -> R.string.update_emergency_connecting
+                                else -> R.string.update_emergency_connect
+                            }
+                        ),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                if (connected) {
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.update_emergency_later), color = NX.muted)
+                    }
+                }
+            }
+        }
+    }
 }

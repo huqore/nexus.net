@@ -733,6 +733,7 @@ fun NexusTheme(
     customBg: Int = 0xFF0A0812.toInt(),
     amoled: Boolean = false,
     lightMode: Boolean = false,
+    showStars: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -807,8 +808,8 @@ fun NexusTheme(
                 val haze = remember { dev.chrisbanes.haze.HazeState() }
                 if (glass) GlassLightSensor()
                 CompositionLocalProvider(LocalGlassHaze provides (if (glass) haze else null)) {
-                    Box(Modifier.fillMaxSize()) {
-                        if (glass) GlassBackdrop(Modifier.glassSource(zIndex = 0f).liquidBackgroundSource())
+                    Box(Modifier.fillMaxSize().shockWave()) {
+                        if (glass) GlassBackdrop(Modifier.glassSource(zIndex = 0f).liquidBackgroundSource(), stars = showStars)
                         Surface(
                             color = if (glass) Color.Transparent else NX.bg,
                             contentColor = NX.text,

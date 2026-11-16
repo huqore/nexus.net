@@ -408,8 +408,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             servers.map { s ->
                 async {
                     pingGate.withPermit {
-                        val ms = runCatching { XrayCore.measure(ConfigBuilder.forPing(s), url).toInt() }
-                            .getOrNull()?.takeIf { it > 0 } ?: -2
+                        val cfg = runCatching { ConfigBuilder.forPing(s) }.getOrNull()
+                        val ms = cfg?.let { c -> runCatching { XrayCore.measure(c, url).toInt() }.getOrNull()?.takeIf { it > 0 } }
+                            // LTE through the CDN: a cold full ping often times out though the tunnel works;
+                            // show the real delay to the CDN entrance instead of "n/a"
+                            ?: cfg?.takeIf { Store.isWlBypass(s) }?.let { net.nexus.app.core.CdnPing.measure(it).takeIf { v -> v > 0 } }
+                            ?: -2
                         providers.update { l -> l.map { p -> p.copy(servers = p.servers.map { if (it.id == s.id) it.copy(pingMs = ms) else it }) } }
                         pinging.update { it - s.id }
                         s.id to ms
@@ -469,6 +473,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setAppTheme(theme: net.nexus.app.data.AppTheme) = updateSettings { it.copy(appTheme = theme) }
     fun setAppFont(font: net.nexus.app.data.AppFont) = updateSettings { it.copy(appFont = font) }
     fun setDesignStyle(style: net.nexus.app.data.DesignStyle) = updateSettings { it.copy(designStyle = style) }
+    fun setShowStars(on: Boolean) = updateSettings { it.copy(showStars = on) }
     fun setAmoledMode(on: Boolean) = updateSettings { it.copy(amoledMode = on, lightMode = if (on) false else it.lightMode) }
     fun setLightMode(on: Boolean) = updateSettings { it.copy(lightMode = on, amoledMode = if (on) false else it.amoledMode) }
     fun setCustomTheme(accent: Int, bg: Int, particles: net.nexus.app.data.CustomParticles) = updateSettings {

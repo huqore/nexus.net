@@ -294,7 +294,7 @@ fun Modifier.nxBorder(shape: Shape, width: Dp = 1.dp, color: Color = NX.cardBord
  * theme's hues and a faint star field. Glass needs colour and detail behind it to read as glass.
  */
 @Composable
-fun GlassBackdrop(modifier: Modifier = Modifier) {
+fun GlassBackdrop(modifier: Modifier = Modifier, stars: Boolean = true) {
     val p = NX.palette
     val h = hueOf(p.accent)
     val light = NX.isLightTheme
@@ -322,11 +322,8 @@ fun GlassBackdrop(modifier: Modifier = Modifier) {
             Triple(p.accentDim.copy(alpha = if (light) 0.35f else 0.9f), Offset(0.25f, 0.80f), 0.70f),
         )
     }
-    val stars = remember {
-        val r = java.util.Random(42)
-        List(90) { Triple(r.nextFloat(), r.nextFloat(), r.nextFloat()) }
-    }
-    Canvas(modifier.fillMaxSize()) {
+    androidx.compose.foundation.layout.Box(modifier.fillMaxSize()) {
+    Canvas(Modifier.fillMaxSize()) {
         drawRect(if (light) p.bg else if (p.bg.luminance() < 0.0005f) Color.Black else hsv(h, 0.40f, 0.035f))
         blobs.forEachIndexed { i, (color, base, rr) ->
             val cx = (base.x + 0.08f * sin(t + i * 2.1f)) * size.width
@@ -341,17 +338,13 @@ fun GlassBackdrop(modifier: Modifier = Modifier) {
             )
         }
         if (!light) {
-            stars.forEach { (x, y, s) ->
-                drawCircle(
-                    Color.White.copy(alpha = 0.15f + s * 0.45f),
-                    radius = 0.6f + s * 1.2f,
-                    center = Offset(x * size.width, y * size.height),
-                )
-            }
             // Veil keeps white text readable over saturated colour.
             // Real glass needs colour behind it to refract: a lighter veil on Android 13+.
             drawRect(Color.Black.copy(alpha = if (LiquidBackdrop.supported) 0.38f else 0.48f))
         }
+    }
+    // Inside the recorded backdrop, so the glass refracts the stars as well
+    if (stars && !light) StarField()
     }
 }
 

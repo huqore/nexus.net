@@ -46,9 +46,10 @@ import net.nexus.app.R
 private val AccentPresets = listOf(
     0xFF8B5CF6, 0xFF6366F1, 0xFF3B82F6, 0xFF0EA5E9, 0xFF14B8A6, 0xFF22C55E,
     0xFF84CC16, 0xFFEAB308, 0xFFF97316, 0xFFEF4444, 0xFFEC4899, 0xFFD946EF,
+    0xFFFFFFFF, 0xFF000000, // pure white and pure black accents
 ).map { Color(it) }
 
-private enum class BgKind { DARK, AMOLED, LIGHT }
+private enum class BgKind { DARK, AMOLED, LIGHT, WHITE }
 
 private fun hsvColor(h: Float, s: Float, v: Float) =
     Color(android.graphics.Color.HSVToColor(floatArrayOf(h.coerceIn(0f, 359.9f), s.coerceIn(0f, 1f), v.coerceIn(0f, 1f))))
@@ -57,6 +58,7 @@ private fun bgFor(kind: BgKind, hue: Float): Color = when (kind) {
     BgKind.DARK -> hsvColor(hue, 0.38f, 0.055f)
     BgKind.AMOLED -> Color.Black
     BgKind.LIGHT -> hsvColor(hue, 0.04f, 0.98f)
+    BgKind.WHITE -> Color.White
 }
 
 /**
@@ -76,13 +78,15 @@ fun CustomThemeEditor(
         FloatArray(3).also { android.graphics.Color.colorToHSV(initialAccent, it) }
     }
     var hue by remember { mutableFloatStateOf(start[0]) }
-    var sat by remember { mutableFloatStateOf(start[1].coerceAtLeast(0.35f)) }
-    var value by remember { mutableFloatStateOf(start[2].coerceAtLeast(0.55f)) }
+    // Full range: any shade down to pure black (brightness 0) or pure white (saturation 0, brightness 1)
+    var sat by remember { mutableFloatStateOf(start[1]) }
+    var value by remember { mutableFloatStateOf(start[2]) }
     var bgKind by remember {
         val c = Color(initialBg)
         mutableIntStateOf(
             when {
                 c.red + c.green + c.blue < 0.02f -> BgKind.AMOLED.ordinal
+                c.red + c.green + c.blue > 2.99f -> BgKind.WHITE.ordinal
                 (0.299f * c.red + 0.587f * c.green + 0.114f * c.blue) > 0.5f -> BgKind.LIGHT.ordinal
                 else -> BgKind.DARK.ordinal
             }
@@ -147,18 +151,20 @@ fun CustomThemeEditor(
             Text(stringResource(R.string.custom_accent), color = NX.muted2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             // Presets
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AccentPresets.chunked(6).forEach { row ->
+                AccentPresets.chunked(7).forEach { row ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         row.forEach { c ->
                             val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) }
-                            val sel = kotlin.math.abs(hsv[0] - hue) < 2f && kotlin.math.abs(hsv[1] - sat) < 0.03f && kotlin.math.abs(hsv[2] - value) < 0.03f
+                            // Black/white have no hue: picking them keeps the hue (it still tints the background)
+                            val grey = hsv[1] < 0.01f
+                            val sel = (grey || kotlin.math.abs(hsv[0] - hue) < 2f) && kotlin.math.abs(hsv[1] - sat) < 0.03f && kotlin.math.abs(hsv[2] - value) < 0.03f
                             Box(
                                 Modifier.size(34.dp).clip(CircleShape).background(c)
-                                    .border(if (sel) 3.dp else 0.dp, NX.text, CircleShape)
-                                    .clickable { hue = hsv[0]; sat = hsv[1]; value = hsv[2] },
+                                    .border(if (sel) 3.dp else 1.dp, if (sel) NX.text else NX.cardBorder, CircleShape)
+                                    .clickable { if (!grey) hue = hsv[0]; sat = hsv[1]; value = hsv[2] },
                                 contentAlignment = Alignment.Center,
                             ) {
-                                if (sel) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                if (sel) Icon(Icons.Filled.Check, null, tint = if (c.luminance() > 0.5f) Color.Black else Color.White, modifier = Modifier.size(18.dp))
                             }
                         }
                     }
@@ -168,10 +174,10 @@ fun CustomThemeEditor(
             // Hue / saturation / brightness
             ColorSlider(stringResource(R.string.custom_hue), hue, 0f..359.9f,
                 Brush.horizontalGradient((0..6).map { hsvColor(it * 60f, sat, value) })) { hue = it }
-            ColorSlider(stringResource(R.string.custom_saturation), sat, 0.2f..1f,
-                Brush.horizontalGradient(listOf(hsvColor(hue, 0.2f, value), hsvColor(hue, 1f, value)))) { sat = it }
-            ColorSlider(stringResource(R.string.custom_brightness), value, 0.45f..1f,
-                Brush.horizontalGradient(listOf(hsvColor(hue, sat, 0.45f), hsvColor(hue, sat, 1f)))) { value = it }
+            ColorSlider(stringResource(R.string.custom_saturation), sat, 0f..1f,
+                Brush.horizontalGradient(listOf(hsvColor(hue, 0f, value), hsvColor(hue, 1f, value)))) { sat = it }
+            ColorSlider(stringResource(R.string.custom_brightness), value, 0f..1f,
+                Brush.horizontalGradient(listOf(hsvColor(hue, sat, 0f), hsvColor(hue, sat, 1f)))) { value = it }
 
             Text(stringResource(R.string.custom_background), color = NX.muted2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -179,6 +185,7 @@ fun CustomThemeEditor(
                     BgKind.DARK to R.string.custom_bg_dark,
                     BgKind.AMOLED to R.string.custom_bg_amoled,
                     BgKind.LIGHT to R.string.custom_bg_light,
+                    BgKind.WHITE to R.string.custom_bg_white,
                 ).forEach { (kind, label) ->
                     val sel = bgKind == kind.ordinal
                     val swatch = bgFor(kind, hue)

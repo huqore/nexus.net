@@ -52,6 +52,7 @@ class Store(context: Context) {
             customParticles = CustomParticles.fromId(o.optString("customParticles", "none")),
             bypassRussianApps = o.optBoolean("bypassRussianApps", false),
             autoNetworkSwitch = o.optBoolean("autoNetworkSwitch", true),
+            showStars = o.optBoolean("showStars", true),
         )
     }
 
@@ -86,6 +87,7 @@ class Store(context: Context) {
             .put("lightMode", s.lightMode)
             .put("bypassRussianApps", s.bypassRussianApps)
             .put("autoNetworkSwitch", s.autoNetworkSwitch)
+            .put("showStars", s.showStars)
         return o
     }
 

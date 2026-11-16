@@ -413,10 +413,17 @@ object TelegramAuthManager {
         }
     }
 
+    /** Direct client, or one that goes through the running VPN tunnel ([net.nexus.app.vpn.TunnelRoute]). */
+    private fun clientFor(proxy: java.net.Proxy?): OkHttpClient =
+        if (proxy == null) authHttpClient
+        else authHttpClient.newBuilder().proxy(proxy).callTimeout(20, TimeUnit.SECONDS).build()
+
     /** GET [path] on the first reachable NEXUS domain; an HTTP error from a reachable domain is final. */
-    private fun httpGet(path: String, timeoutMs: Int = 8_000, appToken: String = ""): String {
-        ApiHosts.ensureFastest(::probeHost)
-        return ApiHosts.withFallback { host ->
+    private fun httpGet(path: String, timeoutMs: Int = 8_000, appToken: String = ""): String =
+        net.nexus.app.vpn.TunnelRoute.directThenTunnel { proxy ->
+        // The domain race probes direct reachability; through the tunnel every domain is reachable
+        if (proxy == null) ApiHosts.ensureFastest(::probeHost)
+        ApiHosts.withFallback { host ->
             val urlStr = "https://$host$path"
             if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
             val request = Request.Builder()
@@ -426,17 +433,18 @@ object TelegramAuthManager {
                 .apply { if (appToken.isNotBlank()) header("X-App-Token", appToken) }
                 .get()
                 .build()
-            authHttpClient.newBuilder().readTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS).build().newCall(request).execute().use { response ->
+            clientFor(proxy).newBuilder().readTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS).build().newCall(request).execute().use { response ->
                 if (!response.isSuccessful) error("Server error HTTP ${response.code}")
                 response.body?.string() ?: ""
             }
         }
-    }
+        }
 
     /** POST to [path] on the first reachable NEXUS domain; null on HTTP error or when no domain answers. */
     private fun httpPost(path: String, jsonBody: String, appToken: String = ""): String? {
         return try {
-            ApiHosts.ensureFastest(::probeHost)
+            net.nexus.app.vpn.TunnelRoute.directThenTunnel { proxy ->
+            if (proxy == null) ApiHosts.ensureFastest(::probeHost)
             ApiHosts.withFallback { host ->
                 val urlStr = "https://$host$path"
                 if (!net.nexus.app.security.UrlValidator.isSecureUrl(urlStr, allowLoopback = false)) error("HTTPS is required for secure authentication")
@@ -448,9 +456,10 @@ object TelegramAuthManager {
                     .apply { if (appToken.isNotBlank()) header("X-App-Token", appToken) }
                     .post(jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType()))
                     .build()
-                authHttpClient.newCall(request).execute().use { response ->
+                clientFor(proxy).newCall(request).execute().use { response ->
                     if (response.isSuccessful) response.body?.string() else null
                 }
+            }
             }
         } catch (_: Exception) {
             null

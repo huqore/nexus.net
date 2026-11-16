@@ -399,6 +399,12 @@ private fun PowerButton(status: VpnStatus, isSecretRgb: Boolean = false, buttonS
         label = "iconScale"
     )
 
+    // Liquid Glass on Android 13+: the button is a drop of liquid glass (LiquidDropButton.kt)
+    if (NX.style == net.nexus.app.data.DesignStyle.LIQUID_GLASS && LiquidBackdrop.supported && !isSecretRgb) {
+        LiquidDropButton(status = status, buttonSize = buttonSize, iconTint = iconTint, onClick = onClick)
+        return
+    }
+
     Box(
         Modifier
             .size(buttonSize)

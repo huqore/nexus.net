@@ -47,22 +47,46 @@ object ConfigBuilder {
             outs.put(JSONObject().put("tag", "dns-out").put("protocol", "dns"))
     }
 
-    private fun resolveHostToIpv4(host: String): String? {
+    /**
+     * Anycast edges of Yandex Cloud CDN. Every LTE (whitelist-bypass) config goes through this CDN and
+     * any CDN resource answers on these IPs by SNI, so they are a safe last resort when DNS is down.
+     */
+    internal val YANDEX_CDN_EDGES: List<String> = listOf("188.72.112.1", "188.72.111.36")
+
+    private val IPV4 = Regex("""\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}""")
+
+    /** System DNS lookup (the app is outside the tunnel, so this asks the real network's resolver). Swappable in tests. */
+    internal var systemResolver: (String) -> String? = { host ->
+        runCatching { InetAddress.getAllByName(host).firstOrNull { it is Inet4Address }?.hostAddress }.getOrNull()
+    }
+
+    /**
+     * Server address -> IPv4 before the core starts. Order: the operator's DNS, then the address the
+     * subscription itself pins in dns.hosts, then (LTE only) a Yandex CDN edge. On whitelist-only
+     * mobile networks outside resolvers are dead, and the core must never need DNS to reach the server.
+     */
+    internal fun resolveServerAddress(host: String, pinned: Map<String, List<String>>, isWl: Boolean): String? {
         if (host.isBlank()) return null
-        if (host.matches(Regex("""\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""))) return host
-        if (host.equals("cdn1.wyverniumx.ru", ignoreCase = true) || host.equals("cdn.wyverniumx.ru", ignoreCase = true)) {
-            val resolved = runCatching {
-                InetAddress.getAllByName(host)
-                    .firstOrNull { it is Inet4Address }
-                    ?.hostAddress
-            }.getOrNull()
-            return resolved ?: "188.72.112.1"
+        if (host.matches(IPV4)) return host
+        systemResolver(host)?.let { return it }
+        pinned[host.lowercase()]?.firstOrNull { it.matches(IPV4) }?.let { return it }
+        return if (isWl) YANDEX_CDN_EDGES.first() else null
+    }
+
+    /** dns.hosts of a server-supplied config, lower-cased host -> IPv4 list. */
+    private fun pinnedHosts(cfg: JSONObject?): Map<String, List<String>> {
+        val hosts = cfg?.optJSONObject("dns")?.optJSONObject("hosts") ?: return emptyMap()
+        val out = mutableMapOf<String, List<String>>()
+        for (key in hosts.keys()) {
+            val v = hosts.opt(key)
+            val ips = when (v) {
+                is JSONArray -> (0 until v.length()).map { v.optString(it) }
+                is String -> listOf(v)
+                else -> emptyList()
+            }.filter { it.matches(IPV4) }
+            if (ips.isNotEmpty()) out[key.lowercase()] = ips
         }
-        return runCatching {
-            InetAddress.getAllByName(host)
-                .firstOrNull { it is Inet4Address }
-                ?.hostAddress
-        }.getOrNull()
+        return out
     }
 
     /**
@@ -71,7 +95,11 @@ object ConfigBuilder {
      * it cannot resolve the proxy server's domain name.
      * Also guarantees packetEncoding = "xudp" on VLESS/VMess outbounds so UDP packets (DNS, etc.) succeed.
      */
-    private fun prepareOutbounds(outs: JSONArray): Pair<Map<String, String>, List<String>> {
+    private fun prepareOutbounds(
+        outs: JSONArray,
+        pinned: Map<String, List<String>> = emptyMap(),
+        isWl: Boolean = false,
+    ): Pair<Map<String, String>, List<String>> {
         val hostsMap = mutableMapOf<String, String>()
         val serverIps = mutableListOf<String>()
 
@@ -102,12 +130,12 @@ object ConfigBuilder {
                     }
                     val rawAddress = srv.optString("address")
                     if (rawAddress.isNotBlank()) {
-                        val ip = resolveHostToIpv4(rawAddress)
+                        val ip = resolveServerAddress(rawAddress, pinned, isWl)
                         if (ip != null) {
                             srv.put("address", ip)
                             hostsMap[rawAddress] = ip
                             serverIps.add(ip)
-                        } else if (rawAddress.matches(Regex("""\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""))) {
+                        } else if (rawAddress.matches(IPV4)) {
                             serverIps.add(rawAddress)
                         }
                     }
@@ -121,12 +149,12 @@ object ConfigBuilder {
                     val srv = servers.optJSONObject(j) ?: continue
                     val rawAddress = srv.optString("address")
                     if (rawAddress.isNotBlank()) {
-                        val ip = resolveHostToIpv4(rawAddress)
+                        val ip = resolveServerAddress(rawAddress, pinned, isWl)
                         if (ip != null) {
                             srv.put("address", ip)
                             hostsMap[rawAddress] = ip
                             serverIps.add(ip)
-                        } else if (rawAddress.matches(Regex("""\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""))) {
+                        } else if (rawAddress.matches(IPV4)) {
                             serverIps.add(rawAddress)
                         }
                     }
@@ -138,8 +166,6 @@ object ConfigBuilder {
 
     private fun defaultDns(hostsMap: Map<String, String>, blockAds: Boolean = false, isWl: Boolean = false) = JSONObject()
         .put("hosts", JSONObject().apply {
-            put("cdn1.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
-            put("cdn.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
             for ((domain, ip) in hostsMap) {
                 put(domain, JSONArray().put(ip))
             }
@@ -155,7 +181,7 @@ object ConfigBuilder {
         val rules = JSONArray()
 
         // 1. Direct route for the proxy server's own IP address(es) to completely prevent routing loops
-        val distinctIps = (serverIps + if (isWl) listOf("188.72.112.1", "188.72.111.36") else emptyList()).distinct().filter { it.isNotBlank() }
+        val distinctIps = (serverIps + if (isWl) YANDEX_CDN_EDGES else emptyList()).distinct().filter { it.isNotBlank() }
         if (distinctIps.isNotEmpty()) {
             val ipsArray = JSONArray()
             distinctIps.forEach { ipsArray.put(it) }
@@ -235,7 +261,7 @@ object ConfigBuilder {
             cfg.put("log", JSONObject().put("loglevel", "warning"))
             val outs = cfg.optJSONArray("outbounds") ?: JSONArray().also { cfg.put("outbounds", it) }
             ensureBuiltins(outs)
-            val (hostsMap, serverIps) = prepareOutbounds(outs)
+            val (hostsMap, serverIps) = prepareOutbounds(outs, pinnedHosts(cfg), isWl)
 
             if (!cfg.has("dns")) {
                 cfg.put("dns", defaultDns(hostsMap, blockAds, isWl))
@@ -247,8 +273,6 @@ object ConfigBuilder {
                     dns.put("servers", JSONArray().put("1.1.1.1").put("8.8.8.8").put("9.9.9.9"))
                 }
                 val hosts = dns.optJSONObject("hosts") ?: JSONObject().also { dns.put("hosts", it) }
-                hosts.put("cdn1.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
-                hosts.put("cdn.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
                 for ((domain, ip) in hostsMap) {
                     hosts.put(domain, JSONArray().put(ip))
                 }
@@ -264,7 +288,7 @@ object ConfigBuilder {
             val existingRules = routing.optJSONArray("rules") ?: JSONArray().also { routing.put("rules", it) }
             val newRules = JSONArray()
 
-            val distinctIps = (serverIps + if (isWl) listOf("188.72.112.1", "188.72.111.36") else emptyList()).distinct().filter { it.isNotBlank() }
+            val distinctIps = (serverIps + if (isWl) YANDEX_CDN_EDGES else emptyList()).distinct().filter { it.isNotBlank() }
             if (distinctIps.isNotEmpty()) {
                 val ipsArray = JSONArray()
                 distinctIps.forEach { ipsArray.put(it) }
@@ -310,7 +334,7 @@ object ConfigBuilder {
 
         val outs = JSONArray(server.outbounds ?: error("server has no outbounds"))
         ensureBuiltins(outs)
-        val (hostsMap, serverIps) = prepareOutbounds(outs)
+        val (hostsMap, serverIps) = prepareOutbounds(outs, emptyMap(), isWl)
 
         val cfg = JSONObject()
             .put("log", JSONObject().put("loglevel", "warning"))
@@ -332,11 +356,9 @@ object ConfigBuilder {
             cfg.remove("inbounds")
             val outs = cfg.optJSONArray("outbounds") ?: JSONArray().also { cfg.put("outbounds", it) }
             ensureBuiltins(outs)
-            val (hostsMap, _) = prepareOutbounds(outs)
+            val (hostsMap, _) = prepareOutbounds(outs, pinnedHosts(cfg), isWl)
             val dns = cfg.optJSONObject("dns") ?: defaultDns(hostsMap, isWl = isWl).also { cfg.put("dns", it) }
             val hosts = dns.optJSONObject("hosts") ?: JSONObject().also { dns.put("hosts", it) }
-            hosts.put("cdn1.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
-            hosts.put("cdn.wyverniumx.ru", JSONArray().put("188.72.112.1").put("188.72.111.36"))
             for ((domain, ip) in hostsMap) {
                 hosts.put(domain, JSONArray().put(ip))
             }
@@ -344,7 +366,7 @@ object ConfigBuilder {
         }
         val outs = JSONArray(server.outbounds ?: error("server has no outbounds"))
         ensureBuiltins(outs)
-        val (hostsMap, _) = prepareOutbounds(outs)
+        val (hostsMap, _) = prepareOutbounds(outs, emptyMap(), isWl)
         val cfg = JSONObject()
             .put("dns", defaultDns(hostsMap, isWl = isWl))
             .put("outbounds", outs)

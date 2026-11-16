@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
                 customBg = settings.customBg,
                 amoled = settings.amoledMode,
                 lightMode = settings.lightMode,
+                showStars = settings.showStars,
             ) {
                 val ctx = LocalContext.current
                 var tab by rememberSaveable { mutableStateOf(Tab.CONNECT) }
@@ -181,7 +182,7 @@ class MainActivity : AppCompatActivity() {
                             onSlideTick = { HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TICK) },
                         )
                     }
-                    UpdateDialog(state = updateState, vm = vm)
+                    UpdateDialog(state = updateState, vm = vm, onConnect = ::toggleVpn)
                     TelegramAuthDialog(state = tgAuthState, vm = vm)
                 }
             }

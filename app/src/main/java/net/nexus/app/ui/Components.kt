@@ -130,8 +130,7 @@ import kotlin.math.ceil
 
 fun countryCodeFor(name: String): String {
     val n = name.lowercase()
-    if (Regex("""lte\s*#?1\b""", RegexOption.IGNORE_CASE).containsMatchIn(n)) return "DE"
-    if (Regex("""lte\s*#?2\b""", RegexOption.IGNORE_CASE).containsMatchIn(n)) return "PL"
+    Regex("""lte\s*#?(\d+)\b""", RegexOption.IGNORE_CASE).find(n)?.let { m -> lteCountry(m.groupValues[1])?.let { return it } }
     return when {
         n.contains("wl") || n.contains("bypass") -> "WL"
         n.contains("\u0433\u0435\u0440\u043C\u0430\u043D") || n.contains("germany") || name.contains("\uD83C\uDDE9\uD83C\uDDEA") || Regex("""\\bde\\b""").containsMatchIn(n) -> "DE"

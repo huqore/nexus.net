@@ -221,6 +221,17 @@ object UpdateChecker {
         }
     }
 
+    /**
+     * Emergency update: the first number (X of X.Y.Z) went up. Such a release usually means the old
+     * app can no longer work with the servers, so it is pushed hard: the user may still connect,
+     * and is sent straight to the Telegram channel with the new APK.
+     */
+    fun isEmergency(remoteVersion: String, currentVersion: String): Boolean {
+        val r = extractVersionDigits(remoteVersion).firstOrNull() ?: return false
+        val c = extractVersionDigits(currentVersion).firstOrNull() ?: return false
+        return r > c
+    }
+
     fun isVersionNewer(remoteVersion: String, currentVersion: String): Boolean {
         val remoteDigits = extractVersionDigits(remoteVersion)
         val currentDigits = extractVersionDigits(currentVersion)

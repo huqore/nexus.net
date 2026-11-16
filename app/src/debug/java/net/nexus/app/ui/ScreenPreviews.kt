@@ -16,7 +16,7 @@ import net.nexus.app.data.DesignStyle
 
 /** Full-screen harnesses (debug only): real screens with a real ViewModel under Robolectric. */
 @Composable
-private fun ScreenHarness(style: DesignStyle, tab: Tab, theme: AppTheme = AppTheme.BASE, sub: SettingsSubscreen = SettingsSubscreen.MAIN, accent: Int = 0xFF8B5CF6.toInt(), bg: Int = 0xFF0A0812.toInt(), amoled: Boolean = false, light: Boolean = false, particles: net.nexus.app.data.CustomParticles? = null, glassLight: Pair<Float, Float>? = null) {
+private fun ScreenHarness(style: DesignStyle, tab: Tab, theme: AppTheme = AppTheme.BASE, sub: SettingsSubscreen = SettingsSubscreen.MAIN, accent: Int = 0xFF8B5CF6.toInt(), bg: Int = 0xFF0A0812.toInt(), amoled: Boolean = false, light: Boolean = false, particles: net.nexus.app.data.CustomParticles? = null, glassLight: Pair<Float, Float>? = null, connected: Boolean = false) {
     val app = LocalContext.current.applicationContext as Application
     val vm = remember {
         // Seed demo servers so the Servers screen is reviewable (WL vs Wi-Fi split included).
@@ -28,7 +28,9 @@ private fun ScreenHarness(style: DesignStyle, tab: Tab, theme: AppTheme = AppThe
                 net.nexus.app.data.Provider(
                     id = "demo", name = "NEXUS", url = "https://example.invalid/sub",
                     servers = listOf(
-                        s("🇵🇱 Польша Wi-Fi", 118), s("🇩🇪 Германия Wi-Fi", 38), s("🇫🇮 Финляндия Wi-Fi", 45),
+                        // Real NEXUS lineup, in the order the app shows it.
+                        s("🇩🇪 Германия Wi-Fi", 38), s("🇫🇮 Финляндия Wi-Fi", 45), s("🇳🇱 Нидерланды Wi-Fi", 52),
+                        s("🇸🇪 Швеция Wi-Fi", 61), s("🇵🇱 Польша Wi-Fi", 118),
                         s("LTE #1 | WL bypass", 64), s("LTE #2 | WL bypass", 71),
                     ),
                     total = 200L * 1024 * 1024 * 1024, download = 37L * 1024 * 1024 * 1024,
@@ -38,6 +40,9 @@ private fun ScreenHarness(style: DesignStyle, tab: Tab, theme: AppTheme = AppThe
         MainViewModel(app).also { m -> particles?.let { m.setCustomTheme(accent, bg, it) } }
     }
     glassLight?.let { (lx, ly) -> GlassLight.x = lx; GlassLight.y = ly }
+    // VpnState is process-global: set it explicitly for every harness so renders do not leak into each other.
+    if (connected) net.nexus.app.vpn.VpnState.connected("🇩🇪 Германия Wi-Fi", isAuto = true, serverName = "🇩🇪 Германия Wi-Fi")
+    else net.nexus.app.vpn.VpnState.disconnected()
     NexusTheme(fontScale = 1f, appTheme = theme, designStyle = style, customAccent = accent, customBg = bg, amoled = amoled, lightMode = light) {
         Box(Modifier.fillMaxSize()) {
             when (tab) {
@@ -112,3 +117,15 @@ private fun Modifier.androidxBg(): Modifier = this.then(androidx.compose.ui.Modi
 @Preview(name = "V GLC 6", widthDp = 400, heightDp = 860) @Composable fun V_GLC_6() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = 0.5f to 0.175f)
 @Preview(name = "V GLC 7", widthDp = 400, heightDp = 860) @Composable fun V_GLC_7() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = 0.75f to 0.237f)
 @Preview(name = "V GLC 8", widthDp = 400, heightDp = 860) @Composable fun V_GLC_8() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, glassLight = 1.0f to 0.3f)
+
+// Promo video frames (Russian UI, connected state)
+@Preview(name = "R Connect M", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Connect_M() = ScreenHarness(DesignStyle.MATERIAL3, Tab.CONNECT)
+@Preview(name = "R Connect M On", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Connect_M_On() = ScreenHarness(DesignStyle.MATERIAL3, Tab.CONNECT, connected = true)
+@Preview(name = "R Connect G On", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Connect_G_On() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.CONNECT, AppTheme.WINTER, connected = true)
+@Preview(name = "R Connect F On", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Connect_F_On() = ScreenHarness(DesignStyle.FLUENT, Tab.CONNECT, connected = true)
+@Preview(name = "R Ash On", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Ash_On() = ScreenHarness(DesignStyle.MATERIAL3, Tab.CONNECT, AppTheme.CUSTOM, accent = 0xFFF97316.toInt(), bg = 0xFF120A06.toInt(), particles = net.nexus.app.data.CustomParticles.ASH, connected = true)
+@Preview(name = "R Light M On", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Light_M_On() = ScreenHarness(DesignStyle.MATERIAL3, Tab.CONNECT, light = true, connected = true)
+@Preview(name = "R Servers M", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Servers_M() = ScreenHarness(DesignStyle.MATERIAL3, Tab.SERVERS)
+@Preview(name = "R Servers G", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Servers_G() = ScreenHarness(DesignStyle.LIQUID_GLASS, Tab.SERVERS, AppTheme.WINTER)
+@Preview(name = "R Appear M", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Appear_M() = ScreenHarness(DesignStyle.MATERIAL3, Tab.SETTINGS, sub = SettingsSubscreen.APPEARANCE)
+@Preview(name = "R Conn M", widthDp = 400, heightDp = 860, locale = "ru") @Composable fun R_Conn_M() = ScreenHarness(DesignStyle.MATERIAL3, Tab.SETTINGS, sub = SettingsSubscreen.CONNECTION)

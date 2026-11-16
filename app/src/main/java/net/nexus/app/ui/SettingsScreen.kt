@@ -1483,6 +1483,17 @@ private fun AppearanceSettingsScreen(
                         }
                     }
                 }
+                // Twinkling stars and a shooting star on the Liquid Glass background
+                if (settings.designStyle == net.nexus.app.data.DesignStyle.LIQUID_GLASS) {
+                    ThemeModeToggle(
+                        title = stringResource(R.string.appearance_stars_toggle),
+                        subtitle = stringResource(R.string.appearance_stars_sub),
+                        checked = settings.showStars,
+                    ) {
+                        HapticManager.trigger(ctx, settings.hapticIntensity, HapticType.TOGGLE)
+                        vm.setShowStars(it)
+                    }
+                }
             }
         }
 

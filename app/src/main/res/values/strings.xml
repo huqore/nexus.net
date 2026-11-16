@@ -286,6 +286,7 @@
     <string name="custom_bg_dark">Dark</string>
     <string name="custom_bg_amoled">AMOLED</string>
     <string name="custom_bg_light">Light</string>
+    <string name="custom_bg_white">White</string>
     <string name="custom_hue">Hue</string>
     <string name="custom_saturation">Saturation</string>
     <string name="custom_brightness">Brightness</string>
@@ -341,4 +342,12 @@
     <string name="settings_ru_apps_desc">Banks, Gosuslugi, Yandex, VK, marketplaces and carriers work directly — no need to turn the VPN off. Found on this phone: %1$d</string>
     <string name="settings_auto_network">Auto-select follows the network</string>
     <string name="settings_auto_network_desc">Wi-Fi servers at home, whitelist-bypass servers on mobile data. Switches by itself when the network changes.</string>
+    <string name="update_emergency_title">Emergency update</string>
+    <string name="update_emergency_text">This version will soon stop working with our servers. Connect to the VPN — the Telegram channel with the new APK will open right away. Download and install it from there.</string>
+    <string name="update_emergency_connect">Connect and open the channel</string>
+    <string name="update_emergency_connecting">Connecting…</string>
+    <string name="update_emergency_open">Open the channel with the APK</string>
+    <string name="update_emergency_later">Later</string>
+    <string name="appearance_stars_toggle">Stars</string>
+    <string name="appearance_stars_sub">Twinkling stars and a shooting star on the background</string>
 </resources>

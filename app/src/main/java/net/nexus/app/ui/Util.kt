@@ -31,6 +31,13 @@ fun flagFor(name: String): String {
     return "🌐" // globe
 }
 
+/** Country of the node behind LTE host #[n]: LTE #1 — Germany, LTE #2 — Finland. */
+fun lteCountry(n: String): String? = when (n) {
+    "1" -> "DE"
+    "2" -> "FI"
+    else -> null
+}
+
 /** Strips leading country flag emojis from server name so it's not duplicated beside the FlagBox. */
 fun cleanServerName(name: String): String {
     val trimmed = name.trim()
@@ -62,18 +69,15 @@ fun cleanServerName(name: String): String {
     val base = if (result.isNotEmpty()) result else trimmed
     val lower = base.lowercase()
 
-    // 1. LTE / WL Bypass servers mapping directly to country names as requested
-    if (Regex("""lte\s*#?1\b""", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
-        val isEn = runCatching {
-            androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en", ignoreCase = true)
-        }.getOrDefault(false)
-        return if (isEn) "Germany LTE #1" else "Германия LTE #1"
-    }
-    if (Regex("""lte\s*#?2\b""", RegexOption.IGNORE_CASE).containsMatchIn(lower)) {
-        val isEn = runCatching {
-            androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().toLanguageTags().startsWith("en", ignoreCase = true)
-        }.getOrDefault(false)
-        return if (isEn) "Poland LTE #2" else "Польша LTE #2"
+    // 1. LTE / WL bypass: the country of the node behind each LTE host (owner's setup)
+    Regex("""lte\s*#?(\d+)\b""", RegexOption.IGNORE_CASE).find(lower)?.let { m ->
+        val n = m.groupValues[1]
+        val lte = "LTE #$n"
+        return when (lteCountry(n)) {
+            "DE" -> AppLang.t("Германия", "Germany") + " " + lte
+            "FI" -> AppLang.t("Финляндия", "Finland") + " " + lte
+            else -> lte
+        }
     }
 
     // 2. Strip redundant "WI-FI", "Wi-Fi", "wifi" suffix/prefix and separators

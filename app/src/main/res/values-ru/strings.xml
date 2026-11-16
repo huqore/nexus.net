@@ -285,6 +285,7 @@
     <string name="custom_bg_dark">Тёмный</string>
     <string name="custom_bg_amoled">AMOLED</string>
     <string name="custom_bg_light">Светлый</string>
+    <string name="custom_bg_white">Белый</string>
     <string name="custom_hue">Оттенок</string>
     <string name="custom_saturation">Насыщенность</string>
     <string name="custom_brightness">Яркость</string>
@@ -340,4 +341,12 @@
     <string name="settings_ru_apps_desc">Банки, Госуслуги, Яндекс, VK, маркетплейсы и операторы работают напрямую — VPN выключать не нужно. Найдено на телефоне: %1$d</string>
     <string name="settings_auto_network">Автовыбор по типу сети</string>
     <string name="settings_auto_network_desc">Дома на Wi-Fi — обычные серверы, на мобильном интернете — обход белых списков. Переключается само при смене сети.</string>
+    <string name="update_emergency_title">Аварийное обновление</string>
+    <string name="update_emergency_text">Эта версия скоро перестанет работать с нашими серверами. Подключитесь к VPN — сразу откроется Telegram-канал с новым APK. Скачайте и установите его оттуда.</string>
+    <string name="update_emergency_connect">Подключиться и открыть канал</string>
+    <string name="update_emergency_connecting">Подключаемся…</string>
+    <string name="update_emergency_open">Открыть канал с APK</string>
+    <string name="update_emergency_later">Позже</string>
+    <string name="appearance_stars_toggle">Звёзды</string>
+    <string name="appearance_stars_sub">Мерцающие звёзды и падающая звезда на фоне</string>
 </resources>

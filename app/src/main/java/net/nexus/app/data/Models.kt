@@ -184,4 +184,6 @@ data class Settings(
     val bypassRussianApps: Boolean = false,
     /** Auto mode follows the network: Wi-Fi servers on Wi-Fi, whitelist-bypass servers on mobile data. */
     val autoNetworkSwitch: Boolean = true,
+    /** Liquid Glass background: twinkling stars and a shooting star every ~10 s. */
+    val showStars: Boolean = true,
 )
