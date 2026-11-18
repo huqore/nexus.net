@@ -30,3 +30,15 @@ CODEX_TASK.md
 
 # Promo videos / images (not part of the app)
 /marketing/
+
+# Personal files: reports, research notes, expenses, local tool settings (not for Git)
+/reports/
+/research_notes/
+*.xlsx
+/.claude/launch.json
+/.claude/proto/
+/.claude/v4-design-progress.md
+/.claude/settings.local.json
+/DESIGN.md
+/PRODUCT.md
+/.impeccable/
