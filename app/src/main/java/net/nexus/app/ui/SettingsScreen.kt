@@ -1593,14 +1593,7 @@ private fun AppearanceSettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            val currentPreview = when (settings.appIcon) {
-                                AppIcon.DEFAULT -> R.drawable.ic_avatar_base
-                                AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
-                                AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
-                                AppIcon.INVERSION_MINIMAL -> R.drawable.ic_avatar_inversion
-                                AppIcon.WHITE_VIOLET -> R.drawable.ic_avatar_violet
-                                AppIcon.NYA_VPN -> R.drawable.ic_avatar_nya
-                            }
+                            val currentPreview = AppIconManager.avatarRes(settings.appIcon)
                             Image(
                                 painter = painterResource(currentPreview),
                                 contentDescription = null,
@@ -1632,14 +1625,7 @@ private fun AppearanceSettingsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             AppIcon.entries.forEach { icon ->
-                                val iconRes = when (icon) {
-                                    AppIcon.DEFAULT -> R.drawable.ic_avatar_base
-                                    AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
-                                    AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
-                                    AppIcon.INVERSION_MINIMAL -> R.drawable.ic_avatar_inversion
-                                    AppIcon.WHITE_VIOLET -> R.drawable.ic_avatar_violet
-                                    AppIcon.NYA_VPN -> R.drawable.ic_avatar_nya
-                                }
+                                val iconRes = AppIconManager.avatarRes(icon)
                                 IconOptionRow(
                                     icon = icon,
                                     drawableRes = iconRes,

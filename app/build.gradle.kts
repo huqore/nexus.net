@@ -20,6 +20,11 @@ if (System.getProperty("os.name").startsWith("Windows")) {
     }
 }
 
+// Optional real-APK check for PatchApplierTest: NX_REAL_PATCH=<path to a 4.2.0->4.3.0 .nxpatch>
+tasks.withType<Test>().configureEach {
+    System.getenv("NX_REAL_PATCH")?.let { systemProperty("nx.realPatch", it) }
+}
+
 // Xray core (gomobile AAR, built by 2dust/AndroidLibXrayLite). Pinned on purpose:
 // the Kotlin wrapper in core/XrayCore.kt was written against this exact API.
 val xrayCoreVersion = "v26.10.29"
@@ -43,8 +48,8 @@ android {
         applicationId = "net.nexus.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 65
-        versionName = "4.3.0"
+        versionCode = 66
+        versionName = "4.3.1"
     }
 
     splits {

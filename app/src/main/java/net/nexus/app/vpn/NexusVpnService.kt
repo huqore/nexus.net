@@ -506,14 +506,7 @@ class NexusVpnService : VpnService() {
             )
         }
         val store = Store(this)
-        val avatarRes = when (store.loadSettings().appIcon) {
-            AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
-            AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
-            AppIcon.INVERSION_MINIMAL -> R.drawable.ic_avatar_inversion
-            AppIcon.WHITE_VIOLET -> R.drawable.ic_avatar_violet
-            AppIcon.NYA_VPN -> R.drawable.ic_avatar_nya
-            else -> R.drawable.ic_avatar_base
-        }
+        val avatarRes = net.nexus.app.ui.AppIconManager.avatarRes(store.loadSettings().appIcon)
 
         val activeAlias = store.loadSettings().appIcon.aliasName
         val openIntent = Intent().apply {
@@ -615,14 +608,7 @@ class NexusVpnService : VpnService() {
         if (!isConnected) return
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val store = Store(this)
-        val avatarRes = when (store.loadSettings().appIcon) {
-            AppIcon.MINIMAL_GREY -> R.drawable.ic_avatar_grey
-            AppIcon.TOTAL_BLACK -> R.drawable.ic_avatar_black
-            AppIcon.INVERSION_MINIMAL -> R.drawable.ic_avatar_inversion
-            AppIcon.WHITE_VIOLET -> R.drawable.ic_avatar_violet
-            AppIcon.NYA_VPN -> R.drawable.ic_avatar_nya
-            else -> R.drawable.ic_avatar_base
-        }
+        val avatarRes = net.nexus.app.ui.AppIconManager.avatarRes(store.loadSettings().appIcon)
 
         val activeAlias = store.loadSettings().appIcon.aliasName
         val openIntent = Intent().apply {
@@ -639,7 +625,8 @@ class NexusVpnService : VpnService() {
         )
 
         val cleanName = net.nexus.app.ui.cleanServerName(serverName)
-        val title = "${getString(R.string.app_name)} • $cleanName"
+        // Collapsed: just the app name and speed. The server shows only in the expanded notification.
+        val title = getString(R.string.app_name)
 
         val builder = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(avatarRes)

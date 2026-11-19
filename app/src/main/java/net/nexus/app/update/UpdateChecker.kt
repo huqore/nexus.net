@@ -123,6 +123,8 @@ object UpdateChecker {
             var apkUrl: String? = null
             var apkName: String? = null
             var apkSize: Long = 0
+            var patchManifestUrl = ""
+            val patchAssetUrls = mutableMapOf<String, String>()
 
             for (i in 0 until assets.length()) {
                 val asset = assets.getJSONObject(i)
@@ -140,6 +142,15 @@ object UpdateChecker {
                 var aName = asset.optString("name", "")
                 if (aName.isBlank() && directUrl.isNotBlank()) {
                     aName = directUrl.substringAfterLast('/')
+                }
+
+                if (aName.endsWith(".nxpatch", ignoreCase = true) && directUrl.isNotBlank()) {
+                    patchAssetUrls[aName] = directUrl
+                    continue
+                }
+                if (aName.endsWith(".patches.json", ignoreCase = true) && directUrl.isNotBlank()) {
+                    patchManifestUrl = directUrl
+                    continue
                 }
 
                 if (aName.endsWith(".apk", ignoreCase = true) || directUrl.endsWith(".apk", ignoreCase = true)) {
@@ -162,6 +173,8 @@ object UpdateChecker {
                     apkFileName = apkName ?: "nexus-vpn-$versionName.apk",
                     apkSize = apkSize,
                     publishedAt = publishedAt,
+                    patchManifestUrl = patchManifestUrl,
+                    patchAssetUrls = patchAssetUrls,
                 )
             }
         }
@@ -191,6 +204,12 @@ object UpdateChecker {
             apkSize = fileSize,
         )
     }
+
+    /** Small text fetch (patch manifest), through the VPN's SOCKS inbound when connected. */
+    fun fetchText(url: String): String? = runCatching {
+        if (!net.nexus.app.security.UrlValidator.isSecureUrl(url, allowLoopback = false)) return null
+        httpGet(url, accept = "application/json", proxy = getProxyIfVpnActive())
+    }.getOrNull()
 
     private fun httpGet(urlStr: String, accept: String, proxy: Proxy? = null): String? {
         val conn = (if (proxy != null) {

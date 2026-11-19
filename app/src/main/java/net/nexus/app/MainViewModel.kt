@@ -43,6 +43,7 @@ import net.nexus.app.update.AppReleaseInfo
 import net.nexus.app.update.UpdateChecker
 import net.nexus.app.update.UpdateDownloader
 import net.nexus.app.update.UpdateInstaller
+import net.nexus.app.update.UpdatePatcher
 import net.nexus.app.update.UpdateState
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -524,7 +525,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             updateState.value = UpdateState.Checking
             try {
-                val release = UpdateChecker.check()
+                val release = UpdateChecker.check()?.let { UpdatePatcher.resolve(getApplication(), it) }
                 if (release != null) {
                     updateState.value = UpdateState.Available(release, autoPrompt = true)
                 } else {
@@ -545,10 +546,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun startDownloadUpdate(release: AppReleaseInfo) {
         downloadJob?.cancel()
         downloadJob = viewModelScope.launch(Dispatchers.IO) {
-            updateState.value = UpdateState.Downloading(release, 0f, 0L, release.apkSize)
             try {
-                val file = UpdateDownloader.download(getApplication(), release) { prog, read, total ->
-                    updateState.value = UpdateState.Downloading(release, prog, read, total)
+                // 1) delta patch for the installed APK, if the release has one; 2) otherwise or on any failure, the full APK
+                val patched = release.patch?.let { patch ->
+                    updateState.value = UpdateState.Downloading(release, 0f, 0L, patch.size, isPatch = true)
+                    try {
+                        UpdatePatcher.downloadAndAssemble(getApplication(), release,
+                            onDownload = { prog, read, total -> updateState.value = UpdateState.Downloading(release, prog, read, total, isPatch = true) },
+                            onAssemble = { prog -> updateState.value = UpdateState.Downloading(release, prog, patch.size, patch.size, isPatch = true, assembling = true) })
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        android.util.Log.w("NexusUpdate", "patch update failed, downloading full APK: ${e.message}")
+                        null
+                    }
+                }
+                val file = patched ?: run {
+                    val full = release.copy(patch = null)
+                    updateState.value = UpdateState.Downloading(full, 0f, 0L, full.apkSize)
+                    UpdateDownloader.download(getApplication(), full) { prog, read, total ->
+                        updateState.value = UpdateState.Downloading(full, prog, read, total)
+                    }
                 }
                 updateState.value = UpdateState.ReadyToInstall(release, file)
             } catch (e: CancellationException) {

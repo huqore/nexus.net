@@ -113,7 +113,9 @@ enum class AppTheme(val id: String, val title: String) {
 }
 
 enum class AppIcon(val id: String, val title: String, val aliasName: String) {
-    DEFAULT("default", "base", "net.nexus.app.LauncherDefault"),
+    DEFAULT("default", "NEXUS white", "net.nexus.app.LauncherDefault"),
+    NEXUS_DARK("nexus_dark", "NEXUS dark", "net.nexus.app.LauncherNexusDark"),
+    BASE("base", "base", "net.nexus.app.LauncherBase"),
     MINIMAL_GREY("minimal_grey", "minimal grey", "net.nexus.app.LauncherMinimalGrey"),
     TOTAL_BLACK("total_black", "total black minimal", "net.nexus.app.LauncherTotalBlack"),
     INVERSION_MINIMAL("inversion_minimal", "inversion minimal", "net.nexus.app.LauncherInversionMinimal"),

@@ -85,6 +85,8 @@ fun UpdateDialog(
                 progress = state.progress,
                 bytesDownloaded = state.bytesDownloaded,
                 totalBytes = state.totalBytes,
+                isPatch = state.isPatch,
+                assembling = state.assembling,
                 onCancel = { vm.cancelUpdateDownload() }
             )
         }
@@ -190,9 +192,11 @@ private fun AvailableDialog(
                                 color = NX.accentLight,
                                 fontFamily = FontFamily.Monospace
                             )
-                            if (release.apkSize > 0) {
+                            if (release.downloadSize > 0) {
                                 Text(
-                                    text = "• ${formatMb(release.apkSize)}",
+                                    text = if (release.patch != null)
+                                        "• " + stringResource(R.string.update_patch_size, formatMb(release.downloadSize), formatMb(release.apkSize))
+                                    else "• ${formatMb(release.downloadSize)}",
                                     fontSize = 12.sp,
                                     color = NX.muted
                                 )
@@ -332,6 +336,8 @@ private fun DownloadingDialog(
     progress: Float,
     bytesDownloaded: Long,
     totalBytes: Long,
+    isPatch: Boolean = false,
+    assembling: Boolean = false,
     onCancel: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
@@ -367,7 +373,13 @@ private fun DownloadingDialog(
                     }
                     Column {
                         Text(
-                            text = stringResource(R.string.update_downloading),
+                            text = stringResource(
+                                when {
+                                    assembling -> R.string.update_assembling
+                                    isPatch -> R.string.update_downloading_patch
+                                    else -> R.string.update_downloading
+                                }
+                            ),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = NX.text
@@ -414,9 +426,11 @@ private fun DownloadingDialog(
                     val percent = if (progress >= 0f) "${(progress * 100).toInt()}%" else "…"
                     Text(percent, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = NX.accentLight)
 
-                    val downloadedStr = formatMb(bytesDownloaded)
-                    val totalStr = if (totalBytes > 0) formatMb(totalBytes) else "…"
-                    Text("$downloadedStr / $totalStr", fontSize = 12.sp, color = NX.muted)
+                    if (!assembling) {
+                        val downloadedStr = formatMb(bytesDownloaded)
+                        val totalStr = if (totalBytes > 0) formatMb(totalBytes) else "…"
+                        Text("$downloadedStr / $totalStr", fontSize = 12.sp, color = NX.muted)
+                    }
                 }
 
                 Spacer(Modifier.height(18.dp))

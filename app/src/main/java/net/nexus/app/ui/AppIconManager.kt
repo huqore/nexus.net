@@ -40,4 +40,16 @@ object AppIconManager {
             }
         }
     }
+
+    /** The picture of the launcher icon the user picked (used in notifications and the picker). */
+    fun avatarRes(icon: AppIcon): Int = when (icon) {
+        AppIcon.DEFAULT -> net.nexus.app.R.drawable.ic_avatar_nexus_white
+        AppIcon.NEXUS_DARK -> net.nexus.app.R.drawable.ic_avatar_nexus_dark
+        AppIcon.BASE -> net.nexus.app.R.drawable.ic_avatar_base
+        AppIcon.MINIMAL_GREY -> net.nexus.app.R.drawable.ic_avatar_grey
+        AppIcon.TOTAL_BLACK -> net.nexus.app.R.drawable.ic_avatar_black
+        AppIcon.INVERSION_MINIMAL -> net.nexus.app.R.drawable.ic_avatar_inversion
+        AppIcon.WHITE_VIOLET -> net.nexus.app.R.drawable.ic_avatar_violet
+        AppIcon.NYA_VPN -> net.nexus.app.R.drawable.ic_avatar_nya
+    }
 }

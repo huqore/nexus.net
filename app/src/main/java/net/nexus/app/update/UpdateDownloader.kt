@@ -61,7 +61,7 @@ object UpdateDownloader {
         var lastError: Exception? = null
         for (url in candidateUrls) {
             try {
-                downloadFromUrl(url, targetFile, tempFile, release, onProgress)
+                downloadFromUrl(url, targetFile, tempFile, release.apkSize, onProgress)
                 return@withContext targetFile
             } catch (e: CancellationException) {
                 if (tempFile.exists()) tempFile.delete()
@@ -75,11 +75,11 @@ object UpdateDownloader {
         throw lastError ?: java.io.IOException("Failed to download update from all available sources")
     }
 
-    private suspend fun downloadFromUrl(
+    internal suspend fun downloadFromUrl(
         initialUrl: String,
         targetFile: File,
         tempFile: File,
-        release: AppReleaseInfo,
+        fallbackSize: Long,
         onProgress: (Float, Long, Long) -> Unit,
     ) {
         var currentUrl = initialUrl
@@ -138,7 +138,7 @@ object UpdateDownloader {
                 error("Download failed with HTTP $code")
             }
 
-            val totalBytes = finalConn.contentLengthLong.let { if (it > 0) it else release.apkSize }
+            val totalBytes = finalConn.contentLengthLong.let { if (it > 0) it else fallbackSize }
 
             finalConn.inputStream.use { input ->
                 FileOutputStream(tempFile).use { output ->

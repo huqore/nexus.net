@@ -350,4 +350,11 @@
     <string name="update_emergency_later">Later</string>
     <string name="appearance_stars_toggle">Stars</string>
     <string name="appearance_stars_sub">Twinkling stars and a shooting star on the background</string>
+    <string name="update_downloading_patch">Downloading patch…</string>
+    <string name="update_assembling">Assembling the update…</string>
+    <string name="update_patch_size">patch %1$s instead of %2$s</string>
+    <string name="update_notif_channel">Updates</string>
+    <string name="update_notif_title">Update %1$s is out</string>
+    <string name="update_notif_text_patch">Patch %1$s MB — updates in seconds</string>
+    <string name="update_notif_text">Size %1$s MB</string>
 </resources>

@@ -203,6 +203,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleDeepLink(intent: Intent?) {
+        // Tap on the "update is out" notification: check now, the Available state opens the dialog
+        if (intent?.getBooleanExtra(net.nexus.app.update.UpdateCheckJob.EXTRA_OPEN_UPDATE, false) == true) {
+            intent.removeExtra(net.nexus.app.update.UpdateCheckJob.EXTRA_OPEN_UPDATE)
+            vm.checkForUpdates(manual = false)
+        }
         val uri = intent?.data ?: return
         if (uri.scheme.equals("nexus", ignoreCase = true)) {
             // Direct auth payload from Telegram bot or web login
